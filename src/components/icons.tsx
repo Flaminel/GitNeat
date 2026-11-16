@@ -61,4 +61,18 @@ export const Icon = {
   searchTool: svg(<path d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10z M10.5 10.5L14 14" />, 20),
   sort: svg(<path d="M4 2.5v11 M2 11.5l2 2 2-2 M9 3h4l-4 4.5h4 M9 9.5h4 M9 13h4" />),
   plus: svg(<path d="M8 3v10 M3 8h10" />),
+  collapseLeft: svg(
+    <>
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M9 5.5L6.5 8 9 10.5" />
+    </>,
+    14,
+  ),
+  collapseRight: svg(
+    <>
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M7 5.5L9.5 8 7 10.5" />
+    </>,
+    14,
+  ),
 };

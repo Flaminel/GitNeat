@@ -60,6 +60,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
 | Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |
 | Change a panel width default | `useStoredWidth` calls in `src/RepoView.tsx` and `src/components/GraphView.tsx` |
+| Change left panel collapse, its shortcut or the rail | `leftCollapsed` and the Cmd+J handler in `src/RepoView.tsx`, the rail in `src/components/Sidebar.tsx`, `.rail` styles in `src/styles.css` |
 
 ## Environment variables
 

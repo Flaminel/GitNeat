@@ -242,6 +242,29 @@ export function useStoredWidth(key: string, initial: number): [number, (n: numbe
   return [value, set];
 }
 
+export function useStoredFlag(key: string, initial: boolean): [boolean, (b: boolean) => void] {
+  const [value, setValue] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(`krill.flag.${key}`);
+      return saved === null ? initial : saved === "1";
+    } catch {
+      return initial;
+    }
+  });
+  const set = useCallback(
+    (b: boolean) => {
+      setValue(b);
+      try {
+        localStorage.setItem(`krill.flag.${key}`, b ? "1" : "0");
+      } catch {
+        return;
+      }
+    },
+    [key],
+  );
+  return [value, set];
+}
+
 export function Splitter(props: { value: number; set(n: number): void; min: number; max: number; invert?: boolean; className?: string }) {
   const start = (e: React.MouseEvent) => {
     e.preventDefault();

@@ -11,7 +11,7 @@ import { Toolbar } from "./components/Toolbar";
 import { layoutGraph } from "./graph";
 import * as M from "./menus";
 import { Commit, loadRepo, RepoData } from "./repo";
-import { Splitter, useStoredWidth, useUi } from "./ui";
+import { Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
   hidden: string[];
@@ -44,7 +44,20 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
+  const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyJ" && !target.closest("input, textarea, .monaco-editor")) {
+        e.preventDefault();
+        setLeftCollapsed(!leftCollapsed);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [leftCollapsed, setLeftCollapsed]);
 
   const loadSeq = useRef(0);
   const load = useCallback(async () => {
@@ -192,10 +205,16 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         </div>
       )}
       <div className="panes">
-        <div className="pane" style={{ width: leftWidth }}>
-          <Sidebar ctx={ctx} onSelectSha={select} showAll={() => setPrefs({ hidden: [], solo: [] })} />
+        <div className="pane" style={{ width: leftCollapsed ? 32 : leftWidth }}>
+          <Sidebar
+            ctx={ctx}
+            onSelectSha={select}
+            showAll={() => setPrefs({ hidden: [], solo: [] })}
+            collapsed={leftCollapsed}
+            setCollapsed={setLeftCollapsed}
+          />
         </div>
-        <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />
+        {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}
         <main className="center">
           {openFile ? (
             <DiffView

@@ -585,6 +585,35 @@ body.resizing * {
   color: var(--text-dim);
 }
 
+.sidebar.rail {
+  align-items: center;
+  padding-top: 4px;
+}
+
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text-dim);
+}
+
+.rail-item:hover {
+  background: var(--hover);
+}
+
+.rail-count {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--accent);
+}
+
 .center {
   flex: 1;
   min-width: 0;

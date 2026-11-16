@@ -161,3 +161,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: The diff toolbar has the Source "File View" and "Diff View" toggle. File View shows the full file in a Monaco editor. For a commit or a staged file, "Edit in Working Directory" opens the working copy of the file in File View for editing.
 - Reason: The Source screenshots show this toolbar.
+
+## D28. Left panel collapse
+
+- Decision: The sidebar header has a "Collapse Panel" button. Cmd+J (Ctrl+J on Windows and Linux) toggles the collapse. A collapsed panel is a 32px rail with an "Expand Panel" button and one icon per section with its count. Clicking a section icon expands the panel and opens that section. The collapsed flag is saved in local storage.
+- Reason: Source uses `view:toggleRefPanel` on Cmd+J and shows the same rail.
+- Rules: The shortcut does nothing while focus is in an input, a textarea or a Monaco editor. The splitter is hidden while the panel is collapsed.

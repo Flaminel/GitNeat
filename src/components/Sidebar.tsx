@@ -11,6 +11,8 @@ interface Props {
   ctx: Ctx;
   onSelectSha(sha: string): void;
   showAll(): void;
+  collapsed: boolean;
+  setCollapsed(collapsed: boolean): void;
 }
 
 interface TreeNode {
@@ -65,7 +67,7 @@ function Section(props: {
 
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
-export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
+export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: Props) {
   const [filter, setFilter] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<string[]>(["LOCAL", "REMOTE"]);
@@ -159,10 +161,45 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
         );
       });
 
+  if (collapsed) {
+    const railItems = [
+      { title: "LOCAL", icon: Icon.local, count: data.refs.filter((r) => r.kind === "local").length },
+      { title: "REMOTE", icon: Icon.remote, count: data.refs.filter((r) => r.kind === "remote").length },
+      { title: "WORKTREES", icon: Icon.worktree, count: data.worktrees.length },
+      { title: "STASHES", icon: Icon.stash, count: data.stashes.length },
+      { title: "TAGS", icon: Icon.tag, count: data.refs.filter((r) => r.kind === "tag").length },
+      { title: "SUBMODULES", icon: Icon.submodule, count: data.submodules.length },
+    ];
+    return (
+      <aside className="sidebar rail">
+        <button className="icon-btn" title="Expand Panel" onClick={() => setCollapsed(false)}>
+          {Icon.collapseRight}
+        </button>
+        {railItems.map((item) => (
+          <button
+            key={item.title}
+            className="rail-item"
+            title={item.title}
+            onClick={() => {
+              setOpenSections((list) => (list.includes(item.title) ? list : [...list, item.title]));
+              setCollapsed(false);
+            }}
+          >
+            {item.icon}
+            <span className="rail-count">{item.count}</span>
+          </button>
+        ))}
+      </aside>
+    );
+  }
+
   return (
     <aside className="sidebar">
       <div className="viewing">
         <span>
+          <button className="icon-btn" title="Collapse Panel" onClick={() => setCollapsed(true)}>
+            {Icon.collapseLeft}
+          </button>
           {Icon.eye} Viewing <b>{visible}/{allBranches.length}</b>
         </span>
         <button className="link" onClick={showAll}>
