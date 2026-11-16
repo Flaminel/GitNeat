@@ -1,4 +1,4 @@
-import { krill } from "./api";
+import { gitneat } from "./api";
 import { Commit, git, GitError, Operation, Ref, RepoData } from "./repo";
 import { Field, Ui } from "./ui";
 
@@ -48,8 +48,8 @@ const short = (sha: string) => sha.slice(0, 7);
 
 async function headState(cwd: string): Promise<HeadState> {
   const [head, branch] = await Promise.all([
-    krill().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"]),
-    krill().git(cwd, ["symbolic-ref", "-q", "--short", "HEAD"]),
+    gitneat().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"]),
+    gitneat().git(cwd, ["symbolic-ref", "-q", "--short", "HEAD"]),
   ]);
   return { head: head.stdout.trim() || null, branch: branch.stdout.trim() || null };
 }
@@ -68,7 +68,7 @@ async function run(ctx: Ctx, label: string, fn: () => Promise<unknown>, undoable
 async function moveTo(ctx: Ctx, from: HeadState, to: HeadState, soft: boolean): Promise<void> {
   const now = await headState(ctx.cwd);
   if (now.head !== from.head || now.branch !== from.branch) {
-    throw new GitError("The repository changed since this action. Krill cannot undo it.");
+    throw new GitError("The repository changed since this action. GitNeat cannot undo it.");
   }
   if (from.branch !== to.branch) {
     await g(ctx, to.branch ? ["switch", to.branch] : ["switch", "--detach", to.head as string]);
@@ -92,10 +92,10 @@ export async function redo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
 const g = (ctx: Ctx, args: string[], env?: Record<string, string>) => git(ctx.cwd, args, env);
 
 export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
-  const anc = await krill().git(cwd, ["merge-base", "--is-ancestor", sha, "HEAD"]);
-  const head = (await krill().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"])).stdout.trim();
+  const anc = await gitneat().git(cwd, ["merge-base", "--is-ancestor", sha, "HEAD"]);
+  const head = (await gitneat().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"])).stdout.trim();
   if (anc.code !== 0) {
-    const desc = head ? await krill().git(cwd, ["merge-base", "--is-ancestor", "HEAD", sha]) : { code: 1 };
+    const desc = head ? await gitneat().git(cwd, ["merge-base", "--is-ancestor", "HEAD", sha]) : { code: 1 };
     return { ancestor: false, isHead: false, children: 0, hasMerges: false, descendant: desc.code === 0 };
   }
   const [count, merges] = await Promise.all([
@@ -128,7 +128,7 @@ export async function createBranch(ctx: Ctx, from: string): Promise<void> {
 }
 
 export async function createWorktree(ctx: Ctx, from: string, branch?: string): Promise<void> {
-  const dir = await krill().pickDirectory();
+  const dir = await gitneat().pickDirectory();
   if (!dir) {
     return;
   }
@@ -395,7 +395,7 @@ export const pruneWorktrees = (ctx: Ctx) => run(ctx, "Prune worktrees", () => g(
 export async function savePatch(ctx: Ctx, sha: string): Promise<void> {
   await ctx.ui.task("Create patch", async () => {
     const patch = await g(ctx, ["format-patch", "-1", "--stdout", sha]);
-    await krill().saveFile(`${short(sha)}.patch`, patch);
+    await gitneat().saveFile(`${short(sha)}.patch`, patch);
   });
 }
 
@@ -411,7 +411,7 @@ async function rebaseRange(ctx: Ctx, base: string | null): Promise<TodoEntry[]> 
 }
 
 async function parentOf(ctx: Ctx, sha: string): Promise<string | null> {
-  const r = await krill().git(ctx.cwd, ["rev-parse", "-q", "--verify", `${sha}~1`]);
+  const r = await gitneat().git(ctx.cwd, ["rev-parse", "-q", "--verify", `${sha}~1`]);
   return r.code === 0 ? r.stdout.trim() : null;
 }
 
@@ -421,13 +421,13 @@ export async function runTodo(ctx: Ctx, base: string | null, entries: TodoEntry[
     for (const entry of entries) {
       if (entry.action === "reword" && entry.message !== undefined) {
         lines.push(`pick ${entry.sha}`);
-        const file = await krill().writeTemp(entry.message);
+        const file = await gitneat().writeTemp(entry.message);
         lines.push(`exec git commit --amend --only --allow-empty -F "${file}"`);
       } else {
         lines.push(`${entry.action === "reword" ? "pick" : entry.action} ${entry.sha}`);
       }
     }
-    const todo = await krill().writeTemp(lines.join("\n") + "\n");
+    const todo = await gitneat().writeTemp(lines.join("\n") + "\n");
     await g(ctx, ["rebase", "-i", "--autostash", ...(base ? [base] : ["--root"])], {
       GIT_SEQUENCE_EDITOR: `cp "${todo}"`,
       GIT_EDITOR: ":",
@@ -556,7 +556,7 @@ export async function applyPatch(ctx: Ctx, patch: string, action: "stage" | "uns
     ctx,
     label,
     async () => {
-      const result = await krill().git(ctx.cwd, [...args, "--recount", "--whitespace=nowarn", "-"], undefined, patch);
+      const result = await gitneat().git(ctx.cwd, [...args, "--recount", "--whitespace=nowarn", "-"], undefined, patch);
       if (result.code !== 0) {
         throw new GitError(result.stderr.trim() || "git apply failed");
       }
@@ -599,7 +599,7 @@ export const saveResolved = (ctx: Ctx, path: string, content: string) =>
     ctx,
     "Save output",
     async () => {
-      if (!(await krill().writeFile(ctx.cwd, path, content))) {
+      if (!(await gitneat().writeFile(ctx.cwd, path, content))) {
         throw new GitError(`Could not write ${path}`);
       }
       await g(ctx, ["add", "--", path]);

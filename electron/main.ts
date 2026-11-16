@@ -18,20 +18,20 @@ interface GitResult {
   stderr: string;
 }
 
-const storePath = (): string => path.join(app.getPath("userData"), "krill-state.json");
+const storePath = (): string => path.join(app.getPath("userData"), "gitneat-state.json");
 const watchers = new Map<string, fs.FSWatcher>();
 let win: BrowserWindow | null = null;
 
 function createWindow(): void {
   const isMac = process.platform === "darwin";
-  const [width, height] = (process.env.KRILL_WINDOW_SIZE ?? "1500x940").split("x").map(Number);
+  const [width, height] = (process.env.GITNEAT_WINDOW_SIZE ?? "1500x940").split("x").map(Number);
   win = new BrowserWindow({
     width,
     height,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#1c1e23",
-    show: !process.env.KRILL_SCREENSHOT,
+    show: !process.env.GITNEAT_SCREENSHOT,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     titleBarOverlay: isMac ? false : { color: "#14161b", symbolColor: "#c9ccd3", height: 36 },
     trafficLightPosition: { x: 12, y: 11 },
@@ -40,7 +40,7 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      backgroundThrottling: !process.env.KRILL_SCREENSHOT,
+      backgroundThrottling: !process.env.GITNEAT_SCREENSHOT,
     },
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -49,15 +49,15 @@ function createWindow(): void {
     }
     return { action: "deny" };
   });
-  const shot = process.env.KRILL_SCREENSHOT;
+  const shot = process.env.GITNEAT_SCREENSHOT;
   if (shot) {
     win.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
-        if (process.env.KRILL_SCREENSHOT_JS) {
+        if (process.env.GITNEAT_SCREENSHOT_JS) {
           try {
-            await win?.webContents.executeJavaScript(process.env.KRILL_SCREENSHOT_JS);
+            await win?.webContents.executeJavaScript(process.env.GITNEAT_SCREENSHOT_JS);
           } catch (error) {
-            console.error("KRILL_SCREENSHOT_JS failed:", error);
+            console.error("GITNEAT_SCREENSHOT_JS failed:", error);
           }
           await new Promise((r) => setTimeout(r, 1200));
         }
@@ -66,7 +66,7 @@ function createWindow(): void {
           await fs.promises.writeFile(shot, image.toPNG());
         }
         app.quit();
-      }, Number(process.env.KRILL_SCREENSHOT_DELAY ?? 2500));
+      }, Number(process.env.GITNEAT_SCREENSHOT_DELAY ?? 2500));
     });
   }
   if (process.env.VITE_DEV) {
@@ -121,7 +121,7 @@ const BLOCKED_ARGS = /^(--upload-pack|--receive-pack|--exec|--exec-path|--config
 
 ipcMain.handle("git", (_e, cwd: string, args: string[], env?: Record<string, string>, input?: string) => {
   if (args.some((a) => BLOCKED_ARGS.test(a)) || args[0] === "-c") {
-    return { code: 1, stdout: "", stderr: "Krill blocked a git option that can run commands." };
+    return { code: 1, stdout: "", stderr: "GitNeat blocked a git option that can run commands." };
   }
   return runGit(cwd, args, env, input);
 });
@@ -156,7 +156,7 @@ ipcMain.handle("save-file", async (_e, defaultName: string, content: string) => 
 });
 
 ipcMain.handle("write-temp", async (_e, content: string) => {
-  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "krill-"));
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gitneat-"));
   const file = path.join(dir, "data");
   await fs.promises.writeFile(file, content);
   return file.split(path.sep).join("/");
@@ -200,7 +200,7 @@ ipcMain.handle("write-file", async (_e, cwd: string, rel: string, content: strin
   return true;
 });
 
-ipcMain.handle("open-path", (_e, target: string) => (insideOpenRepo(target) ? shell.openPath(target) : "Krill opens only files inside an open repository."));
+ipcMain.handle("open-path", (_e, target: string) => (insideOpenRepo(target) ? shell.openPath(target) : "GitNeat opens only files inside an open repository."));
 ipcMain.handle("show-item", (_e, target: string) => (insideOpenRepo(target) ? shell.showItemInFolder(target) : undefined));
 ipcMain.handle("open-terminal", (_e, cwd: string) => openTerminal(cwd));
 
@@ -247,8 +247,8 @@ ipcMain.handle("unwatch", (_e, cwd: string) => {
   watchers.delete(cwd);
 });
 
-if (process.env.KRILL_USER_DATA) {
-  app.setPath("userData", process.env.KRILL_USER_DATA);
+if (process.env.GITNEAT_USER_DATA) {
+  app.setPath("userData", process.env.GITNEAT_USER_DATA);
 }
 
 app.whenReady().then(createWindow);

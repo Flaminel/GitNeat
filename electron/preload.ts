@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("krill", {
+contextBridge.exposeInMainWorld("gitneat", {
   platform: process.platform,
   git: (cwd: string, args: string[], env?: Record<string, string>, input?: string) =>
     ipcRenderer.invoke("git", cwd, args, env, input),

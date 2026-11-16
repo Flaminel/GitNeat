@@ -147,12 +147,12 @@ const RowView = memo(function RowView(props: {
         }
       }}
       onDragOver={(e) => {
-        if (first && e.dataTransfer.types.includes("text/krill-ref")) {
+        if (first && e.dataTransfer.types.includes("text/gitneat-ref")) {
           e.preventDefault();
         }
       }}
       onDrop={(e) => {
-        const source = e.dataTransfer.getData("text/krill-ref");
+        const source = e.dataTransfer.getData("text/gitneat-ref");
         if (first && source && source !== first.ref.full) {
           props.onRefDrop(source, first.ref);
         }
@@ -177,7 +177,7 @@ const RowView = memo(function RowView(props: {
               }}
               onDoubleClick={() => props.onRefOpen(first.ref)}
               draggable={!first.tag}
-              onDragStart={(e) => e.dataTransfer.setData("text/krill-ref", first.ref.full)}
+              onDragStart={(e) => e.dataTransfer.setData("text/gitneat-ref", first.ref.full)}
             >
               {first.current && Icon.check}
               <span className="pill-label">{first.label}</span>

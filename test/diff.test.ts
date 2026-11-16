@@ -7,7 +7,7 @@ import test from "node:test";
 import { hunkPatch, linesPatch, parseDiff } from "../src/diff";
 
 function repo(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "krill-diff-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-diff-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
   git("init", "-q");
   git("config", "user.name", "t");

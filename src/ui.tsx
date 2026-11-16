@@ -1,5 +1,5 @@
 import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { krill, MenuSpec } from "./api";
+import { gitneat, MenuSpec } from "./api";
 
 export interface Field {
   name: string;
@@ -74,7 +74,7 @@ export async function showMenu(items: MenuItem[]): Promise<void> {
           submenu: item.submenu ? toSpec(item.submenu) : undefined,
         };
       });
-  const chosen = await krill().menu(toSpec(items));
+  const chosen = await gitneat().menu(toSpec(items));
   if (chosen) {
     await actions.get(chosen)?.();
   }
@@ -222,7 +222,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
 export function useStoredWidth(key: string, initial: number): [number, (n: number) => void] {
   const [value, setValue] = useState<number>(() => {
     try {
-      const saved = Number(localStorage.getItem(`krill.width.${key}`));
+      const saved = Number(localStorage.getItem(`gitneat.width.${key}`));
       return saved > 0 ? saved : initial;
     } catch {
       return initial;
@@ -232,7 +232,7 @@ export function useStoredWidth(key: string, initial: number): [number, (n: numbe
     (n: number) => {
       setValue(n);
       try {
-        localStorage.setItem(`krill.width.${key}`, String(Math.round(n)));
+        localStorage.setItem(`gitneat.width.${key}`, String(Math.round(n)));
       } catch {
         return;
       }
@@ -245,7 +245,7 @@ export function useStoredWidth(key: string, initial: number): [number, (n: numbe
 export function useStoredFlag(key: string, initial: boolean): [boolean, (b: boolean) => void] {
   const [value, setValue] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem(`krill.flag.${key}`);
+      const saved = localStorage.getItem(`gitneat.flag.${key}`);
       return saved === null ? initial : saved === "1";
     } catch {
       return initial;
@@ -255,7 +255,7 @@ export function useStoredFlag(key: string, initial: boolean): [boolean, (b: bool
     (b: boolean) => {
       setValue(b);
       try {
-        localStorage.setItem(`krill.flag.${key}`, b ? "1" : "0");
+        localStorage.setItem(`gitneat.flag.${key}`, b ? "1" : "0");
       } catch {
         return;
       }

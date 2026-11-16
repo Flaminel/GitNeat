@@ -1,7 +1,7 @@
 import React from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import { showMenu } from "../ui";
 import { Icon } from "./icons";
 
@@ -80,7 +80,7 @@ export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: P
         <ToolButton label="Stash" icon={Icon.stashTool} onClick={() => A.stashSave(ctx)} disabled={data.status.length === 0} />
         <ToolButton label="Pop" icon={Icon.popTool} onClick={() => A.stashPop(ctx)} disabled={data.stashes.length === 0} />
         <span className="tool-divider" />
-        <ToolButton label="Terminal" icon={Icon.terminal} onClick={() => krill().openTerminal(data.cwd)} />
+        <ToolButton label="Terminal" icon={Icon.terminal} onClick={() => gitneat().openTerminal(data.cwd)} />
       </div>
       <div className="busy">
         {ctx.ui.busy && <span className="spinner">{ctx.ui.busy}…</span>}

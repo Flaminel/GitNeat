@@ -7,7 +7,7 @@ import test from "node:test";
 import { buildOutput, parseMerge, sideLines } from "../src/merge";
 
 function segments() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "krill-merge-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-merge-"));
   const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@x", ...args], { cwd: dir, encoding: "utf8" });
   const write = (text: string) => fs.writeFileSync(path.join(dir, "f.txt"), text);
   git("init", "-q", "-b", "main");

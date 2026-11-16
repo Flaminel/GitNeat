@@ -1,6 +1,6 @@
 import { MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { hunkPatch, Hunk, linesInRange, linesPatch, parseDiff, ParsedDiff } from "../diff";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import { languageFor, monaco } from "../monaco";
 import { BlameLine, Commit, DiffSides, loadBlame, loadDiff, loadFileHistory, loadSides } from "../repo";
 import { showMenu } from "../ui";
@@ -22,9 +22,9 @@ interface Props {
 }
 
 export const MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace";
-const MODE_KEY = "krill.diffMode";
-const WS_KEY = "krill.diffIgnoreWhitespace";
-const WRAP_KEY = "krill.diffWordWrap";
+const MODE_KEY = "gitneat.diffMode";
+const WS_KEY = "gitneat.diffIgnoreWhitespace";
+const WRAP_KEY = "gitneat.diffWordWrap";
 
 function stored<T extends string>(key: string, fallback: T): T {
   try {
@@ -351,7 +351,7 @@ function FileView(props: {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const editor = monaco.editor.create(host.current as HTMLDivElement, {
-      theme: "krill",
+      theme: "gitneat",
       automaticLayout: true,
       readOnly: true,
       minimap: { enabled: false },
@@ -407,7 +407,7 @@ function MonacoDiff(props: {
 
   useEffect(() => {
     const editor = monaco.editor.createDiffEditor(host.current as HTMLDivElement, {
-      theme: "krill",
+      theme: "gitneat",
       automaticLayout: true,
       readOnly: true,
       originalEditable: false,
@@ -440,8 +440,8 @@ function MonacoDiff(props: {
       }
     };
     const addActions = (ed: monaco.editor.IStandaloneCodeEditor, side: "old" | "new") => {
-      const unstaged = ed.createContextKey<boolean>(`krillUnstaged${side}`, false);
-      const staged = ed.createContextKey<boolean>(`krillStaged${side}`, false);
+      const unstaged = ed.createContextKey<boolean>(`gitneatUnstaged${side}`, false);
+      const staged = ed.createContextKey<boolean>(`gitneatStaged${side}`, false);
       const sync = () => {
         unstaged.set(latest.current.canStage && latest.current.kind === "unstaged");
         staged.set(latest.current.canStage && latest.current.kind === "staged");
@@ -449,9 +449,9 @@ function MonacoDiff(props: {
       sync();
       ed.onDidFocusEditorWidget(sync);
       ed.onContextMenu(sync);
-      ed.addAction({ id: `krill.stage.${side}`, label: "Stage selected lines", contextMenuGroupId: "1_krill", precondition: `krillUnstaged${side}`, run: linesAction(side, "stage") });
-      ed.addAction({ id: `krill.discard.${side}`, label: "Discard selected lines", contextMenuGroupId: "1_krill", precondition: `krillUnstaged${side}`, run: linesAction(side, "discard") });
-      ed.addAction({ id: `krill.unstage.${side}`, label: "Unstage selected lines", contextMenuGroupId: "1_krill", precondition: `krillStaged${side}`, run: linesAction(side, "unstage") });
+      ed.addAction({ id: `gitneat.stage.${side}`, label: "Stage selected lines", contextMenuGroupId: "1_gitneat", precondition: `gitneatUnstaged${side}`, run: linesAction(side, "stage") });
+      ed.addAction({ id: `gitneat.discard.${side}`, label: "Discard selected lines", contextMenuGroupId: "1_gitneat", precondition: `gitneatUnstaged${side}`, run: linesAction(side, "discard") });
+      ed.addAction({ id: `gitneat.unstage.${side}`, label: "Unstage selected lines", contextMenuGroupId: "1_gitneat", precondition: `gitneatStaged${side}`, run: linesAction(side, "unstage") });
     };
     addActions(editor.getModifiedEditor() as monaco.editor.IStandaloneCodeEditor, "new");
     addActions(editor.getOriginalEditor() as monaco.editor.IStandaloneCodeEditor, "old");
@@ -661,7 +661,7 @@ export function DiffView(props: Props) {
       setEditing(true);
       return;
     }
-    const content = await krill().readFile(cwd, file.path);
+    const content = await gitneat().readFile(cwd, file.path);
     setWorking(content ?? "");
     setView("file");
     setEditing(true);
@@ -669,7 +669,7 @@ export function DiffView(props: Props) {
 
   const save = async () => {
     const value = view === "file" ? fileEditorRef.current?.getValue() : editorRef.current?.getModifiedEditor().getValue();
-    if (value !== undefined && (await krill().writeFile(cwd, file.path, value))) {
+    if (value !== undefined && (await gitneat().writeFile(cwd, file.path, value))) {
       setEditing(false);
       setWorking(null);
     }

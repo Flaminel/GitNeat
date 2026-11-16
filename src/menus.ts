@@ -1,6 +1,6 @@
 import * as A from "./actions";
 import { Ctx, RangeInfo } from "./actions";
-import { krill } from "./api";
+import { gitneat } from "./api";
 import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, samePath, Worktree } from "./repo";
 import { MenuItem, showMenu } from "./ui";
 
@@ -58,10 +58,10 @@ function rebaseActions(ctx: Ctx, commit: Commit, info: RangeInfo): MenuItem[] {
 
 function copyActions(ctx: Ctx, sha: string): MenuItem[] {
   return [
-    { label: "Copy commit sha", run: () => krill().copy(sha) },
+    { label: "Copy commit sha", run: () => gitneat().copy(sha) },
     ...ctx.data.remotes.map((r): MenuItem => {
       const url = commitWebUrl(r.url, sha);
-      return url && { label: `Copy link to this commit on remote: ${r.name}`, run: () => krill().copy(url) };
+      return url && { label: `Copy link to this commit on remote: ${r.name}`, run: () => gitneat().copy(url) };
     }),
     { label: "Create patch from commit", run: () => A.savePatch(ctx, sha) },
   ];
@@ -77,7 +77,7 @@ function tagActions(ctx: Ctx, sha: string): MenuItem[] {
 function prItem(ctx: Ctx, branch: string, remoteName?: string): MenuItem {
   const remote = ctx.data.remotes.find((r) => r.name === remoteName) ?? ctx.data.remotes.find((r) => r.name === "origin") ?? ctx.data.remotes[0];
   const url = remote && compareWebUrl(remote.url, branch);
-  return url && { label: `Start a pull request from ${branch}`, run: () => krill().openExternal(url) };
+  return url && { label: `Start a pull request from ${branch}`, run: () => gitneat().openExternal(url) };
 }
 
 const baseName = (ref: Ref) => (ref.kind === "remote" ? ref.name.split("/").slice(1).join("/") : ref.name);
@@ -183,8 +183,8 @@ function branchGroups(ctx: Ctx, group: Ref[], info: RangeInfo, submenu: boolean,
     [prFrom !== undefined && remote ? prItem(ctx, prFrom, remote.name.split("/")[0]) : false],
     [local && { label: `Rename ${local.name}`, run: () => A.renameBranch(ctx, local.name) }, ...deleteItems(ctx, group, local)],
     [
-      { label: "Copy branch name", run: () => krill().copy(ref.name) },
-      { label: "Copy commit sha", run: () => krill().copy(ref.sha) },
+      { label: "Copy branch name", run: () => gitneat().copy(ref.name) },
+      { label: "Copy commit sha", run: () => gitneat().copy(ref.sha) },
       !panel && { label: "Create patch from commit", run: () => A.savePatch(ctx, ref.sha) },
     ],
     soloItems(ctx, group, panel),
@@ -239,7 +239,7 @@ export function stashMenu(ctx: Ctx, ref: string, sha: string): Promise<void> {
         { label: "Pop Stash", run: () => A.stashPop(ctx, ref) },
         { label: "Delete Stash", run: () => A.stashDrop(ctx, ref) },
       ],
-      [{ label: "Copy commit sha", run: () => krill().copy(sha) }],
+      [{ label: "Copy commit sha", run: () => gitneat().copy(sha) }],
     ),
   );
 }
@@ -270,7 +270,7 @@ export function tagMenu(ctx: Ctx, ref: Ref, panel = false): Promise<void> {
           submenu: remotes.map((r) => ({ label: `Delete ${ref.name} from ${r.name}`, run: () => A.deleteTag(ctx, ref.name, r.name) })),
         },
       ],
-      [{ label: "Copy tag name", run: () => krill().copy(ref.name) }],
+      [{ label: "Copy tag name", run: () => gitneat().copy(ref.name) }],
       soloItems(ctx, [ref], panel),
     ),
   );
@@ -286,8 +286,8 @@ export function remoteMenu(ctx: Ctx, name: string, url: string): Promise<void> {
         { label: `Remove ${name}`, run: () => A.removeRemote(ctx, name) },
       ],
       [
-        web && { label: `View ${name} on ${new URL(web).host}`, run: () => krill().openExternal(web) },
-        { label: "Copy remote URL", run: () => krill().copy(url) },
+        web && { label: `View ${name} on ${new URL(web).host}`, run: () => gitneat().openExternal(web) },
+        { label: "Copy remote URL", run: () => gitneat().copy(url) },
       ],
     ),
   );
@@ -307,8 +307,8 @@ export function worktreeMenu(ctx: Ctx, wt: Worktree): Promise<void> {
       ],
       [wt.prunable && { label: "Prune worktrees", run: () => A.pruneWorktrees(ctx) }],
       [
-        { label: "Copy path", run: () => krill().copy(wt.path) },
-        { label: krill().platform === "darwin" ? "Show in Finder" : "Show in Explorer", run: () => krill().showItem(wt.path) },
+        { label: "Copy path", run: () => gitneat().copy(wt.path) },
+        { label: gitneat().platform === "darwin" ? "Show in Finder" : "Show in Explorer", run: () => gitneat().showItem(wt.path) },
       ],
     ),
   );
@@ -326,10 +326,10 @@ export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untrac
           ]
         : [],
       [
-        { label: "Open file", run: () => krill().openPath(abs) },
-        { label: krill().platform === "darwin" ? "Show in Finder" : "Show in Explorer", run: () => krill().showItem(abs) },
+        { label: "Open file", run: () => gitneat().openPath(abs) },
+        { label: gitneat().platform === "darwin" ? "Show in Finder" : "Show in Explorer", run: () => gitneat().showItem(abs) },
       ],
-      [{ label: "Copy file path", run: () => krill().copy(path) }],
+      [{ label: "Copy file path", run: () => gitneat().copy(path) }],
     ),
   );
 }
@@ -372,7 +372,7 @@ export async function multiMenu(ctx: Ctx, commits: Commit[]): Promise<void> {
             { label: `Drop ${n} commits`, run: () => A.rewriteMany(ctx, shas, "drop") },
           ]
         : [],
-      [{ label: "Copy commit shas", run: () => krill().copy(shas.join("\n")) }],
+      [{ label: "Copy commit shas", run: () => gitneat().copy(shas.join("\n")) }],
     ),
   );
 }

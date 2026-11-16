@@ -12,7 +12,7 @@ export interface MenuSpec {
   submenu?: MenuSpec[];
 }
 
-export interface KrillApi {
+export interface GitNeatApi {
   platform: string;
   git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
   openRepoDialog(): Promise<string | { error: string } | null>;
@@ -36,8 +36,8 @@ export interface KrillApi {
 
 declare global {
   interface Window {
-    krill: KrillApi;
+    gitneat: GitNeatApi;
   }
 }
 
-export const krill = (): KrillApi => window.krill;
+export const gitneat = (): GitNeatApi => window.gitneat;

@@ -1,6 +1,6 @@
 import { MouseEvent, ReactNode, useEffect, useState } from "react";
 import * as A from "../actions";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import { Ctx } from "../actions";
 import * as M from "../menus";
 import { Ref, samePath } from "../repo";
@@ -209,7 +209,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
       <div className="filter">
         <input
           id="sidebar-filter"
-          placeholder={krill().platform === "darwin" ? "Filter (⌘ + Option + f)" : "Filter (Ctrl + Alt + f)"}
+          placeholder={gitneat().platform === "darwin" ? "Filter (⌘ + Option + f)" : "Filter (Ctrl + Alt + f)"}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />

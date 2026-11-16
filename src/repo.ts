@@ -1,4 +1,4 @@
-import { krill } from "./api";
+import { gitneat } from "./api";
 
 export interface Commit {
   sha: string;
@@ -90,7 +90,7 @@ export interface CommitDetail {
 export class GitError extends Error {}
 
 export async function git(cwd: string, args: string[], env?: Record<string, string>): Promise<string> {
-  const result = await krill().git(cwd, args, env);
+  const result = await gitneat().git(cwd, args, env);
   if (result.code !== 0) {
     throw new GitError((result.stderr || result.stdout).trim() || `git ${args[0]} failed`);
   }
@@ -106,7 +106,7 @@ export function samePath(a: string, b: string): boolean {
 }
 
 async function tryGit(cwd: string, args: string[], input?: string): Promise<string> {
-  const result = await krill().git(cwd, args, undefined, input);
+  const result = await gitneat().git(cwd, args, undefined, input);
   return result.code === 0 ? result.stdout : "";
 }
 
@@ -220,12 +220,12 @@ async function detectOperation(cwd: string): Promise<Operation> {
     ["CHERRY_PICK_HEAD", "cherry-pick"],
     ["REVERT_HEAD", "revert"],
   ];
-  const results = await Promise.all(checks.map(([ref]) => krill().git(cwd, ["rev-parse", "-q", "--verify", ref])));
+  const results = await Promise.all(checks.map(([ref]) => gitneat().git(cwd, ["rev-parse", "-q", "--verify", ref])));
   const hit = results.findIndex((r) => r.code === 0);
   if (hit >= 0) {
     return checks[hit][1];
   }
-  const status = await krill().git(cwd, ["status", "--no-ahead-behind"]);
+  const status = await gitneat().git(cwd, ["status", "--no-ahead-behind"]);
   return /rebase in progress|You are currently rebasing|You are currently editing a commit while rebasing/.test(status.stdout) ? "rebase" : null;
 }
 
@@ -388,7 +388,7 @@ export async function loadDiff(cwd: string, source: DiffSource, file: string, ig
     return git(cwd, ["diff", "--cached", "-M", ...ws, "--", ...paths]);
   }
   if (source.untracked) {
-    const result = await krill().git(cwd, ["diff", "--no-index", ...ws, "--", "/dev/null", file]);
+    const result = await gitneat().git(cwd, ["diff", "--no-index", ...ws, "--", "/dev/null", file]);
     return result.stdout;
   }
   return git(cwd, ["diff", ...ws, "--", file]);
@@ -434,7 +434,7 @@ export interface DiffSides {
 }
 
 async function showBlob(cwd: string, spec: string): Promise<string> {
-  const r = await krill().git(cwd, ["show", spec]);
+  const r = await gitneat().git(cwd, ["show", spec]);
   return r.code === 0 ? r.stdout : "";
 }
 
@@ -448,7 +448,7 @@ export async function loadSides(cwd: string, source: DiffSource, file: string, o
     [original, modified] = await Promise.all([showBlob(cwd, `HEAD:${before}`), showBlob(cwd, `:${file}`)]);
   } else {
     const index = source.untracked ? Promise.resolve("") : showBlob(cwd, `:${file}`);
-    [original, modified] = await Promise.all([index, krill().readFile(cwd, file).then((t) => t ?? "")]);
+    [original, modified] = await Promise.all([index, gitneat().readFile(cwd, file).then((t) => t ?? "")]);
   }
   return { original, modified, binary: original.includes("\0") || modified.includes("\0") };
 }

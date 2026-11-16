@@ -10,7 +10,7 @@ let shown: MenuSpec[] = [];
 let ancestorCode = 0;
 
 (globalThis as { window?: unknown }).window = {
-  krill: {
+  gitneat: {
     platform: "darwin",
     menu: async (items: MenuSpec[]) => {
       shown = items;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { krill } from "./api";
+import { gitneat } from "./api";
 import { Tab, Tabs, tabTitle } from "./components/Tabs";
 import { git, samePath } from "./repo";
 import { RepoPrefs, RepoView } from "./RepoView";
@@ -40,7 +40,7 @@ export function App() {
   const loaded = useRef(false);
 
   useEffect(() => {
-    krill()
+    gitneat()
       .storeGet()
       .then((saved) => {
         loaded.current = true;
@@ -50,7 +50,7 @@ export function App() {
 
   useEffect(() => {
     if (loaded.current && state) {
-      void krill().storeSet(state);
+      void gitneat().storeSet(state);
     }
   }, [state]);
 
@@ -70,7 +70,7 @@ export function App() {
   );
 
   const openDialog = useCallback(async () => {
-    const result = await krill().openRepoDialog();
+    const result = await gitneat().openRepoDialog();
     if (typeof result === "string") {
       openTab(result);
     } else if (result) {
@@ -128,7 +128,7 @@ export function App() {
     if (!v?.url.trim()) {
       return;
     }
-    const parent = await krill().pickDirectory();
+    const parent = await gitneat().pickDirectory();
     if (!parent) {
       return;
     }
@@ -140,7 +140,7 @@ export function App() {
   };
 
   const init = async () => {
-    const dir = await krill().pickDirectory();
+    const dir = await gitneat().pickDirectory();
     if (dir && (await ui.task("Init", () => git(dir, ["init"])))) {
       openTab(dir);
     }
@@ -189,7 +189,7 @@ export function App() {
         />
       ) : (
         <div className="welcome">
-          <h1>Krill</h1>
+          <h1>GitNeat</h1>
           <div className="welcome-actions">
             <button className="primary" onClick={openDialog}>
               Open a repository

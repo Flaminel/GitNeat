@@ -1,6 +1,6 @@
-# Krill
+# GitNeat
 
-Krill is an open source Git client for macOS and Windows with repository tabs, a commit graph, and Source-style context menus.
+GitNeat is an open source Git client for macOS and Windows with repository tabs, a commit graph, and Source-style context menus.
 
 ## Features
 
@@ -40,10 +40,10 @@ Note: Build the Windows installer on Windows. Build the macOS app on macOS.
 
 Use the screenshot smoke test to capture the app window without user input. Set these environment variables before you start the app.
 
-- `KRILL_USER_DATA`: Folder for the saved state file.
-- `KRILL_SCREENSHOT`: PNG file path. The app captures the window and quits.
-- `KRILL_SCREENSHOT_DELAY`: Delay in milliseconds before the capture. The default is 2500.
-- `KRILL_SCREENSHOT_JS`: JavaScript that runs in the page before the capture.
+- `GITNEAT_USER_DATA`: Folder for the saved state file.
+- `GITNEAT_SCREENSHOT`: PNG file path. The app captures the window and quits.
+- `GITNEAT_SCREENSHOT_DELAY`: Delay in milliseconds before the capture. The default is 2500.
+- `GITNEAT_SCREENSHOT_JS`: JavaScript that runs in the page before the capture.
 
 ## Documentation
 
@@ -53,8 +53,8 @@ Use the screenshot smoke test to capture the app window without user input. Set 
 
 ## Not included
 
-Krill does not include Source account features, AI features, Cloud Patches, issue tracker integrations, or Teams. See [D11](docs/DECISIONS.md#d11-no-proprietary-service-features) in `docs/DECISIONS.md`.
+GitNeat does not include Source account features, AI features, Cloud Patches, issue tracker integrations, or Teams. See [D11](docs/DECISIONS.md#d11-no-proprietary-service-features) in `docs/DECISIONS.md`.
 
 ## License
 
-Krill is released under the MIT License. See the `LICENSE` file.
+GitNeat is released under the MIT License. See the `LICENSE` file.

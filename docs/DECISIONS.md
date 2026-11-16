@@ -6,7 +6,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D1. Electron, React and TypeScript
 
-- Decision: Krill uses Electron 45, React 19, TypeScript 5 and Vite 8.
+- Decision: GitNeat uses Electron 45, React 19, TypeScript 5 and Vite 8.
 - Reason: Source 11.9.0 uses Electron and React (see `docs/EVIDENCE.md`). Electron gives one code base for macOS and Windows.
 - Limits: The app bundle is large (about 100 MB), the same as Source.
 
@@ -20,11 +20,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: The main process only runs `git` and returns stdout, stderr and the exit code. The renderer builds the arguments and parses the output (`src/repo.ts`).
 - Reason: One generic channel keeps `electron/main.ts` small. All git knowledge is in one place.
-- Limits: The renderer can run any git command. The renderer loads only local bundled code, so this is acceptable. If Krill ever loads remote content, restrict the channel to a list of commands.
+- Limits: The renderer can run any git command. The renderer loads only local bundled code, so this is acceptable. If GitNeat ever loads remote content, restrict the channel to a list of commands.
 
 ## D4. All tabs share one window and one renderer
 
-- Decision: Repository tabs are React state in `src/App.tsx`. Krill has one `BrowserWindow`.
+- Decision: Repository tabs are React state in `src/App.tsx`. GitNeat has one `BrowserWindow`.
 - Reason: The user asked for tabs, not windows. One renderer keeps tab switches fast and makes shared state simple.
 - Limits: Only the active tab is mounted. A tab switch reloads that repository from git.
 
@@ -51,24 +51,24 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D8. Rebase operations use a prepared todo file
 
-- Decision: Drop, move up, move down, edit message and interactive rebase all run `git rebase -i`. Krill writes the todo list to a temporary file. `GIT_SEQUENCE_EDITOR` is `cp "<todo file>"`. A new message for an older commit uses an `exec git commit --amend -F <file>` line.
+- Decision: Drop, move up, move down, edit message and interactive rebase all run `git rebase -i`. GitNeat writes the todo list to a temporary file. `GIT_SEQUENCE_EDITOR` is `cp "<todo file>"`. A new message for an older commit uses an `exec git commit --amend -F <file>` line.
 - Reason: Git runs the editor commands through its own shell, so `cp` works on macOS and on Windows (Git for Windows includes `sh` and `cp`). No helper script is necessary.
-- Limits: Rebase does not keep merge commits. Krill disables these actions when the range contains a merge commit.
+- Limits: Rebase does not keep merge commits. GitNeat disables these actions when the range contains a merge commit.
 
 ## D9. In-progress operation detection
 
-- Decision: Krill detects merge, rebase, cherry-pick and revert with the pseudo-refs `MERGE_HEAD`, `REBASE_HEAD`, `CHERRY_PICK_HEAD` and `REVERT_HEAD`.
+- Decision: GitNeat detects merge, rebase, cherry-pick and revert with the pseudo-refs `MERGE_HEAD`, `REBASE_HEAD`, `CHERRY_PICK_HEAD` and `REVERT_HEAD`.
 - Reason: This needs no file system access in the renderer.
-- Limits: A rebase that stops on a failed `exec` line has no `REBASE_HEAD`. Krill does not show the banner for it. To fix, check the `rebase-merge` directory in the git directory.
+- Limits: A rebase that stops on a failed `exec` line has no `REBASE_HEAD`. GitNeat does not show the banner for it. To fix, check the `rebase-merge` directory in the git directory.
 
 ## D10. Stashes in the graph
 
-- Decision: Krill shows each stash as a row above its base commit, with only one parent.
+- Decision: GitNeat shows each stash as a row above its base commit, with only one parent.
 - Reason: The stash index commit and untracked commit add rows that have no meaning to the user.
 
 ## D11. No proprietary service features
 
-- Decision: Krill does not copy AI recompose, Cloud Patches, Jira, Trello, Teams or the Source account.
+- Decision: GitNeat does not copy AI recompose, Cloud Patches, Jira, Trello, Teams or the Source account.
 - Reason: These features need Source servers.
 - Alternative: "Start a pull request" opens the compare page of GitHub, GitLab or Bitbucket in the browser.
 
@@ -86,7 +86,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D14. Screenshot hook for tests
 
-- Decision: If `KRILL_SCREENSHOT` is set, the main process hides the window, runs `KRILL_SCREENSHOT_JS` in the page, saves a PNG and quits.
+- Decision: If `GITNEAT_SCREENSHOT` is set, the main process hides the window, runs `GITNEAT_SCREENSHOT_JS` in the page, saves a PNG and quits.
 - Reason: The hook gives a repeatable visual check without a UI test framework.
 - Limits: Native context menus do not show in the capture. `test/menus.test.ts` checks the menu content instead.
 
@@ -97,25 +97,25 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D16. Menu tests use a fake bridge
 
-- Decision: `test/menus.test.ts` replaces `window.krill` with a fake. The fake records the menu and answers the git calls that the menu needs.
+- Decision: `test/menus.test.ts` replaces `window.gitneat` with a fake. The fake records the menu and answers the git calls that the menu needs.
 - Reason: The menu order is the main Source behavior to keep. The tests compare it to the order in the reference screenshot.
 - Tool: `tsx` runs the tests, because the app imports modules without file extensions.
 
 ## D17. Branch drag and drop
 
-- Decision: You can drag a branch label in the graph onto the label of another branch. Krill then shows a menu with merge, rebase, interactive rebase, fast-forward and push.
+- Decision: You can drag a branch label in the graph onto the label of another branch. GitNeat then shows a menu with merge, rebase, interactive rebase, fast-forward and push.
 - Reason: Source has the same drag and drop behavior.
 
 ## D18. Theme colors come from the Source dark theme
 
 - Decision: `src/styles.css` uses the background, panel, text and accent values from `docs/EVIDENCE.md` section 7. The 10 lane colors are the Source `--graph-color-0..9` values.
-- Superseded in part by D21: Krill now uses Open Sans.
+- Superseded in part by D21: GitNeat now uses Open Sans.
 
 ## D19. The diff view uses Monaco
 
-- Decision: Inline view and split view use the Monaco diff editor (`renderSideBySide` false or true). Hunk view is a Krill table with Monaco syntax colors.
+- Decision: Inline view and split view use the Monaco diff editor (`renderSideBySide` false or true). Hunk view is a GitNeat table with Monaco syntax colors.
 - Reason: Source uses the Monaco diff editor for inline and split view (see `docs/EVIDENCE-DIFF.md` section 2). The default mode is hunk, as in Source.
-- Rules: Krill loads Monaco from `node_modules`, not from a CDN. One editor worker computes the diff. Language services (TypeScript, JSON, CSS, HTML workers) are not loaded. Syntax colors come from the Monarch grammars.
+- Rules: GitNeat loads Monaco from `node_modules`, not from a CDN. One editor worker computes the diff. Language services (TypeScript, JSON, CSS, HTML workers) are not loaded. Syntax colors come from the Monarch grammars.
 - Staging: Hunk view has a 26 px strip on each hunk with Discard Hunk and Stage Hunk (unstaged), Unstage Hunk (staged) or Revert Hunk (commit). Lines are selected in the line number columns. Monaco views have "Stage selected lines", "Unstage selected lines" and "Discard selected lines" in the editor context menu.
 - Patches: `src/diff.ts` builds the patch for a hunk or for selected lines. `git apply --recount` applies it. `test/diff.test.ts` checks the patches against a real repository.
 - Limits: The hunk view uses `dangerouslySetInnerHTML` for the output of `monaco.editor.colorize`. Monaco escapes the file text. Files with more than 20000 changed lines show without syntax colors. "Ignore whitespace" turns off staging, because the patch then does not match the file.
@@ -127,7 +127,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D21. Open Sans at 12 px
 
-- Decision: Krill bundles Open Sans with `@fontsource/open-sans` and uses a 12 px base size.
+- Decision: GitNeat bundles Open Sans with `@fontsource/open-sans` and uses a 12 px base size.
 - Reason: Source uses Open Sans and a root size of 62.5 % with 1.2 rem text. A side by side screenshot showed 8 to 11 % wider text before this change.
 
 ## D22. Hardening after the code review
@@ -140,7 +140,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: For an unstaged file, "Edit This File" makes the right side of the Monaco diff editable. "Save Changes" writes the file through the `write-file` IPC call.
 - Reason: Source has the same button in the diff toolbar.
-- Limits: Krill does not warn if the file changes on disk during the edit.
+- Limits: GitNeat does not warn if the file changes on disk during the edit.
 
 ## D24. Branch menus use ref groups
 
@@ -148,7 +148,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The Source menu builder (`getRefGroupMenuItems` in `render.bundle.js`) works on ref groups. The user's screenshot of the branch menu shows the result.
 - Rules: If a group has more than one checkout target, "Checkout" is a submenu with each ref and "this commit". "Create worktree from" uses the same rule. "Pull (fast-forward if possible)", "Push" and "Set Upstream" show for every local branch when the repository has a remote. "Hide" shows only in the left panel. "Create patch from commit" shows only in the graph.
 - Merge items follow the Source merge states. If HEAD is behind the branch, the menu shows "Fast-forward". If the branch is behind HEAD, the menu shows "Fast-forward <branch> to <current>". Otherwise the menu shows "Merge".
-- Limits: Krill does not copy "Explain Branch Changes" or "Share commit as Cloud Patch" (see D11). If HEAD is behind the branch, Source labels the second item "Merge <current> into <branch>". Krill labels it "Merge <branch> into <current>" and runs `git merge --no-ff`.
+- Limits: GitNeat does not copy "Explain Branch Changes" or "Share commit as Cloud Patch" (see D11). If HEAD is behind the branch, Source labels the second item "Merge <current> into <branch>". GitNeat labels it "Merge <branch> into <current>" and runs `git merge --no-ff`.
 
 ## D25. Hunk view renders from a full-file model
 
@@ -167,7 +167,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: Click a conflicted file in the WIP panel to open `MergeView` in the center instead of `DiffView`. A and B panes sit side by side. The Output pane sits below them. `src/merge.ts` holds the logic and has no `window` imports.
 - Reason: The Source screenshots and strings show this three pane layout (see section 6 of `docs/EVIDENCE-DIFF.md`).
 - Rules: `git show :2:` and `:3:` give the A and B blobs. `git merge-file -p --diff3` on the stage blobs gives the conflict chunks. An exit code above 127 is an error. A selection per conflict is an ordered list of picked lines. The Output text comes from `buildOutput`. A new pick replaces the Output text. Save writes the file and runs `git add`. For unresolved conflicts, a menu offers Save Output, Create Conflict Chunks and Cancel. A missing stage 2 or 3 shows "Keep Modified Version" and "Delete The File". A binary file shows "Take A" and "Take B".
-- Limits: `merge-file` merges non-conflicting changes by itself. The A and B panes show each side with those changes applied, not the raw stage blob. Scroll sync uses pixels, so the two panes can differ in line alignment. "Create Conflict Chunks" ignores manual edits in Output. Krill does not copy the Premium gate on Output editing.
+- Limits: `merge-file` merges non-conflicting changes by itself. The A and B panes show each side with those changes applied, not the raw stage blob. Scroll sync uses pixels, so the two panes can differ in line alignment. "Create Conflict Chunks" ignores manual edits in Output. GitNeat does not copy the Premium gate on Output editing.
 
 ## D28. Left panel collapse
 

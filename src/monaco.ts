@@ -11,7 +11,7 @@ import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
   getWorker: () => new EditorWorker(),
 };
 
-monaco.editor.defineTheme("krill", {
+monaco.editor.defineTheme("gitneat", {
   base: "vs-dark",
   inherit: true,
   rules: [],
@@ -33,7 +33,7 @@ monaco.editor.defineTheme("krill", {
   },
 });
 
-monaco.editor.setTheme("krill");
+monaco.editor.setTheme("gitneat");
 
 export function languageFor(file: string): string {
   const name = file.split("/").pop()?.toLowerCase() ?? "";

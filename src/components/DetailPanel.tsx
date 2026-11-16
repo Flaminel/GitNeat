@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import * as M from "../menus";
 import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
@@ -141,7 +141,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   return (
     <div className="detail">
       <div className="detail-head">
-        commit: <b className="sha" onClick={() => krill().copy(detail.sha)} title="Copy commit sha">{detail.sha.slice(0, 6)}</b>
+        commit: <b className="sha" onClick={() => gitneat().copy(detail.sha)} title="Copy commit sha">{detail.sha.slice(0, 6)}</b>
       </div>
       <div className="message-box">
         <div className="subject">{subject}</div>
@@ -229,7 +229,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
 
   useEffect(() => {
     if (amend && !summary && ctx.data.head) {
-      krill()
+      gitneat()
         .git(ctx.cwd, ["show", "-s", "--format=%B", "HEAD"])
         .then((r) => {
           const [s, ...rest] = r.stdout.trim().split("\n");

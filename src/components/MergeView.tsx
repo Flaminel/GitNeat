@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import { allTaken, buildOutput, parseMerge, Segment, Selection, sideLines, sideTaken, takeAll, togglePick, toggleSide } from "../merge";
 import { languageFor, monaco } from "../monaco";
 import { showMenu } from "../ui";
@@ -23,12 +23,12 @@ async function bLabel(cwd: string, op: Ctx["data"]["operation"]): Promise<string
   if (!ref) {
     return "B";
   }
-  const r = await krill().git(cwd, op === "merge" ? ["name-rev", "--name-only", ref] : ["rev-parse", "--short", ref]);
+  const r = await gitneat().git(cwd, op === "merge" ? ["name-rev", "--name-only", ref] : ["rev-parse", "--short", ref]);
   return r.code === 0 && r.stdout.trim() ? r.stdout.trim().replace(/^remotes\//, "").replace(/[~^].*$/, "") : "B";
 }
 
 async function load(ctx: Ctx, path: string): Promise<Loaded> {
-  const show = (n: number) => krill().git(ctx.cwd, ["show", `:${n}:${path}`]);
+  const show = (n: number) => gitneat().git(ctx.cwd, ["show", `:${n}:${path}`]);
   const [base, a, b] = await Promise.all([show(1), show(2), show(3)]);
   if (a.code !== 0 || b.code !== 0) {
     return { kind: "delete", missing: a.code !== 0 ? "a" : "b" };
@@ -36,8 +36,8 @@ async function load(ctx: Ctx, path: string): Promise<Loaded> {
   if (a.stdout.includes("\0") || b.stdout.includes("\0")) {
     return { kind: "binary" };
   }
-  const [ours, root, theirs] = await Promise.all([a.stdout, base.code === 0 ? base.stdout : "", b.stdout].map((t) => krill().writeTemp(t)));
-  const merged = await krill().git(ctx.cwd, ["merge-file", "-p", "--diff3", "-L", "A", "-L", "base", "-L", "B", ours, root, theirs]);
+  const [ours, root, theirs] = await Promise.all([a.stdout, base.code === 0 ? base.stdout : "", b.stdout].map((t) => gitneat().writeTemp(t)));
+  const merged = await gitneat().git(ctx.cwd, ["merge-file", "-p", "--diff3", "-L", "A", "-L", "base", "-L", "B", ours, root, theirs]);
   if (merged.code < 0 || merged.code > 127) {
     throw new Error(merged.stderr.trim() || "git merge-file failed");
   }
@@ -81,7 +81,7 @@ function Editors(props: { ctx: Ctx; path: string; segments: Segment[]; bName: st
   useEffect(() => {
     const make = (host: HTMLDivElement | null, readOnly: boolean) =>
       monaco.editor.create(host as HTMLDivElement, {
-        theme: "krill",
+        theme: "gitneat",
         language,
         readOnly,
         automaticLayout: true,

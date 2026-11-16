@@ -4,25 +4,25 @@ Use this map to find the file to change.
 
 ## Processes
 
-Krill has two processes.
+GitNeat has two processes.
 
 1. The main process (`electron/`) creates the window, runs `git`, shows native menus and dialogs, and watches the repository folders.
 2. The renderer (`src/`) holds all UI and all git logic.
 
-The preload script (`electron/preload.ts`) connects the two. It exposes `window.krill`. The type of `window.krill` is in `src/api.ts`.
+The preload script (`electron/preload.ts`) connects the two. It exposes `window.gitneat`. The type of `window.gitneat` is in `src/api.ts`.
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
 | `electron/main.ts` | Window, IPC handlers, `git` runner, native menu popup, file watcher, saved state file |
-| `electron/preload.ts` | Exposes the IPC handlers as `window.krill` |
-| `src/api.ts` | Types for `window.krill` and `MenuSpec` |
+| `electron/preload.ts` | Exposes the IPC handlers as `window.gitneat` |
+| `src/api.ts` | Types for `window.gitneat` and `MenuSpec` |
 | `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
 | `src/merge.ts` | Merge conflict parser, selections and Output builder |
 | `src/diff.ts` | Unified diff parser and patch builder for hunks and selected lines |
-| `src/monaco.ts` | Monaco setup: worker, `krill` theme, language detection |
+| `src/monaco.ts` | Monaco setup: worker, `gitneat` theme, language detection |
 | `src/actions.ts` | Git operations that change the repository (checkout, merge, rebase, reset, push, and so on) |
 | `src/menus.ts` | Context menu content for commits, branches, tags, stashes, remotes, worktrees, files and tabs |
 | `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
@@ -32,7 +32,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
 | `test/graph.test.ts` | Lane layout tests |
-| `test/menus.test.ts` | Context menu order tests with a fake `window.krill` |
+| `test/menus.test.ts` | Context menu order tests with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
 | `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
@@ -70,10 +70,10 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 
 | Name | Effect |
 | --- | --- |
-| `KRILL_USER_DATA` | Folder for `krill-state.json` (open tabs, recent repositories, hidden and solo branches) |
-| `KRILL_SCREENSHOT` | PNG path. The app captures the window and quits. |
-| `KRILL_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
-| `KRILL_SCREENSHOT_JS` | JavaScript that runs in the page before the capture |
+| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches) |
+| `GITNEAT_SCREENSHOT` | PNG path. The app captures the window and quits. |
+| `GITNEAT_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
+| `GITNEAT_SCREENSHOT_JS` | JavaScript that runs in the page before the capture |
 | `VITE_DEV` | Load the renderer from the Vite dev server (`npm run dev` sets it) |
 
-Some editors set `ELECTRON_RUN_AS_NODE=1` in the shell. If your shell has this variable, unset it before you start Krill.
+Some editors set `ELECTRON_RUN_AS_NODE=1` in the shell. If your shell has this variable, unset it before you start GitNeat.

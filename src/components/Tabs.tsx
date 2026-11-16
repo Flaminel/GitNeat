@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { krill } from "../api";
+import { gitneat } from "../api";
 import { showMenu } from "../ui";
 
 export interface Tab {
@@ -25,7 +25,7 @@ export const tabTitle = (tab: Tab) => tab.title || tab.path.split(/[\\/]/).pop()
 
 export function Tabs(props: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
-  const isMac = krill().platform === "darwin";
+  const isMac = gitneat().platform === "darwin";
   return (
     <div className={`tabbar${isMac ? " mac" : " win"}`}>
       {props.tabs.map((tab, i) => (

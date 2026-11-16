@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: krill-${{ matrix.os }}
+          name: gitneat-${{ matrix.os }}
           path: |
             release/*.dmg
             release/*.zip

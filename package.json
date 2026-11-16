@@ -1,6 +1,6 @@
 {
-  "name": "krill",
-  "productName": "Krill",
+  "name": "gitneat",
+  "productName": "GitNeat",
   "version": "0.1.0",
   "description": "Open source Git GUI with a tabbed, graph-first layout",
   "license": "MIT",
@@ -15,8 +15,8 @@
     "dist:win": "npm run build && electron-builder --win"
   },
   "build": {
-    "appId": "dev.krill.app",
-    "productName": "Krill",
+    "appId": "dev.gitneat.app",
+    "productName": "GitNeat",
     "files": [
       "dist/**",
       "dist-electron/**",

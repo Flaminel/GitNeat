@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as A from "./actions";
 import { Ctx, TodoEntry, UndoEntry } from "./actions";
-import { krill } from "./api";
+import { gitneat } from "./api";
 import { DetailPanel, OpenFile } from "./components/DetailPanel";
 import { DiffView } from "./components/DiffView";
 import { GraphView, SelectMode, WIP } from "./components/GraphView";
@@ -84,15 +84,15 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   }, [load]);
 
   useEffect(() => {
-    void krill().watch(path);
-    const off = krill().onRepoChanged((cwd) => {
+    void gitneat().watch(path);
+    const off = gitneat().onRepoChanged((cwd) => {
       if (cwd === path) {
         void load();
       }
     });
     return () => {
       off();
-      void krill().unwatch(path);
+      void gitneat().unwatch(path);
     };
   }, [path, load]);
 
