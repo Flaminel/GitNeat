@@ -1111,6 +1111,202 @@ a.sha {
   font-size: 18px;
 }
 
+.merge-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.merge-top {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.merge-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.merge-right {
+  border-left: 1px solid #2b2d32;
+}
+
+.merge-output {
+  border-top: 1px solid #2b2d32;
+}
+
+.merge-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 35px;
+  padding: 0 10px;
+  background: #1e1f25;
+  border-bottom: 1px solid #2b2d32;
+  flex-shrink: 0;
+}
+
+.merge-badge {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-align: center;
+  font-weight: 700;
+  color: #15171b;
+}
+
+.merge-badge.a {
+  background: #15a0bf;
+}
+
+.merge-badge.b {
+  background: #f2ca33;
+}
+
+.merge-name,
+.merge-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.merge-title {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
+.merge-count {
+  margin-left: 8px;
+  color: var(--text-dim);
+}
+
+.merge-spacer {
+  flex: 1;
+}
+
+.merge-take {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.merge-head button.btn-xs {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.merge-head button.success {
+  background: #2c5a34;
+  border-color: #2c5a34;
+  color: #fff;
+}
+
+.merge-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.merge-a-fill {
+  background: rgba(21, 160, 191, 0.25);
+}
+
+.merge-b-fill {
+  background: rgba(242, 202, 51, 0.25);
+}
+
+.merge-out-fill {
+  background: rgba(197, 23, 182, 0.25);
+}
+
+.merge-a-bar,
+.merge-b-bar,
+.merge-out-bar {
+  border-left: 4px solid;
+  margin-left: 2px;
+}
+
+.merge-a-bar {
+  border-color: #15a0bf;
+}
+
+.merge-b-bar {
+  border-color: #f2ca33;
+}
+
+.merge-out-bar {
+  border-color: #c517b6;
+}
+
+.merge-cb {
+  cursor: pointer;
+}
+
+.merge-cb::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin: 2px auto 0;
+  border: 1px solid #8a8d93;
+  border-radius: 2px;
+}
+
+.merge-cb.hunk::before {
+  border-color: #fff;
+}
+
+.merge-cb.on::before {
+  content: "✓";
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  line-height: 10px;
+  text-align: center;
+}
+
+.merge-placeholder {
+  box-sizing: border-box;
+  height: 18px;
+  margin-left: 2px;
+  padding-left: 12px;
+  border-left: 4px solid #c517b6;
+  background: rgba(197, 23, 182, 0.25);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.merge-center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-dim);
+}
+
+.merge-center h3 {
+  margin: 0;
+  color: #fff;
+}
+
+.merge-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .diff-toolbar {
   display: flex;
   align-items: center;

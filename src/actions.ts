@@ -578,3 +578,31 @@ export function continueOperation(ctx: Ctx, op: Operation) {
 }
 
 export const abortOperation = (ctx: Ctx, op: Operation) => run(ctx, `Abort ${op}`, () => g(ctx, [op as string, "--abort"]));
+
+export const resolveFile = (ctx: Ctx, path: string, how: "ours" | "theirs" | "delete") =>
+  run(
+    ctx,
+    "Resolve",
+    async () => {
+      if (how === "delete") {
+        await g(ctx, ["rm", "-q", "--", path]);
+        return;
+      }
+      await g(ctx, ["checkout", `--${how}`, "--", path]);
+      await g(ctx, ["add", "--", path]);
+    },
+    false,
+  );
+
+export const saveResolved = (ctx: Ctx, path: string, content: string) =>
+  run(
+    ctx,
+    "Save output",
+    async () => {
+      if (!(await krill().writeFile(ctx.cwd, path, content))) {
+        throw new GitError(`Could not write ${path}`);
+      }
+      await g(ctx, ["add", "--", path]);
+    },
+    false,
+  );

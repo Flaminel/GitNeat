@@ -88,3 +88,39 @@ export function buildOutput(segments: Segment[], selections: Selection[], marker
   }
   return { text: out.length ? out.join("\n") + "\n" : "", ranges };
 }
+
+export function togglePick(sel: Selection, p: Pick): Selection {
+  const cur = sel ?? [];
+  const at = cur.findIndex((x) => x.side === p.side && x.line === p.line);
+  const next = at >= 0 ? cur.filter((_, i) => i !== at) : [...cur, p];
+  return next.length ? next : undefined;
+}
+
+function removeSide(sel: Selection, side: "a" | "b"): Selection {
+  const next = (sel ?? []).filter((x) => x.side !== side);
+  return next.length ? next : undefined;
+}
+
+export const sideTaken = (sel: Selection, side: "a" | "b", count: number): boolean =>
+  count > 0 && !!sel && sel.filter((x) => x.side === side).length === count;
+
+export function toggleSide(sel: Selection, side: "a" | "b", count: number): Selection {
+  if (sideTaken(sel, side, count)) {
+    return removeSide(sel, side);
+  }
+  const cur = sel ?? [];
+  const missing = Array.from({ length: count }, (_, line) => line).filter((line) => !cur.some((x) => x.side === side && x.line === line));
+  return [...cur, ...missing.map((line) => ({ side, line }))];
+}
+
+const counts = (segments: Segment[], side: "a" | "b") => segments.flatMap((s) => (s.kind === "conflict" ? [s[side].length] : []));
+
+export function allTaken(segments: Segment[], sels: Selection[], side: "a" | "b"): boolean {
+  const n = counts(segments, side);
+  return n.some((c) => c > 0) && n.every((c, i) => c === 0 || sideTaken(sels[i], side, c));
+}
+
+export function takeAll(segments: Segment[], sels: Selection[], side: "a" | "b"): Selection[] {
+  const full = allTaken(segments, sels, side);
+  return counts(segments, side).map((c, i) => (full ? removeSide(sels[i], side) : toggleSide(sels[i], side, c)));
+}

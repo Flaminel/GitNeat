@@ -2,6 +2,7 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu";
 import "monaco-editor/esm/vs/editor/contrib/find/browser/findController";
+import "monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution";
 import "monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
 import "monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";

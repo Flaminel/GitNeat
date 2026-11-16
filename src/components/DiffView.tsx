@@ -21,7 +21,7 @@ interface Props {
   onOpenInCommit(commit: Commit, path: string): void;
 }
 
-const MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace";
+export const MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace";
 const MODE_KEY = "krill.diffMode";
 const WS_KEY = "krill.diffIgnoreWhitespace";
 const WRAP_KEY = "krill.diffWordWrap";
