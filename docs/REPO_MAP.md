@@ -44,6 +44,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Task | File |
 | --- | --- |
 | Add or reorder a context menu item | `src/menus.ts` |
+| Change the branch menu groups (Checkout and worktree submenus, merge items) | `branchGroups`, `checkoutItems`, `worktreeItems`, `mergeItems` in `src/menus.ts` |
 | Add a git operation | `src/actions.ts`, then call it from `src/menus.ts` or `src/components/Toolbar.tsx` |
 | Load more data from git | `src/repo.ts` (`loadRepo` and the `RepoData` type) |
 | Change graph lanes or colors | `src/graph.ts` for lanes, `src/styles.css` (`--lane-*`) for colors |
@@ -54,6 +55,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
+| Change hunk view syntax or bracket colors | `renderModelLine` in `src/components/DiffView.tsx`, `.bracket-*` in `src/styles.css` |
 | Change the diff toolbar or modes | `DiffView` in `src/components/DiffView.tsx` |
 | Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
 | Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |
