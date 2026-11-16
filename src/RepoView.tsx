@@ -5,6 +5,7 @@ import { krill } from "./api";
 import { DetailPanel, OpenFile } from "./components/DetailPanel";
 import { DiffView } from "./components/DiffView";
 import { GraphView, SelectMode, WIP } from "./components/GraphView";
+import { MergeView } from "./components/MergeView";
 import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
@@ -216,7 +217,9 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}
         <main className="center">
-          {openFile ? (
+          {openFile?.merge ? (
+            <MergeView ctx={ctx} path={openFile.path} onClose={() => setOpenFile(null)} />
+          ) : openFile ? (
             <DiffView
               cwd={path}
               file={openFile}

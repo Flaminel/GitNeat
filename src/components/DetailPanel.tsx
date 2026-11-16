@@ -11,6 +11,7 @@ export interface OpenFile {
   source: DiffSource;
   path: string;
   orig?: string;
+  merge?: boolean;
 }
 
 interface Props {
@@ -256,7 +257,11 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   };
 
   const open = (path: string, isStaged: boolean, untracked: boolean) =>
-    onOpenFile({ source: isStaged ? { kind: "staged" } : { kind: "unstaged", untracked }, path });
+    onOpenFile({
+      source: isStaged ? { kind: "staged" } : { kind: "unstaged", untracked },
+      path,
+      merge: status.some((e) => e.path === path && statusCode(e, false) === "U"),
+    });
 
   const isOpen = (isStaged: boolean) => (p: string) =>
     openFile?.path === p && openFile.source.kind === (isStaged ? "staged" : "unstaged");
