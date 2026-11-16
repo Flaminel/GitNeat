@@ -9,7 +9,7 @@
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && cross-env VITE_DEV=1 electron .\"",
     "build": "vite build && tsc -p tsconfig.electron.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
-    "test": "node --test test/",
+    "test": "node --import tsx --test test/*.test.ts",
     "start": "npm run build && electron .",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win"
@@ -51,6 +51,7 @@
     "cross-env": "^10.1.0",
     "electron": "^45.3.3",
     "electron-builder": "^26.18.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^8.3.8",
     "wait-on": "^9.5.1"

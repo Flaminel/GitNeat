@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { layoutGraph } from "../src/graph.ts";
+import { layoutGraph } from "../src/graph";
 
 test("linear history stays in one lane", () => {
   const rows = layoutGraph([
