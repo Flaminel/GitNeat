@@ -1341,3 +1341,21 @@ a.sha {
 .pill[draggable="true"] {
   cursor: grab;
 }
+
+.hunk-actions {
+  float: right;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.hunk-btn {
+  padding: 0 8px;
+  font: 11px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #2c5a34;
+  border-color: #2c5a34;
+}
+
+.hunk-btn.discard {
+  background: #5a2c2c;
+  border-color: #5a2c2c;
+}

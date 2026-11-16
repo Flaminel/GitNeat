@@ -21,6 +21,32 @@ function readMode(): Mode {
   }
 }
 
+export type HunkAction = "stage" | "unstage" | "discard";
+
+function hunkPatches(text: string): string[] {
+  const lines = text.split("\n");
+  const first = lines.findIndex((l) => HUNK_RE.test(l));
+  if (first < 0) {
+    return [];
+  }
+  const header = lines.slice(0, first).join("\n");
+  const patches: string[] = [];
+  let current: string[] = [];
+  for (const line of lines.slice(first)) {
+    if (HUNK_RE.test(line) && current.length) {
+      patches.push(`${header}\n${current.join("\n")}\n`);
+      current = [];
+    }
+    if (line !== "" || current.length === 0) {
+      current.push(line);
+    }
+  }
+  if (current.length) {
+    patches.push(`${header}\n${current.join("\n")}\n`);
+  }
+  return patches;
+}
+
 function parseDiff(text: string): Row[] | "binary" {
   const rows: Row[] = [];
   let started = false;
@@ -98,8 +124,8 @@ function Side({ line, side }: { line?: Line; side: "left" | "right" }) {
   );
 }
 
-export function DiffView(props: { cwd: string; file: OpenFile; onClose(): void; refreshKey: number }) {
-  const { cwd, file, onClose, refreshKey } = props;
+export function DiffView(props: { cwd: string; file: OpenFile; onClose(): void; refreshKey: number; onHunk?(patch: string, action: HunkAction): void }) {
+  const { cwd, file, onClose, refreshKey, onHunk } = props;
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(readMode);
@@ -146,6 +172,27 @@ export function DiffView(props: { cwd: string; file: OpenFile; onClose(): void; 
 
   const parsed = useMemo(() => (text === null ? null : parseDiff(text)), [text]);
   const split = useMemo(() => (parsed && parsed !== "binary" ? toSplit(parsed) : []), [parsed]);
+  const patches = useMemo(() => (text ? hunkPatches(text) : []), [text]);
+  const kind = file.source.kind;
+  let hunkIndex = -1;
+  const hunkButtons = (index: number) => {
+    const patch = patches[index];
+    if (!onHunk || !patch || kind === "commit") {
+      return null;
+    }
+    return (
+      <span className="hunk-actions">
+        {kind === "unstaged" && (
+          <button className="hunk-btn discard" onClick={() => onHunk(patch, "discard")}>
+            Discard Hunk
+          </button>
+        )}
+        <button className="hunk-btn" onClick={() => onHunk(patch, kind === "staged" ? "unstage" : "stage")}>
+          {kind === "staged" ? "Unstage Hunk" : "Stage Hunk"}
+        </button>
+      </span>
+    );
+  };
 
   let body: ReactElement;
   if (error) {
@@ -164,7 +211,10 @@ export function DiffView(props: { cwd: string; file: OpenFile; onClose(): void; 
             if (r.t === "hunk") {
               return (
                 <tr key={i} className="hunk">
-                  <td colSpan={3}>{r.text}</td>
+                  <td colSpan={3}>
+                    {r.text}
+                    {hunkButtons(++hunkIndex)}
+                  </td>
                 </tr>
               );
             }
@@ -199,7 +249,10 @@ export function DiffView(props: { cwd: string; file: OpenFile; onClose(): void; 
             if (r.t === "hunk") {
               return (
                 <tr key={i} className="hunk">
-                  <td colSpan={4}>{r.text}</td>
+                  <td colSpan={4}>
+                    {r.text}
+                    {hunkButtons(++hunkIndex)}
+                  </td>
                 </tr>
               );
             }

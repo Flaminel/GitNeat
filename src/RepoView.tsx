@@ -177,7 +177,13 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />
         <main className="center">
           {openFile ? (
-            <DiffView cwd={path} file={openFile} refreshKey={refreshKey} onClose={() => setOpenFile(null)} />
+            <DiffView
+              cwd={path}
+              file={openFile}
+              refreshKey={refreshKey}
+              onClose={() => setOpenFile(null)}
+              onHunk={(patch, action) => A.applyHunk(ctx, patch, action)}
+            />
           ) : (
             <GraphView
               commits={commits}
