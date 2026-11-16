@@ -525,17 +525,28 @@ export async function discardAll(ctx: Ctx): Promise<void> {
   });
 }
 
-export async function applyHunk(ctx: Ctx, patch: string, action: "stage" | "unstage" | "discard"): Promise<void> {
-  if (action === "discard" && !(await ctx.ui.confirm("Discard hunk", "Discard the changes in this hunk?", "Discard", true))) {
+export async function applyPatch(ctx: Ctx, patch: string, action: "stage" | "unstage" | "discard" | "revert"): Promise<void> {
+  if (action === "discard" && !(await ctx.ui.confirm("Discard changes", "Discard the selected changes?", "Discard", true))) {
     return;
   }
-  const args = action === "stage" ? ["apply", "--cached"] : action === "unstage" ? ["apply", "--cached", "-R"] : ["apply", "-R"];
-  await run(ctx, action === "stage" ? "Stage hunk" : action === "unstage" ? "Unstage hunk" : "Discard hunk", async () => {
-    const result = await krill().git(ctx.cwd, [...args, "--whitespace=nowarn", "-"], undefined, patch);
-    if (result.code !== 0) {
-      throw new GitError(result.stderr.trim() || "git apply failed");
-    }
-  });
+  const args = {
+    stage: ["apply", "--cached"],
+    unstage: ["apply", "--cached", "-R"],
+    discard: ["apply", "-R"],
+    revert: ["apply", "-R", "--3way"],
+  }[action];
+  const label = { stage: "Stage", unstage: "Unstage", discard: "Discard", revert: "Revert hunk" }[action];
+  await run(
+    ctx,
+    label,
+    async () => {
+      const result = await krill().git(ctx.cwd, [...args, "--recount", "--whitespace=nowarn", "-"], undefined, patch);
+      if (result.code !== 0) {
+        throw new GitError(result.stderr.trim() || "git apply failed");
+      }
+    },
+    false,
+  );
 }
 
 export function commit(ctx: Ctx, message: string, amend: boolean) {

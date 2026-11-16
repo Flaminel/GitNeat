@@ -10,6 +10,7 @@ import { Icon } from "./icons";
 export interface OpenFile {
   source: DiffSource;
   path: string;
+  orig?: string;
 }
 
 interface Props {
@@ -190,7 +191,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           files={files}
           tree={tree}
           isOpen={(p) => openFile?.path === p && openFile.source.kind === "commit"}
-          onOpen={(p) => onOpenFile({ source, path: p })}
+          onOpen={(p) => onOpenFile({ source, path: p, orig: changed.get(p)?.orig })}
           onMenu={(p) => M.fileMenu(ctx, p)}
         />
       </div>

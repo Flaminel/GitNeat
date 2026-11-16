@@ -203,7 +203,16 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
               file={openFile}
               refreshKey={refreshKey}
               onClose={() => setOpenFile(null)}
-              onHunk={(patch, action) => A.applyHunk(ctx, patch, action)}
+              onPatch={(patch, action) => A.applyPatch(ctx, patch, action)}
+              onShowCommit={(sha) => {
+                setOpenFile(null);
+                select(sha);
+              }}
+              onOpenInCommit={(c, file) => {
+                setSelected(c.sha);
+                setMulti([]);
+                setOpenFile({ source: { kind: "commit", sha: c.sha, parent: c.parents[0] }, path: file });
+              }}
             />
           ) : (
             <GraphView

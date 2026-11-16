@@ -19,6 +19,8 @@ export interface KrillApi {
   pickDirectory(): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;
   writeTemp(content: string): Promise<string>;
+  readFile(cwd: string, rel: string): Promise<string | null>;
+  writeFile(cwd: string, rel: string, content: string): Promise<boolean>;
   menu(items: MenuSpec[]): Promise<string | null>;
   copy(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;

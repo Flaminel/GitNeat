@@ -179,6 +179,27 @@ ipcMain.handle("open-external", (_e, url: string) => {
   }
 });
 
+ipcMain.handle("read-file", async (_e, cwd: string, rel: string) => {
+  const target = path.resolve(cwd, rel);
+  if (!insideOpenRepo(target)) {
+    return null;
+  }
+  try {
+    return await fs.promises.readFile(target, "utf8");
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle("write-file", async (_e, cwd: string, rel: string, content: string) => {
+  const target = path.resolve(cwd, rel);
+  if (!insideOpenRepo(target)) {
+    return false;
+  }
+  await fs.promises.writeFile(target, content);
+  return true;
+});
+
 ipcMain.handle("open-path", (_e, target: string) => (insideOpenRepo(target) ? shell.openPath(target) : "Krill opens only files inside an open repository."));
 ipcMain.handle("show-item", (_e, target: string) => (insideOpenRepo(target) ? shell.showItemInFolder(target) : undefined));
 ipcMain.handle("open-terminal", (_e, cwd: string) => openTerminal(cwd));

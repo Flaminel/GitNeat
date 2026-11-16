@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("krill", {
   pickDirectory: () => ipcRenderer.invoke("pick-directory"),
   saveFile: (name: string, content: string) => ipcRenderer.invoke("save-file", name, content),
   writeTemp: (content: string) => ipcRenderer.invoke("write-temp", content),
+  readFile: (cwd: string, rel: string) => ipcRenderer.invoke("read-file", cwd, rel),
+  writeFile: (cwd: string, rel: string, content: string) => ipcRenderer.invoke("write-file", cwd, rel, content),
   menu: (items: unknown) => ipcRenderer.invoke("menu", items),
   copy: (text: string) => ipcRenderer.invoke("clipboard", text),
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
