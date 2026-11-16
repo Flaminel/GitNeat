@@ -151,7 +151,6 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
         <div>
           <div className="author-name">{detail.author}</div>
           <div className="author-date">authored {formatDate(detail.authorTime)}</div>
-          {detail.committer !== detail.author && <div className="author-date">committed by {detail.committer}</div>}
         </div>
         <div className="parents">
           {detail.parents.map((p) => (
@@ -164,11 +163,20 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           ))}
         </div>
       </div>
+      {detail.committer !== detail.author && (
+        <div className="author">
+          <Avatar name={detail.committer} />
+          <div>
+            <div className="author-name">{detail.committer}</div>
+            <div className="author-date">committed {formatDate(detail.commitTime)}</div>
+          </div>
+        </div>
+      )}
       <div className="file-summary">
-        {counts.M && <span className="modified">✎ {counts.M} modified</span>}
-        {counts.A && <span className="added">+ {counts.A} added</span>}
-        {counts.D && <span className="deleted">− {counts.D} deleted</span>}
-        {counts.R && <span className="renamed">→ {counts.R} renamed</span>}
+        {counts.M && <span><b className="modified">✎</b> {counts.M} modified</span>}
+        {counts.A && <span><b className="added">+</b> {counts.A} added</span>}
+        {counts.D && <span><b className="deleted">−</b> {counts.D} deleted</span>}
+        {counts.R && <span><b className="renamed">→</b> {counts.R} renamed</span>}
       </div>
       <div className="file-toolbar">
         <button className="icon-btn sort-btn" title={desc ? "Sort A to Z" : "Sort Z to A"} onClick={() => setDesc(!desc)}>
