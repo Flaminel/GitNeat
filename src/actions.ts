@@ -292,6 +292,9 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
   });
 }
 
+export const pushTo = (ctx: Ctx, local: string, remote: string, branch: string) =>
+  run(ctx, "Push", () => g(ctx, ["push", remote, `${local}:${branch}`]));
+
 export async function setUpstream(ctx: Ctx, ref: Ref): Promise<void> {
   const options = ctx.data.refs.filter((r) => r.kind === "remote").map((r) => r.name);
   if (options.length === 0) {

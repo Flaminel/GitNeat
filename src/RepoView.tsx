@@ -189,6 +189,7 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
               onSelect={select}
               onCommitMenu={(c) => (c.sha === WIP ? M.wipMenu(ctx) : M.commitMenu(ctx, c))}
               onRefMenu={(r) => M.refMenu(ctx, r)}
+              onRefDrop={(source, target) => M.dropMenu(ctx, source, target)}
               onRefOpen={(r) =>
                 r.kind === "local" ? A.checkoutRef(ctx, r.name) : r.kind === "remote" ? A.checkoutRemote(ctx, r.name) : A.checkoutCommit(ctx, r.sha)
               }

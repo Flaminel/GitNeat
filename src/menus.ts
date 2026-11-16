@@ -282,3 +282,27 @@ export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untrac
     ),
   );
 }
+
+export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<void> {
+  const source = ctx.data.refs.find((r) => r.full === sourceFull);
+  if (!source) {
+    return Promise.resolve();
+  }
+  const cur = currentName(ctx);
+  const targetIsCurrent = !!target.current;
+  const sourceIsCurrent = !!source.current;
+  const [remote, ...rest] = target.name.split("/");
+  return showMenu([
+    targetIsCurrent && { label: `Merge ${source.name} into ${cur}`, run: () => A.merge(ctx, source.name) },
+    targetIsCurrent && { label: `Rebase ${cur} onto ${source.name}`, run: () => A.rebaseOnto(ctx, source.name) },
+    targetIsCurrent && { label: `Interactive Rebase ${cur} onto ${source.name}`, run: () => A.startInteractiveRebase(ctx, source.name) },
+    sourceIsCurrent && { label: `Merge ${target.name} into ${cur}`, run: () => A.merge(ctx, target.name) },
+    sourceIsCurrent && { label: `Rebase ${cur} onto ${target.name}`, run: () => A.rebaseOnto(ctx, target.name) },
+    sourceIsCurrent && { label: `Interactive Rebase ${cur} onto ${target.name}`, run: () => A.startInteractiveRebase(ctx, target.name) },
+    target.kind === "local" && !targetIsCurrent && { label: `Fast-forward ${target.name} to ${source.name}`, run: () => A.fastForward(ctx, target, source.name) },
+    source.kind === "local" && target.kind === "remote" && {
+      label: `Push ${source.name} to ${target.name}`,
+      run: () => A.pushTo(ctx, source.name, remote, rest.join("/")),
+    },
+  ]);
+}
