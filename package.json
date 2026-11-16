@@ -3,7 +3,7 @@
   "productName": "GitNeat",
   "version": "0.1.0",
   "description": "Open source Git GUI with a tabbed, graph-first layout",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && cross-env VITE_DEV=1 ELECTRON_RUN_AS_NODE= electron .\"",

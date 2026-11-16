@@ -57,4 +57,4 @@ GitNeat does not include Source account features, AI features, Cloud Patches, is
 
 ## License
 
-GitNeat is released under the MIT License. See the `LICENSE` file.
+GitNeat is released under the GNU General Public License version 3 (GPL-3.0). See the `LICENSE` file.
