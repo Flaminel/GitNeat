@@ -40,6 +40,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Row-local drawing works with list virtualization. Only visible rows render.
 - Rules: The first parent continues in the lane of the commit. Other parents reuse an existing lane or take the first free lane. Lanes that point to the same commit meet at the row of that commit. Lane slots are not compacted, so a lane keeps its position and color.
 - Limits: Colors follow the lane slot, not the branch name. A reused slot can show a new color for a different branch.
+- Superseded in part by D20: the color is now the column index.
 - Evidence: Source also uses a 28 px row and SVG lane edges (see `docs/EVIDENCE.md` section 3).
 
 ## D7. Commit limit
@@ -108,4 +109,35 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 ## D18. Theme colors come from the Source dark theme
 
 - Decision: `src/styles.css` uses the background, panel, text and accent values from `docs/EVIDENCE.md` section 7. The 10 lane colors are the Source `--graph-color-0..9` values.
-- Limits: Krill uses the system font, not Open Sans.
+- Superseded in part by D21: Krill now uses Open Sans.
+
+## D19. The diff view uses Monaco
+
+- Decision: Inline view and split view use the Monaco diff editor (`renderSideBySide` false or true). Hunk view is a Krill table with Monaco syntax colors.
+- Reason: Source uses the Monaco diff editor for inline and split view (see `docs/EVIDENCE-DIFF.md` section 2). The default mode is hunk, as in Source.
+- Rules: Krill loads Monaco from `node_modules`, not from a CDN. One editor worker computes the diff. Language services (TypeScript, JSON, CSS, HTML workers) are not loaded. Syntax colors come from the Monarch grammars.
+- Staging: Hunk view has a 26 px strip on each hunk with Discard Hunk and Stage Hunk (unstaged), Unstage Hunk (staged) or Revert Hunk (commit). Lines are selected in the line number columns. Monaco views have "Stage selected lines", "Unstage selected lines" and "Discard selected lines" in the editor context menu.
+- Patches: `src/diff.ts` builds the patch for a hunk or for selected lines. `git apply --recount` applies it. `test/diff.test.ts` checks the patches against a real repository.
+- Limits: The hunk view uses `dangerouslySetInnerHTML` for the output of `monaco.editor.colorize`. Monaco escapes the file text. Files with more than 20000 changed lines show without syntax colors. "Ignore whitespace" turns off staging, because the patch then does not match the file.
+
+## D20. Lane color is the column index
+
+- Decision: Each lane takes the color of its column (`--lane-0` for column 0, and so on). A curve between two columns takes the color of the higher column.
+- Reason: The Source screenshot shows the same color for all commits in one column.
+
+## D21. Open Sans at 12 px
+
+- Decision: Krill bundles Open Sans with `@fontsource/open-sans` and uses a 12 px base size.
+- Reason: Source uses Open Sans and a root size of 62.5 % with 1.2 rem text. A side by side screenshot showed 8 to 11 % wider text before this change.
+
+## D22. Hardening after the code review
+
+- Decision: The main process blocks `-c`, `--upload-pack`, `--receive-pack`, `--exec` and `--config-env` in the `git` IPC call. `open-path`, `show-item`, `read-file` and `write-file` accept only paths inside an open repository. The file watcher closes itself on error. `GIT_OPTIONAL_LOCKS=0` stops background `git status` calls from taking `index.lock`.
+- Reason: A renderer bug must not run commands or open files outside the repository. The lock prevents failed commits during a refresh.
+- Rules: User-typed names (branches, tags, remotes) that start with `-` or contain characters that git does not allow are rejected in the dialog. `git clone` puts `--` before the URL.
+
+## D23. Edit This File
+
+- Decision: For an unstaged file, "Edit This File" makes the right side of the Monaco diff editable. "Save Changes" writes the file through the `write-file` IPC call.
+- Reason: Source has the same button in the diff toolbar.
+- Limits: Krill does not warn if the file changes on disk during the edit.

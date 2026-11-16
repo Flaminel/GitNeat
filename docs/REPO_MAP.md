@@ -20,19 +20,23 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `src/api.ts` | Types for `window.krill` and `MenuSpec` |
 | `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
+| `src/diff.ts` | Unified diff parser and patch builder for hunks and selected lines |
+| `src/monaco.ts` | Monaco setup: worker, `krill` theme, language detection |
 | `src/actions.ts` | Git operations that change the repository (checkout, merge, rebase, reset, push, and so on) |
 | `src/menus.ts` | Context menu content for commits, branches, tags, stashes, remotes, worktrees, files and tabs |
 | `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
 | `src/App.tsx` | Tabs, saved state, open repository |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel |
-| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView`, `RebaseModal` |
+| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
 | `test/graph.test.ts` | Lane layout tests |
 | `test/menus.test.ts` | Context menu order tests with a fake `window.krill` |
+| `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
 | `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
+| `docs/EVIDENCE-DIFF.md` | Evidence for the Source diff and merge views |
 | `docs/DECISIONS.md` | Design decisions and their limits |
 
 ## Where to change things
@@ -50,6 +54,9 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
+| Change the diff toolbar or modes | `DiffView` in `src/components/DiffView.tsx` |
+| Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
+| Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |
 | Change a panel width default | `useStoredWidth` calls in `src/RepoView.tsx` and `src/components/GraphView.tsx` |
 
 ## Environment variables
