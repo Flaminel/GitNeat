@@ -23,7 +23,7 @@ interface Props {
 
 const STATUS_CLASS: Record<string, string> = { A: "added", D: "deleted", R: "renamed", C: "renamed", "?": "added", U: "conflict" };
 
-function StatusIcon({ status }: { status: string }) {
+export function StatusIcon({ status }: { status: string }) {
   const symbol = status === "A" || status === "?" ? "+" : status === "D" ? "−" : status === "R" || status === "C" ? "→" : status === "U" ? "!" : "✎";
   return <span className={`file-status ${STATUS_CLASS[status] ?? "modified"}`}>{symbol}</span>;
 }

@@ -4,11 +4,11 @@ import { krill } from "../api";
 import { languageFor, monaco } from "../monaco";
 import { BlameLine, Commit, DiffSides, loadBlame, loadDiff, loadFileHistory, loadSides } from "../repo";
 import { showMenu } from "../ui";
-import { OpenFile } from "./DetailPanel";
+import { OpenFile, StatusIcon } from "./DetailPanel";
 import { relativeTime } from "./GraphView";
 
 export type DiffMode = "hunk" | "inline" | "split";
-type View = "diff" | "blame" | "history";
+type View = "diff" | "file" | "blame" | "history";
 export type PatchAction = "stage" | "unstage" | "discard" | "revert";
 
 interface Props {
@@ -21,6 +21,7 @@ interface Props {
   onOpenInCommit(commit: Commit, path: string): void;
 }
 
+const MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace";
 const MODE_KEY = "krill.diffMode";
 const WS_KEY = "krill.diffIgnoreWhitespace";
 const WRAP_KEY = "krill.diffWordWrap";
@@ -45,10 +46,10 @@ const I = {
   up: <path d="M8 13V3 M4 7l4-4 4 4" />,
   down: <path d="M8 3v10 M4 9l4 4 4-4" />,
   hunk: <path d="M2.5 2.5h11v11h-11z M5 5.5h6 M5 8h6 M5 10.5h6" />,
-  inline: <path d="M2 3.5h12 M2 6.5h12 M2 9.5h12 M2 12.5h12" />,
+  inline: <path d="M2.5 4h.01 M2.5 8h.01 M2.5 12h.01 M5.5 4h8 M5.5 8h8 M5.5 12h8" />,
   split: <path d="M2.5 2.5h11v11h-11z M8 2.5v11" />,
   ws: <path d="M10 13V3 M12.5 13V3 M13.5 3H7.5a3 3 0 0 0 0 6H10" />,
-  wrap: <path d="M2 4h12 M2 8h9.5a2.5 2.5 0 0 1 0 5H8 M9.5 11.5L8 13l1.5 1.5 M2 12h3" />,
+  wrap: <path d="M2.5 3.5h11 M2.5 6.5h8 M2.5 9.5h11 M2.5 12.5h8" />,
   blame: <path d="M3 2.5h7l3 3v8H3z M5.5 7h5 M5.5 9.5h5 M5.5 12h3" />,
   history: <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9 M2.5 2.5v2.6h2.6 M8 5v3.2l2 1.3" />,
   edit: <path d="M10.5 2.5l3 3-8 8H2.5v-3z" />,
@@ -86,8 +87,120 @@ function useColorized(lines: string[], language: string): string[] | null {
   return html;
 }
 
+interface Bracket {
+  range: monaco.IRange;
+  nestingLevel: number;
+  isInvalid: boolean;
+}
+
+interface InternalModel {
+  tokenization: {
+    forceTokenization(line: number): void;
+    getLineTokens(line: number): { getCount(): number; getEndOffset(i: number): number; getClassName(i: number): string };
+  };
+  bracketPairs: { getBracketsInRange(range: monaco.IRange): { toArray(): Bracket[] } };
+}
+
+const escapeHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+export function renderModelLine(model: monaco.editor.ITextModel, line: number, mark?: [number, number]): string {
+  const text = model.getLineContent(line);
+  const inner = model as unknown as InternalModel;
+  const cls: string[] = new Array(text.length).fill("mtk1");
+  try {
+    inner.tokenization.forceTokenization(line);
+    const tokens = inner.tokenization.getLineTokens(line);
+    let start = 0;
+    for (let i = 0; i < tokens.getCount(); i++) {
+      const end = tokens.getEndOffset(i);
+      cls.fill(tokens.getClassName(i), start, end);
+      start = end;
+    }
+    inner.bracketPairs.getBracketsInRange({ startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: text.length + 1 }).toArray().forEach((b) => {
+      if (!b.isInvalid && b.range.startLineNumber === line) {
+        cls[b.range.startColumn - 1] = `bracket-${b.nestingLevel % 3}`;
+      }
+    });
+  } catch {
+    return escapeHtml(text);
+  }
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const hl = !!mark && i >= mark[0] && i < mark[1];
+    let j = i + 1;
+    while (j < text.length && cls[j] === cls[i] && (!!mark && j >= mark[0] && j < mark[1]) === hl) {
+      j++;
+    }
+    out += `<span class="${cls[i]}${hl ? " hl" : ""}">${escapeHtml(text.slice(i, j))}</span>`;
+    i = j;
+  }
+  return out;
+}
+
+function changedRange(a: string, b: string): [[number, number], [number, number]] | null {
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) {
+    p++;
+  }
+  let s = 0;
+  while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) {
+    s++;
+  }
+  if (p === 0 && s === 0) {
+    return null;
+  }
+  return [
+    [p, a.length - s],
+    [p, b.length - s],
+  ];
+}
+
+interface LineLook {
+  pure: boolean;
+  mark?: [number, number];
+}
+
+function lineLooks(hunk: Hunk): LineLook[] {
+  const looks: LineLook[] = hunk.lines.map(() => ({ pure: true }));
+  let i = 0;
+  while (i < hunk.lines.length) {
+    if (hunk.lines[i].kind === "ctx") {
+      i++;
+      continue;
+    }
+    const dels: number[] = [];
+    const adds: number[] = [];
+    while (i < hunk.lines.length && hunk.lines[i].kind !== "ctx") {
+      (hunk.lines[i].kind === "del" ? dels : adds).push(i);
+      i++;
+    }
+    if (dels.length === 0 || adds.length === 0) {
+      continue;
+    }
+    for (const k of [...dels, ...adds]) {
+      looks[k].pure = false;
+    }
+    for (let k = 0; k < Math.min(dels.length, adds.length); k++) {
+      const r = changedRange(hunk.lines[dels[k]].text.replace(/\r$/, ""), hunk.lines[adds[k]].text.replace(/\r$/, ""));
+      if (r) {
+        looks[dels[k]].mark = r[0];
+        looks[adds[k]].mark = r[1];
+      }
+    }
+  }
+  return looks;
+}
+
+function useModels(sides: DiffSides, language: string) {
+  const models = useMemo(() => ({ next: monaco.editor.createModel(sides.modified, language) }), [sides, language]);
+  useEffect(() => () => models.next.dispose(), [models]);
+  return models;
+}
+
 function HunkView(props: {
   diff: ParsedDiff;
+  sides: DiffSides;
   language: string;
   kind: OpenFile["source"]["kind"];
   wrap: boolean;
@@ -97,8 +210,34 @@ function HunkView(props: {
   const { diff, kind } = props;
   const [selected, setSelected] = useState<Map<number, Set<number>>>(new Map());
   const anchor = useRef<{ hunk: number; line: number } | null>(null);
-  const flat = useMemo(() => diff.hunks.flatMap((h) => h.lines.map((l) => l.text)), [diff]);
-  const html = useColorized(flat, props.language);
+  const models = useModels(props.sides, props.language);
+  const looks = useMemo(() => diff.hunks.map(lineLooks), [diff]);
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    monaco.editor.colorize("", props.language, {}).then(() => live && setReady(props.language));
+    return () => {
+      live = false;
+    };
+  }, [props.language]);
+  const html = useMemo(() => {
+    const total = diff.hunks.reduce((n, h) => n + h.lines.length, 0);
+    return diff.hunks.map((hunk, h) =>
+      hunk.lines.map((line, i) => {
+        const model = models.next;
+        const n = line.next;
+        const text = line.text.replace(/\r$/, "");
+        const mark = looks[h][i].mark;
+        if (line.kind === "del") {
+          return mark ? escapeHtml(text.slice(0, mark[0])) + `<span class="hl">${escapeHtml(text.slice(mark[0], mark[1]))}</span>` + escapeHtml(text.slice(mark[1])) : escapeHtml(text);
+        }
+        if (ready !== props.language || total > 20000 || !n || n > model.getLineCount() || model.getLineContent(n) !== text) {
+          return escapeHtml(text);
+        }
+        return renderModelLine(model, n, mark);
+      }),
+    );
+  }, [diff, models, looks, ready, props.language]);
 
   useEffect(() => setSelected(new Map()), [diff]);
 
@@ -139,34 +278,31 @@ function HunkView(props: {
     ]);
   };
 
-  let flatIndex = 0;
   return (
     <div className={`hunk-view${props.wrap ? " wrap" : ""}`}>
       {diff.hunks.map((hunk: Hunk, h) => {
-        const base = flatIndex;
-        flatIndex += hunk.lines.length;
         const patch = () => hunkPatch(diff, hunk);
         return (
           <div className="hunk-block" key={hunk.header + h} data-hunk={h}>
             <div className="hunk-strip">
-              <span className="hunk-title">{hunk.header}</span>
+              <span className="hunk-title">{hunk.header.replace(/^(@@[^@]*@@).*$/, "$1")}</span>
               {props.canStage && kind === "unstaged" && (
                 <>
-                  <button className="btn-xs danger" onClick={() => props.onPatch(patch(), "discard")}>
+                  <button className="hunk-btn" onClick={() => props.onPatch(patch(), "discard")}>
                     Discard Hunk
                   </button>
-                  <button className="btn-xs success" onClick={() => props.onPatch(patch(), "stage")}>
+                  <button className="hunk-btn stage" onClick={() => props.onPatch(patch(), "stage")}>
                     Stage Hunk
                   </button>
                 </>
               )}
               {props.canStage && kind === "staged" && (
-                <button className="btn-xs danger" onClick={() => props.onPatch(patch(), "unstage")}>
+                <button className="hunk-btn" onClick={() => props.onPatch(patch(), "unstage")}>
                   Unstage Hunk
                 </button>
               )}
               {kind === "commit" && (
-                <button className="btn-xs" title="Apply the inverse of this hunk to your working directory" onClick={() => props.onPatch(patch(), "revert")}>
+                <button className="hunk-btn" title="Apply the inverse of this hunk to your working directory" onClick={() => props.onPatch(patch(), "revert")}>
                   Revert Hunk
                 </button>
               )}
@@ -180,20 +316,19 @@ function HunkView(props: {
                       toggle(h, i, e);
                     }
                   };
+                  const look = looks[h][i];
                   return (
-                    <tr key={i} className={`line ${line.kind}${isSel ? " sel" : ""}`} onContextMenu={() => lineMenu(h, i)}>
-                      <td className="ln" onMouseDown={pick}>
+                    <tr key={i} className={`line ${line.kind}${look.pure ? " pure" : ""}${isSel ? " sel" : ""}`} onContextMenu={() => lineMenu(h, i)}>
+                      <td className="ln old" onMouseDown={pick}>
                         {line.old}
                       </td>
-                      <td className="ln" onMouseDown={pick}>
+                      <td className="ln new" onMouseDown={pick}>
                         {line.next}
                       </td>
-                      <td className="sign">{line.kind === "add" ? "+" : line.kind === "del" ? "-" : ""}</td>
-                      {html ? (
-                        <td className="code" dangerouslySetInnerHTML={{ __html: html[base + i] ?? "" }} />
-                      ) : (
-                        <td className="code">{line.text}</td>
-                      )}
+                      <td className="sign" onMouseDown={pick}>
+                        {line.kind === "add" ? "+" : line.kind === "del" ? "\u2013" : ""}
+                      </td>
+                      <td className="code" dangerouslySetInnerHTML={{ __html: html[h][i] }} />
                     </tr>
                   );
                 })}
@@ -204,6 +339,53 @@ function HunkView(props: {
       })}
     </div>
   );
+}
+
+function FileView(props: {
+  text: string;
+  language: string;
+  wrap: boolean;
+  editing: boolean;
+  editorRef: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const editor = monaco.editor.create(host.current as HTMLDivElement, {
+      theme: "krill",
+      automaticLayout: true,
+      readOnly: true,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      fontSize: 12,
+      lineHeight: 16,
+      fontFamily: MONO,
+    });
+    props.editorRef.current = editor;
+    return () => {
+      editor.getModel()?.dispose();
+      editor.dispose();
+      props.editorRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const editor = props.editorRef.current;
+    if (!editor) {
+      return;
+    }
+    const model = editor.getModel();
+    if (!model) {
+      editor.setModel(monaco.editor.createModel(props.text, props.language));
+    } else if (!props.editing && model.getValue() !== props.text) {
+      model.setValue(props.text);
+    }
+    if (model) {
+      monaco.editor.setModelLanguage(model, props.language);
+    }
+  }, [props.text, props.language, props.editing]);
+  useEffect(() => {
+    props.editorRef.current?.updateOptions({ readOnly: !props.editing, wordWrap: props.wrap ? "on" : "off" });
+  }, [props.editing, props.wrap]);
+  return <div className="monaco-host" ref={host} />;
 }
 
 function MonacoDiff(props: {
@@ -232,7 +414,8 @@ function MonacoDiff(props: {
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       fontSize: 12,
-      fontFamily: "Menlo, Consolas, 'DejaVu Sans Mono', monospace",
+      lineHeight: 16,
+      fontFamily: MONO,
       useInlineViewWhenSpaceIsLimited: false,
       renderOverviewRuler: true,
     });
@@ -398,7 +581,9 @@ export function DiffView(props: Props) {
   const [sides, setSides] = useState<DiffSides | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [working, setWorking] = useState<string | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
+  const fileEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const sourceKey = JSON.stringify(file.source);
   const language = useMemo(() => languageFor(file.path), [file.path]);
@@ -407,6 +592,7 @@ export function DiffView(props: Props) {
   useEffect(() => {
     setView("diff");
     setEditing(false);
+    setWorking(null);
   }, [sourceKey, file.path]);
 
   useEffect(() => {
@@ -441,6 +627,7 @@ export function DiffView(props: Props) {
   const diff = useMemo(() => (text === null ? null : parseDiff(text)), [text]);
   const binary = !!(diff?.binary || sides?.binary);
   const canStage = !ignoreWs && (kind === "unstaged" || kind === "staged");
+  const status = !sides ? "M" : file.orig && file.orig !== file.path ? "R" : sides.original === "" && sides.modified !== "" ? "A" : sides.modified === "" && kind !== "unstaged" ? "D" : "M";
 
   const pickMode = (m: DiffMode) => {
     setMode(m);
@@ -465,11 +652,32 @@ export function DiffView(props: Props) {
     }
   };
 
+  const editWorking = async () => {
+    if (kind === "unstaged") {
+      if (mode === "hunk") {
+        pickMode("inline");
+      }
+      setView("diff");
+      setEditing(true);
+      return;
+    }
+    const content = await krill().readFile(cwd, file.path);
+    setWorking(content ?? "");
+    setView("file");
+    setEditing(true);
+  };
+
   const save = async () => {
-    const value = editorRef.current?.getModifiedEditor().getValue();
+    const value = view === "file" ? fileEditorRef.current?.getValue() : editorRef.current?.getModifiedEditor().getValue();
     if (value !== undefined && (await krill().writeFile(cwd, file.path, value))) {
       setEditing(false);
+      setWorking(null);
     }
+  };
+
+  const cancel = () => {
+    setEditing(false);
+    setWorking(null);
   };
 
   const slash = file.path.lastIndexOf("/");
@@ -484,12 +692,22 @@ export function DiffView(props: Props) {
     body = <div className="diff-empty">Loading diff...</div>;
   } else if (binary) {
     body = <div className="diff-empty">Binary file</div>;
+  } else if (view === "file") {
+    body = (
+      <FileView
+        text={working ?? (status === "D" ? sides.original : sides.modified)}
+        language={language}
+        wrap={wrap}
+        editing={editing}
+        editorRef={fileEditorRef}
+      />
+    );
   } else if (mode === "hunk" && !editing) {
     body =
       diff.hunks.length === 0 ? (
-        <div className="diff-empty">{sides.modified === "" && kind !== "unstaged" ? "File was deleted" : "File contents are unchanged"}</div>
+        <div className="diff-empty">{status === "D" ? "File was deleted" : "File contents are unchanged"}</div>
       ) : (
-        <HunkView diff={diff} language={language} kind={kind} wrap={wrap} canStage={canStage} onPatch={props.onPatch} />
+        <HunkView diff={diff} sides={sides} language={language} kind={kind} wrap={wrap} canStage={canStage} onPatch={props.onPatch} />
       );
   } else {
     body = (
@@ -513,50 +731,65 @@ export function DiffView(props: Props) {
   return (
     <div className="diff-view">
       <div className="diff-path-bar">
+        <StatusIcon status={status} />
         <span className="diff-path">
           {slash >= 0 && <span className="dir">{file.path.slice(0, slash + 1)}</span>}
           {file.path.slice(slash + 1)}
           {file.orig && file.orig !== file.path && <span className="dir"> (renamed from {file.orig})</span>}
         </span>
+        {!binary && <span className="diff-encoding">UTF-8</span>}
         <button className="icon-btn diff-close" title="Close" onClick={onClose}>
           ×
         </button>
       </div>
       <div className="diff-toolbar">
         <div className="tb-region tb-left">
-          {kind === "unstaged" && !binary && view === "diff" && !editing && (
-            <TbButton
-              icon={I.edit}
-              title="Edit This File"
-              label="Edit This File"
-              onClick={() => {
-                if (mode === "hunk") {
-                  pickMode("inline");
-                }
-                setEditing(true);
-              }}
-            />
+          {!binary && !editing && view !== "blame" && view !== "history" && status !== "D" && (
+            <button className="tb-btn edit" onClick={editWorking}>
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round">
+                {I.edit}
+              </svg>
+              <span>{kind === "unstaged" ? "Edit This File" : "Edit in Working Directory"}</span>
+            </button>
           )}
           {editing && (
-            <>
-              <button className="btn-xs" onClick={() => setEditing(false)}>
+            <span className="tb-group">
+              <button className="tb-btn" onClick={cancel}>
                 Cancel
               </button>
-              <button className="btn-xs success" onClick={save}>
+              <button className="tb-btn on" onClick={save}>
                 Save Changes
               </button>
-            </>
+            </span>
           )}
         </div>
-        <div className="tb-region tb-center" data-testid="diff-options">
+        <div className="tb-region tb-center">
+          <span className="tb-group">
+            <button className={`tb-btn${view === "file" ? " on" : ""}`} disabled={binary || (editing && view !== "file")} onClick={() => setView("file")}>
+              File View
+            </button>
+            <button className={`tb-btn${view === "diff" ? " on" : ""}`} disabled={binary || (editing && view === "file")} onClick={() => setView("diff")}>
+              Diff View
+            </button>
+          </span>
+        </div>
+        <div className="tb-region tb-right" data-testid="diff-options">
+          <span className="tb-group">
+            <button className={`tb-btn${view === "blame" ? " on" : ""}`} disabled={editing} onClick={() => setView(view === "blame" ? "diff" : "blame")}>
+              Blame
+            </button>
+            <button className={`tb-btn${view === "history" ? " on" : ""}`} disabled={editing} onClick={() => setView(view === "history" ? "diff" : "history")}>
+              History
+            </button>
+          </span>
           <span className="tb-group">
             <TbButton icon={I.up} title="Previous Change" disabled={disabled} onClick={() => jump(-1)} />
             <TbButton icon={I.down} title="Next Change" disabled={disabled} onClick={() => jump(1)} />
           </span>
           <span className="tb-group">
-            <TbButton icon={I.hunk} title="Hunk View" on={view === "diff" && mode === "hunk"} disabled={binary || editing} onClick={() => pickMode("hunk")} />
-            <TbButton icon={I.inline} title="Inline View" on={view === "diff" && mode === "inline"} disabled={binary} onClick={() => pickMode("inline")} />
-            <TbButton icon={I.split} title="Split View" on={view === "diff" && mode === "split"} disabled={binary} onClick={() => pickMode("split")} />
+            <TbButton icon={I.hunk} title="Hunk View" on={view === "diff" && mode === "hunk" && !editing} disabled={binary || editing} onClick={() => pickMode("hunk")} />
+            <TbButton icon={I.inline} title="Inline View" on={view === "diff" && mode === "inline"} disabled={binary || (editing && view === "file")} onClick={() => pickMode("inline")} />
+            <TbButton icon={I.split} title="Split View" on={view === "diff" && mode === "split"} disabled={binary || (editing && view === "file")} onClick={() => pickMode("split")} />
           </span>
           <span className="tb-group">
             <TbButton
@@ -579,12 +812,6 @@ export function DiffView(props: Props) {
                 store(WRAP_KEY, String(!wrap));
               }}
             />
-          </span>
-        </div>
-        <div className="tb-region tb-right">
-          <span className="tb-group">
-            <TbButton icon={I.blame} title="Blame" label="Blame" on={view === "blame"} onClick={() => setView(view === "blame" ? "diff" : "blame")} />
-            <TbButton icon={I.history} title="History" label="History" on={view === "history"} onClick={() => setView(view === "history" ? "diff" : "history")} />
           </span>
         </div>
       </div>
