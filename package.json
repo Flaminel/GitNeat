@@ -6,11 +6,11 @@
   "license": "MIT",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && cross-env VITE_DEV=1 electron .\"",
+    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5173 && cross-env VITE_DEV=1 ELECTRON_RUN_AS_NODE= electron .\"",
     "build": "vite build && tsc -p tsconfig.electron.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "start": "npm run build && electron .",
+    "start": "npm run build && cross-env ELECTRON_RUN_AS_NODE= electron .",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win"
   },
