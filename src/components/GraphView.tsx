@@ -5,8 +5,8 @@ import { Splitter, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
-const LANE = 18;
-const PAD = 14;
+const LANE = 22;
+const PAD = 29;
 export const LANE_COLORS = 10;
 export const WIP = "WIP";
 
@@ -46,34 +46,36 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
 }
 
-export function relativeTime(seconds: number): string {
-  const diff = Date.now() / 1000 - seconds;
-  const day = 86400;
-  if (diff < 3600) {
-    return "an hour ago";
+export function relativeTime(seconds: number): string | null {
+  const then = new Date(seconds * 1000);
+  const now = new Date();
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(then)) / 86400000);
+  if (days <= 0) {
+    return null;
   }
-  if (diff < day) {
-    return `${Math.round(diff / 3600)} hours ago`;
-  }
-  if (diff < 2 * day) {
+  if (days === 1) {
     return "yesterday";
   }
-  if (diff < 7 * day) {
-    return `${Math.round(diff / day)} days ago`;
+  if (days < 7) {
+    return `${days} days ago`;
   }
-  if (diff < 14 * day) {
+  if (days < 11) {
     return "a week ago";
   }
-  if (diff < 30 * day) {
-    return `${Math.round(diff / (7 * day))} weeks ago`;
+  if (days < 26) {
+    return `${Math.round(days / 7)} weeks ago`;
   }
-  if (diff < 60 * day) {
+  if (days < 46) {
     return "a month ago";
   }
-  if (diff < 365 * day) {
-    return `${Math.round(diff / (30 * day))} months ago`;
+  if (days < 320) {
+    return `${Math.round(days / 30.4)} months ago`;
   }
-  return diff < 730 * day ? "a year ago" : `${Math.round(diff / (365 * day))} years ago`;
+  if (days < 548) {
+    return "a year ago";
+  }
+  return `${Math.round(days / 365)} years ago`;
 }
 
 interface Pill {
@@ -100,7 +102,7 @@ function pillsFor(refs: Ref[]): Pill[] {
   }
   for (const r of remotes) {
     if (!used.has(r.full)) {
-      pills.push({ key: r.full, label: r.name, ref: r, local: false, remote: true, tag: false, current: false });
+      pills.push({ key: r.full, label: r.name.split("/").slice(1).join("/"), ref: r, local: false, remote: true, tag: false, current: false });
     }
   }
   for (const t of refs.filter((r) => r.kind === "tag")) {
@@ -209,8 +211,8 @@ const RowView = memo(function RowView(props: {
             <circle cx={cx} cy={cy} r={5} fill={color} />
           ) : (
             <g>
-              <circle cx={cx} cy={cy} r={10} fill={color} />
-              <circle cx={cx} cy={cy} r={8} fill="var(--avatar-bg)" />
+              <circle cx={cx} cy={cy} r={11.5} fill={color} />
+              <circle cx={cx} cy={cy} r={9.5} fill="var(--avatar-bg)" />
               <text x={cx} y={cy + 3} textAnchor="middle" className="avatar-text">
                 {initials(commit.author)}
               </text>
@@ -224,7 +226,7 @@ const RowView = memo(function RowView(props: {
             // WIP <span className="wip-count">{props.wipCount}</span>
           </span>
         ) : (
-          <span className={props.isHead ? "head-msg" : undefined}>{commit.subject}</span>
+          <span>{commit.subject}</span>
         )}
         {props.dateLabel && <span className="date-pill">{props.dateLabel}</span>}
       </div>
@@ -264,7 +266,7 @@ export function GraphView(props: Props) {
   const graphWidth = graphUser > 0 ? graphUser : autoGraphWidth;
 
   const dateLabels = useMemo(() => {
-    let previous = "";
+    let previous: string | null = null;
     return props.commits.map((c) => {
       if (c.sha === WIP) {
         return null;

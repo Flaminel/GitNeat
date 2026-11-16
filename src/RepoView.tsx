@@ -43,8 +43,8 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
-  const [leftWidth, setLeftWidth] = useStoredWidth("left", 280);
-  const [rightWidth, setRightWidth] = useStoredWidth("right", 380);
+  const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
+  const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const load = useCallback(async () => {
     try {

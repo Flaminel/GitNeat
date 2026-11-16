@@ -5,6 +5,7 @@ import { krill } from "../api";
 import * as M from "../menus";
 import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
+import { Icon } from "./icons";
 
 export interface OpenFile {
   source: DiffSource;
@@ -85,6 +86,12 @@ function FileList(props: {
   return <>{out}</>;
 }
 
+function formatDate(seconds: number): string {
+  const d = new Date(seconds * 1000);
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} @ ${time}`;
+}
+
 function Avatar({ name }: { name: string }) {
   const parts = name.trim().split(/\s+/);
   const text = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
@@ -96,6 +103,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [tree, setTree] = useState(false);
   const [all, setAll] = useState<string[] | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [desc, setDesc] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -123,12 +131,13 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const counts = detail.files.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.status]: (acc[f.status] ?? 0) + 1 }), {});
   const source: DiffSource = { kind: "commit", sha: detail.sha, parent: detail.parents[0] };
   const changed = new Map(detail.files.map((f) => [f.path, f]));
-  const files: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
+  const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
+  const files = [...listed].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
 
   return (
     <div className="detail">
       <div className="detail-head">
-        commit: <b className="sha" onClick={() => krill().copy(detail.sha)} title="Copy commit sha">{detail.sha.slice(0, 7)}</b>
+        commit: <b className="sha" onClick={() => krill().copy(detail.sha)} title="Copy commit sha">{detail.sha.slice(0, 6)}</b>
       </div>
       <div className="message-box">
         <div className="subject">{subject}</div>
@@ -138,7 +147,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
         <Avatar name={detail.author} />
         <div>
           <div className="author-name">{detail.author}</div>
-          <div className="author-date">authored {new Date(detail.authorTime * 1000).toLocaleString()}</div>
+          <div className="author-date">authored {formatDate(detail.authorTime)}</div>
           {detail.committer !== detail.author && <div className="author-date">committed by {detail.committer}</div>}
         </div>
         <div className="parents">
@@ -146,7 +155,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
             <div key={p}>
               parent:{" "}
               <a className="sha" onClick={() => onSelectSha(p)}>
-                {p.slice(0, 7)}
+                {p.slice(0, 6)}
               </a>
             </div>
           ))}
@@ -159,6 +168,9 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
         {counts.R && <span className="renamed">→ {counts.R} renamed</span>}
       </div>
       <div className="file-toolbar">
+        <button className="icon-btn sort-btn" title={desc ? "Sort A to Z" : "Sort Z to A"} onClick={() => setDesc(!desc)}>
+          {Icon.sort}
+        </button>
         <div className="segmented">
           <button className={!tree ? "on" : ""} onClick={() => setTree(false)}>
             ☰ Path

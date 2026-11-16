@@ -46,7 +46,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font: 12px/1.4 "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   user-select: none;
 }
 
@@ -116,7 +116,7 @@ select:focus {
 .tabbar {
   display: flex;
   align-items: stretch;
-  height: 36px;
+  height: 40px;
   background: var(--bg-deep);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
@@ -192,7 +192,7 @@ select:focus {
 .toolbar {
   display: flex;
   align-items: center;
-  height: 56px;
+  height: 52px;
   padding: 0 12px;
   background: var(--toolbar);
   border-bottom: 1px solid var(--border);
@@ -291,7 +291,10 @@ select:focus {
 
 .busy {
   min-width: 300px;
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
   color: var(--text-dim);
 }
 
@@ -473,8 +476,13 @@ body.resizing * {
 }
 
 .section.open {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-height: 54px;
+  max-height: max-content;
+}
+
+.section.open.grow {
+  max-height: none;
 }
 
 .section-head {
@@ -674,6 +682,7 @@ body.resizing * {
   flex: 1;
   min-width: 0;
   padding: 0 10px;
+  border-left: 1px solid var(--border);
   gap: 8px;
 }
 
@@ -684,28 +693,28 @@ body.resizing * {
   white-space: nowrap;
 }
 
-.head-msg {
-  font-weight: 600;
-}
 
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  max-width: 170px;
-  height: 20px;
+  gap: 5px;
+  max-width: 190px;
+  height: 22px;
   padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid var(--row-color);
-  background: color-mix(in srgb, var(--row-color) 22%, var(--bg));
+  border-radius: 3px;
+  color: #fff;
+  background: color-mix(in srgb, var(--row-color) 25%, var(--bg));
   font-size: 12px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .pill.current {
-  font-weight: 600;
-  background: color-mix(in srgb, var(--row-color) 40%, var(--bg));
+  background: color-mix(in srgb, var(--row-color) 50%, var(--bg));
+}
+
+.row.selected .pill {
+  background: color-mix(in srgb, var(--row-color) 50%, var(--bg));
 }
 
 .pill.more {
@@ -738,6 +747,11 @@ body.resizing * {
 }
 
 .date-pill {
+  position: absolute;
+  right: 8px;
+  top: -8px;
+  z-index: 1;
+  line-height: 15px;
   flex-shrink: 0;
   font-size: 11px;
   color: var(--text-dim);
@@ -796,7 +810,6 @@ body.resizing * {
 }
 
 .sha {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
   cursor: pointer;
   color: var(--text);
 }
@@ -808,7 +821,7 @@ a.sha {
 .message-box {
   margin: 10px;
   padding: 10px;
-  min-height: 90px;
+  min-height: 130px;
   background: var(--bg-deep);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -816,7 +829,7 @@ a.sha {
 }
 
 .subject {
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .body {
@@ -834,8 +847,8 @@ a.sha {
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   background: var(--avatar-bg);
   display: grid;
@@ -887,8 +900,16 @@ a.sha {
 .file-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   padding: 4px 12px 8px;
+}
+
+.sort-btn {
+  margin-right: auto;
+}
+
+.file-toolbar .check {
+  margin-left: 24%;
 }
 
 .segmented {
@@ -1350,7 +1371,7 @@ a.sha {
 
 .hunk-btn {
   padding: 0 8px;
-  font: 11px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font: 11px/18px "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   background: #2c5a34;
   border-color: #2c5a34;
 }
@@ -1358,4 +1379,27 @@ a.sha {
 .hunk-btn.discard {
   background: #5a2c2c;
   border-color: #5a2c2c;
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 24px;
+  padding: 0 12px;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.statusbar-fill {
+  flex: 1;
+}
+
+.statusbar-version {
+  background: var(--panel-2);
+  border-radius: 3px;
+  padding: 0 6px;
 }

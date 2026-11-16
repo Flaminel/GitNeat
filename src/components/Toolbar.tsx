@@ -1,7 +1,9 @@
+import React from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
 import { krill } from "../api";
 import { showMenu } from "../ui";
+import { Icon } from "./icons";
 
 interface Props {
   ctx: Ctx;
@@ -12,7 +14,7 @@ interface Props {
   onRedo(): void;
 }
 
-function ToolButton(props: { label: string; icon: string; onClick(): void; disabled?: boolean; badge?: number; onMenu?(): void; title?: string }) {
+function ToolButton(props: { label: string; icon: React.ReactNode; onClick(): void; disabled?: boolean; badge?: number; onMenu?(): void; title?: string }) {
   return (
     <div className="tool">
       <button className="tool-btn" disabled={props.disabled} onClick={props.onClick} title={props.title ?? props.label}>
@@ -57,11 +59,11 @@ export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: P
         </button>
       </div>
       <div className="tools">
-        <ToolButton label="Undo" icon="↶" onClick={onUndo} disabled={!undoLabel} title={undoLabel && `Undo ${undoLabel}`} />
-        <ToolButton label="Redo" icon="↷" onClick={onRedo} disabled={!redoLabel} title={redoLabel && `Redo ${redoLabel}`} />
+        <ToolButton label="Undo" icon={Icon.undo} onClick={onUndo} disabled={!undoLabel} title={undoLabel && `Undo ${undoLabel}`} />
+        <ToolButton label="Redo" icon={Icon.redo} onClick={onRedo} disabled={!redoLabel} title={redoLabel && `Redo ${redoLabel}`} />
         <ToolButton
           label="Pull"
-          icon="⤓"
+          icon={Icon.pull}
           badge={current?.behind}
           onClick={() => A.pull(ctx, "ff")}
           onMenu={() =>
@@ -73,14 +75,21 @@ export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: P
             ])
           }
         />
-        <ToolButton label="Push" icon="⤒" badge={current?.ahead} onClick={() => A.push(ctx)} />
-        <ToolButton label="Branch" icon="⑂" onClick={() => A.createBranch(ctx, "HEAD")} disabled={!data.head} />
-        <ToolButton label="Stash" icon="⊻" onClick={() => A.stashSave(ctx)} disabled={data.status.length === 0} />
-        <ToolButton label="Pop" icon="⊼" onClick={() => A.stashPop(ctx)} disabled={data.stashes.length === 0} />
+        <ToolButton label="Push" icon={Icon.push} badge={current?.ahead} onClick={() => A.push(ctx)} />
+        <ToolButton label="Branch" icon={Icon.branchTool} onClick={() => A.createBranch(ctx, "HEAD")} disabled={!data.head} />
+        <ToolButton label="Stash" icon={Icon.stashTool} onClick={() => A.stashSave(ctx)} disabled={data.status.length === 0} />
+        <ToolButton label="Pop" icon={Icon.popTool} onClick={() => A.stashPop(ctx)} disabled={data.stashes.length === 0} />
         <span className="tool-divider" />
-        <ToolButton label="Terminal" icon="›_" onClick={() => krill().openTerminal(data.cwd)} />
+        <ToolButton label="Terminal" icon={Icon.terminal} onClick={() => krill().openTerminal(data.cwd)} />
       </div>
-      <div className="busy">{ctx.ui.busy && <span className="spinner">{ctx.ui.busy}…</span>}</div>
+      <div className="busy">
+        {ctx.ui.busy && <span className="spinner">{ctx.ui.busy}…</span>}
+        <ToolButton
+          label="Search"
+          icon={Icon.searchTool}
+          onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "f", metaKey: true, ctrlKey: true }))}
+        />
+      </div>
     </div>
   );
 }

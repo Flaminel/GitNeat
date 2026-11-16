@@ -22,7 +22,8 @@ test("branch and merge use a second lane then rejoin", () => {
   assert.deepEqual(rows.map((r) => r.col), [0, 1, 0, 0]);
   const baseRow = rows[3];
   assert.ok(baseRow.segments.some((s) => s.x1 === 1 && s.y1 === "top" && s.x2 === 0 && s.y2 === "mid"));
-  assert.notEqual(rows[1].color, rows[0].color);
+  assert.equal(rows[1].color, 1);
+  assert.equal(rows[0].color, 0);
 });
 
 test("two unrelated tips get separate lanes", () => {

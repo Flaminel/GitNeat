@@ -24,9 +24,10 @@ let win: BrowserWindow | null = null;
 
 function createWindow(): void {
   const isMac = process.platform === "darwin";
+  const [width, height] = (process.env.KRILL_WINDOW_SIZE ?? "1500x940").split("x").map(Number);
   win = new BrowserWindow({
-    width: 1500,
-    height: 940,
+    width,
+    height,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#1c1e23",

@@ -4,6 +4,7 @@ import { Tab, Tabs, tabTitle } from "./components/Tabs";
 import { git } from "./repo";
 import { RepoPrefs, RepoView } from "./RepoView";
 import { useUi } from "./ui";
+import pkg from "../package.json";
 
 interface State {
   tabs: Tab[];
@@ -15,6 +16,23 @@ interface State {
 
 const EMPTY: State = { tabs: [], active: 0, recent: [], closed: [], prefs: {} };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
+
+function StatusBar() {
+  const [base] = useState(() => window.devicePixelRatio);
+  const [zoom, setZoom] = useState(100);
+  useEffect(() => {
+    const onResize = () => setZoom(Math.round((window.devicePixelRatio / base) * 100));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [base]);
+  return (
+    <div className="statusbar">
+      <span className="statusbar-fill" />
+      <span title="Zoom (Cmd/Ctrl + and Cmd/Ctrl -)">{zoom}%</span>
+      <span className="statusbar-version">{pkg.version}</span>
+    </div>
+  );
+}
 
 export function App() {
   const ui = useUi();
@@ -191,6 +209,7 @@ export function App() {
           )}
         </div>
       )}
+      <StatusBar />
     </div>
   );
 }

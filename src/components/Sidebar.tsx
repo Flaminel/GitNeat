@@ -36,12 +36,21 @@ function buildTree(refs: Ref[], strip = 0): TreeNode {
   return root;
 }
 
-function Section(props: { title: string; icon: ReactNode; count: string | number; children: ReactNode; actions?: ReactNode; defaultOpen?: boolean; onMenu?(e: MouseEvent): void }) {
-  const [open, setOpen] = useState(props.defaultOpen ?? true);
+function Section(props: {
+  title: string;
+  icon: ReactNode;
+  count: string | number;
+  children: ReactNode;
+  actions?: ReactNode;
+  open: boolean;
+  grow: boolean;
+  toggle(): void;
+  onMenu?(e: MouseEvent): void;
+}) {
   return (
-    <div className={`section${open ? " open" : ""}`}>
-      <div className="section-head" onClick={() => setOpen(!open)} onContextMenu={props.onMenu}>
-        <span className={`chevron${open ? " open" : ""}`}>›</span>
+    <div className={`section${props.open ? " open" : ""}${props.grow ? " grow" : ""}`}>
+      <div className="section-head" onClick={props.toggle} onContextMenu={props.onMenu}>
+        <span className={`chevron${props.open ? " open" : ""}`}>›</span>
         <span className="section-icon">{props.icon}</span>
         <span className="section-title">{props.title}</span>
         <span className="section-actions" onClick={(e) => e.stopPropagation()}>
@@ -49,14 +58,23 @@ function Section(props: { title: string; icon: ReactNode; count: string | number
         </span>
         <span className="section-count">{props.count}</span>
       </div>
-      {open && <div className="section-body">{props.children}</div>}
+      {props.open && <div className="section-body">{props.children}</div>}
     </div>
   );
 }
 
+const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
+
 export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
   const [filter, setFilter] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [openSections, setOpenSections] = useState<string[]>(["LOCAL", "REMOTE"]);
+  const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
+  const sectionProps = (title: string) => ({
+    open: openSections.includes(title),
+    grow: title === lastOpen,
+    toggle: () => setOpenSections((list) => (list.includes(title) ? list.filter((x) => x !== title) : [...list, title])),
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -73,7 +91,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
   const locals = data.refs.filter((r) => r.kind === "local" && match(r.name));
   const remotes = data.refs.filter((r) => r.kind === "remote" && match(r.name));
   const tags = data.refs.filter((r) => r.kind === "tag" && match(r.name));
-  const allBranches = data.refs.filter((r) => r.kind !== "tag");
+  const allBranches = data.refs;
   const visible = allBranches.filter((r) =>
     ctx.solo.length ? ctx.solo.includes(r.full) : !ctx.hidden.includes(r.full),
   ).length;
@@ -123,7 +141,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
 
   const renderTree = (node: TreeNode, depth: number, prefix: string): ReactNode[] =>
     [...node.children.entries()]
-      .sort(([a], [b]) => Number(a.startsWith("\0")) - Number(b.startsWith("\0")) || a.localeCompare(b, undefined, { numeric: true }))
+      .sort(([a], [b]) => a.replace("\0", "").localeCompare(b.replace("\0", ""), undefined, { numeric: true }))
       .map(([key, child]) => {
         if (child.ref && child.children.size === 0) {
           return renderRef(child.ref, child.name, depth);
@@ -162,6 +180,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
       </div>
       <div className="sections">
         <Section
+          {...sectionProps("LOCAL")}
           title="LOCAL"
           icon={Icon.local}
           count={`${locals.filter((r) => (ctx.solo.length ? ctx.solo.includes(r.full) : !ctx.hidden.includes(r.full))).length}/${locals.length}`}
@@ -175,9 +194,10 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
           {renderTree(buildTree(locals), 0, "local")}
         </Section>
         <Section
+          {...sectionProps("REMOTE")}
           title="REMOTE"
           icon={Icon.remote}
-          count={data.remotes.length}
+          count={data.refs.filter((r) => r.kind === "remote").length}
           actions={
             <button className="icon-btn" title="Add remote" onClick={() => A.addRemote(ctx)}>
               {Icon.plus}
@@ -199,7 +219,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
             );
           })}
         </Section>
-        <Section title="WORKTREES" icon={Icon.worktree} count={data.worktrees.length} defaultOpen={false}>
+        <Section {...sectionProps("WORKTREES")} title="WORKTREES" icon={Icon.worktree} count={data.worktrees.length}>
           {data.worktrees.map((wt) => (
             <div
               key={wt.path}
@@ -216,7 +236,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
             </div>
           ))}
         </Section>
-        <Section title="STASHES" icon={Icon.stash} count={data.stashes.length} defaultOpen={false}>
+        <Section {...sectionProps("STASHES")} title="STASHES" icon={Icon.stash} count={data.stashes.length}>
           {data.stashes.map((s) => (
             <div
               key={s.ref}
@@ -231,10 +251,10 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
             </div>
           ))}
         </Section>
-        <Section title="TAGS" icon={Icon.tag} count={tags.length} defaultOpen={false}>
+        <Section {...sectionProps("TAGS")} title="TAGS" icon={Icon.tag} count={tags.length}>
           {renderTree(buildTree(tags), 0, "tags")}
         </Section>
-        <Section title="SUBMODULES" icon={Icon.submodule} count={data.submodules.length} defaultOpen={false}>
+        <Section {...sectionProps("SUBMODULES")} title="SUBMODULES" icon={Icon.submodule} count={data.submodules.length}>
           {data.submodules.map((path) => (
             <div key={path} className="item" style={{ paddingLeft: 26 }} onDoubleClick={() => ctx.openTab(`${data.cwd}/${path}`)}>
               <span className="item-icon">{Icon.submodule}</span>

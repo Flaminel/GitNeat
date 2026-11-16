@@ -42,5 +42,23 @@ export const Icon = {
   stash: svg(<path d="M2 4h12v3H2z M3 7v6h10V7 M6.5 9.5h3" />),
   submodule: svg(<path d="M2 2h8v8H2z M6 6h8v8H6z" />),
   search: svg(<path d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10z M10.5 10.5L14 14" />),
+  undo: svg(<path d="M5 3.5L2.5 6 5 8.5 M2.5 6h7a4 4 0 0 1 0 8H6" />, 20),
+  redo: svg(<path d="M11 3.5L13.5 6 11 8.5 M13.5 6h-7a4 4 0 0 0 0 8H10" />, 20),
+  pull: svg(<path d="M8 2v9 M4.5 7.5L8 11l3.5-3.5 M3 14h10" />, 20),
+  push: svg(<path d="M8 14V5 M4.5 8.5L8 5l3.5 3.5 M3 2h10" />, 20),
+  branchTool: svg(
+    <>
+      <circle cx="4.5" cy="3.5" r="1.5" />
+      <circle cx="4.5" cy="12.5" r="1.5" />
+      <circle cx="11.5" cy="5" r="1.5" />
+      <path d="M4.5 5v6 M11.5 6.5c0 3-7 2-7 4.5" />
+    </>,
+    18,
+  ),
+  stashTool: svg(<path d="M2 9v4.5h12V9 M8 2v7 M5 6l3 3 3-3" />, 20),
+  popTool: svg(<path d="M2 9v4.5h12V9 M8 9V2 M5 5l3-3 3 3" />, 20),
+  terminal: svg(<path d="M2.5 4l4 4-4 4 M8 12.5h6" />, 20),
+  searchTool: svg(<path d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10z M10.5 10.5L14 14" />, 20),
+  sort: svg(<path d="M4 2.5v11 M2 11.5l2 2 2-2 M9 3h4l-4 4.5h4 M9 9.5h4 M9 13h4" />),
   plus: svg(<path d="M8 3v10 M3 8h10" />),
 };
