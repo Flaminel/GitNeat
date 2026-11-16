@@ -22,12 +22,15 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `src/graph.ts` | Lane layout for the commit graph |
 | `src/actions.ts` | Git operations that change the repository (checkout, merge, rebase, reset, push, and so on) |
 | `src/menus.ts` | Context menu content for commits, branches, tags, stashes, remotes, worktrees, files and tabs |
-| `src/ui.tsx` | Prompt and confirm dialogs, toasts, menu helper |
+| `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
 | `src/App.tsx` | Tabs, saved state, open repository |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView`, `RebaseModal` |
+| `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
-| `test/` | Unit tests. Run `npm test`. |
+| `test/graph.test.ts` | Lane layout tests |
+| `test/menus.test.ts` | Context menu order tests with a fake `window.krill` |
+| `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
 | `docs/DECISIONS.md` | Design decisions and their limits |
 
@@ -43,3 +46,19 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Add a left panel section | `src/components/Sidebar.tsx` |
 | Add a new IPC call | `electron/main.ts`, `electron/preload.ts`, `src/api.ts` |
 | Change the build targets | `build` in `package.json` and `.github/workflows/build.yml` |
+| Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
+| Change a drag and drop action | `dropMenu` in `src/menus.ts` |
+| Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
+| Change a panel width default | `useStoredWidth` calls in `src/RepoView.tsx` and `src/components/GraphView.tsx` |
+
+## Environment variables
+
+| Name | Effect |
+| --- | --- |
+| `KRILL_USER_DATA` | Folder for `krill-state.json` (open tabs, recent repositories, hidden and solo branches) |
+| `KRILL_SCREENSHOT` | PNG path. The app captures the window and quits. |
+| `KRILL_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
+| `KRILL_SCREENSHOT_JS` | JavaScript that runs in the page before the capture |
+| `VITE_DEV` | Load the renderer from the Vite dev server (`npm run dev` sets it) |
+
+Some editors set `ELECTRON_RUN_AS_NODE=1` in the shell. If your shell has this variable, unset it before you start Krill.

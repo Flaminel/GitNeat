@@ -40,6 +40,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Row-local drawing works with list virtualization. Only visible rows render.
 - Rules: The first parent continues in the lane of the commit. Other parents reuse an existing lane or take the first free lane. Lanes that point to the same commit meet at the row of that commit. Lane slots are not compacted, so a lane keeps its position and color.
 - Limits: Colors follow the lane slot, not the branch name. A reused slot can show a new color for a different branch.
+- Evidence: Source also uses a 28 px row and SVG lane edges (see `docs/EVIDENCE.md` section 3).
 
 ## D7. Commit limit
 
@@ -74,3 +75,37 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: Commit nodes show the initials of the author, not a Gravatar image.
 - Reason: A Gravatar request sends a hash of each author email to a third party.
+
+## D13. Undo and redo move HEAD back
+
+- Decision: Each action records HEAD and the current branch before and after it runs. Undo moves back to the "before" state. Redo moves to the "after" state.
+- Rules: If the branch changed, undo runs `git switch`. If only HEAD moved, undo runs `git reset --keep`. For a commit, undo and redo run `git reset --soft`, so the changes stay staged.
+- Reason: Source has Undo and Redo in the toolbar. A HEAD snapshot covers commit, merge, rebase, reset, cherry-pick, revert and checkout with one mechanism.
+- Limits: Undo cannot restore deleted branches, deleted tags, stash changes or pushes. Undo refuses to run if HEAD changed after the action. The stack is lost when the tab closes.
+
+## D14. Screenshot hook for tests
+
+- Decision: If `KRILL_SCREENSHOT` is set, the main process hides the window, runs `KRILL_SCREENSHOT_JS` in the page, saves a PNG and quits.
+- Reason: The hook gives a repeatable visual check without a UI test framework.
+- Limits: Native context menus do not show in the capture. `test/menus.test.ts` checks the menu content instead.
+
+## D15. Left panel sections size to their content
+
+- Decision: Each section header is always visible. An open section takes the height of its content. When the panel is full, the section shrinks and gets its own scroll bar.
+- Reason: This is the Source layout. The first version scrolled the whole panel, so lower sections went out of view.
+
+## D16. Menu tests use a fake bridge
+
+- Decision: `test/menus.test.ts` replaces `window.krill` with a fake. The fake records the menu and answers the git calls that the menu needs.
+- Reason: The menu order is the main Source behavior to keep. The tests compare it to the order in the reference screenshot.
+- Tool: `tsx` runs the tests, because the app imports modules without file extensions.
+
+## D17. Branch drag and drop
+
+- Decision: You can drag a branch label in the graph onto the label of another branch. Krill then shows a menu with merge, rebase, interactive rebase, fast-forward and push.
+- Reason: Source has the same drag and drop behavior.
+
+## D18. Theme colors come from the Source dark theme
+
+- Decision: `src/styles.css` uses the background, panel, text and accent values from `docs/EVIDENCE.md` section 7. The 10 lane colors are the Source `--graph-color-0..9` values.
+- Limits: Krill uses the system font, not Open Sans.
