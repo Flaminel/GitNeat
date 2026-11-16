@@ -20,6 +20,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `src/api.ts` | Types for `window.krill` and `MenuSpec` |
 | `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
+| `src/merge.ts` | Merge conflict parser, selections and Output builder |
 | `src/diff.ts` | Unified diff parser and patch builder for hunks and selected lines |
 | `src/monaco.ts` | Monaco setup: worker, `krill` theme, language detection |
 | `src/actions.ts` | Git operations that change the repository (checkout, merge, rebase, reset, push, and so on) |
@@ -27,12 +28,13 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
 | `src/App.tsx` | Tabs, saved state, open repository |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel |
-| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `RebaseModal` |
+| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
 | `test/graph.test.ts` | Lane layout tests |
 | `test/menus.test.ts` | Context menu order tests with a fake `window.krill` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
+| `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
 | `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
 | `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
@@ -59,6 +61,8 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Change the diff toolbar or modes | `DiffView` in `src/components/DiffView.tsx` |
 | Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
 | Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |
+| Change the merge tool layout or save flow | `MergeView` in `src/components/MergeView.tsx`, `.merge-*` in `src/styles.css` |
+| Change how conflicts parse or combine | `src/merge.ts` |
 | Change a panel width default | `useStoredWidth` calls in `src/RepoView.tsx` and `src/components/GraphView.tsx` |
 
 ## Environment variables
