@@ -306,3 +306,22 @@ export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<voi
     },
   ]);
 }
+
+export async function multiMenu(ctx: Ctx, commits: Commit[]): Promise<void> {
+  const n = commits.length;
+  const shas = commits.map((c) => c.sha);
+  const infos = await Promise.all(shas.map((sha) => A.rangeInfo(ctx.cwd, sha)));
+  const allInHistory = infos.every((i) => i.ancestor && !i.hasMerges) && ctx.data.operation !== "rebase";
+  await showMenu(
+    groups(
+      [{ label: `Cherry pick ${n} commits`, run: () => A.cherryPickMany(ctx, commits) }],
+      allInHistory
+        ? [
+            { label: `Squash ${n} commits`, run: () => A.rewriteMany(ctx, shas, "squash") },
+            { label: `Drop ${n} commits`, run: () => A.rewriteMany(ctx, shas, "drop") },
+          ]
+        : [],
+      [{ label: "Copy commit shas", run: () => krill().copy(shas.join("\n")) }],
+    ),
+  );
+}

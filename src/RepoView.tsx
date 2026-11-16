@@ -4,7 +4,7 @@ import { Ctx, TodoEntry, UndoEntry } from "./actions";
 import { krill } from "./api";
 import { DetailPanel, OpenFile } from "./components/DetailPanel";
 import { DiffView } from "./components/DiffView";
-import { GraphView, WIP } from "./components/GraphView";
+import { GraphView, SelectMode, WIP } from "./components/GraphView";
 import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
@@ -37,6 +37,7 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [data, setData] = useState<RepoData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [multi, setMulti] = useState<string[]>([]);
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [rebase, setRebase] = useState<{ base: string | null; entries: TodoEntry[] } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -127,7 +128,20 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
     return <div className="repo-loading">Loading {path}…</div>;
   }
 
-  const select = (sha: string) => {
+  const select = (sha: string, mode?: SelectMode) => {
+    const selectable = (c: Commit) => c.sha !== WIP && !c.stash;
+    if (mode && selected && sha !== WIP) {
+      if (mode === "toggle") {
+        const base = multi.length ? multi : [selected];
+        setMulti(base.includes(sha) ? base.filter((x) => x !== sha) : [...base, sha]);
+      } else {
+        const a = commits.findIndex((c) => c.sha === selected);
+        const b = commits.findIndex((c) => c.sha === sha);
+        setMulti(commits.slice(Math.min(a, b), Math.max(a, b) + 1).filter(selectable).map((c) => c.sha));
+      }
+      return;
+    }
+    setMulti([]);
     if (sha !== selected) {
       setSelected(sha);
       setOpenFile(null);
@@ -191,9 +205,16 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
               refs={data.refs.filter((r) => (prefs.solo.length ? prefs.solo.includes(r.full) : !prefs.hidden.includes(r.full)))}
               head={data.head}
               selected={selected}
+              multi={multi}
               wipCount={data.status.length}
               onSelect={select}
-              onCommitMenu={(c) => (c.sha === WIP ? M.wipMenu(ctx) : M.commitMenu(ctx, c))}
+              onCommitMenu={(c) =>
+                c.sha === WIP
+                  ? M.wipMenu(ctx)
+                  : multi.length > 1 && multi.includes(c.sha)
+                    ? M.multiMenu(ctx, commits.filter((x) => multi.includes(x.sha)))
+                    : M.commitMenu(ctx, c)
+              }
               onRefMenu={(r) => M.refMenu(ctx, r)}
               onRefDrop={(source, target) => M.dropMenu(ctx, source, target)}
               onRefOpen={(r) =>

@@ -10,13 +10,16 @@ const PAD = 14;
 export const LANE_COLORS = 10;
 export const WIP = "WIP";
 
+export type SelectMode = "toggle" | "range";
+
 interface Props {
   commits: Commit[];
   rows: GraphRow[];
   refs: Ref[];
   head: string | null;
   selected: string | null;
-  onSelect(sha: string): void;
+  multi: string[];
+  onSelect(sha: string, mode?: SelectMode): void;
   onCommitMenu(commit: Commit, e: MouseEvent): void;
   onRefMenu(ref: Ref, e: MouseEvent): void;
   onRefOpen(ref: Ref): void;
@@ -114,10 +117,11 @@ const RowView = memo(function RowView(props: {
   graphWidth: number;
   refsWidth: number;
   selected: boolean;
+  inMulti: boolean;
   isHead: boolean;
   dateLabel: string | null;
   wipCount: number;
-  onSelect(sha: string): void;
+  onSelect(sha: string, mode?: SelectMode): void;
   onCommitMenu(commit: Commit, e: MouseEvent): void;
   onRefMenu(ref: Ref, e: MouseEvent): void;
   onRefOpen(ref: Ref): void;
@@ -133,9 +137,13 @@ const RowView = memo(function RowView(props: {
   const first = pills[0];
   return (
     <div
-      className={`row${props.selected ? " selected" : ""}${isWip ? " wip" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
+      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
       style={{ top: props.index * ROW_HEIGHT, ["--row-color" as string]: color }}
-      onMouseDown={() => props.onSelect(commit.sha)}
+      onMouseDown={(e) => {
+        if (e.button === 0) {
+          props.onSelect(commit.sha, e.metaKey || e.ctrlKey ? "toggle" : e.shiftKey ? "range" : undefined);
+        }
+      }}
       onDragOver={(e) => {
         if (first && e.dataTransfer.types.includes("text/krill-ref")) {
           e.preventDefault();
@@ -148,7 +156,9 @@ const RowView = memo(function RowView(props: {
         }
       }}
       onContextMenu={(e) => {
-        props.onSelect(commit.sha);
+        if (!props.inMulti) {
+          props.onSelect(commit.sha);
+        }
         props.onCommitMenu(commit, e);
       }}
     >
@@ -383,6 +393,7 @@ export function GraphView(props: Props) {
                 graphWidth={graphWidth}
                 refsWidth={refsWidth}
                 selected={commit.sha === props.selected}
+                inMulti={props.multi.includes(commit.sha)}
                 isHead={commit.sha === props.head}
                 dateLabel={dateLabels[i]}
                 wipCount={props.wipCount}

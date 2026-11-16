@@ -458,6 +458,40 @@ export async function editMessage(ctx: Ctx, sha: string, isHead: boolean): Promi
   await runTodo(ctx, base, entries.map((e) => (e.sha === sha ? { ...e, action: "reword", message: v.message } : e)));
 }
 
+export function cherryPickMany(ctx: Ctx, newestFirst: Commit[]) {
+  const shas = [...newestFirst].reverse().map((c) => c.sha);
+  return run(ctx, `Cherry pick ${shas.length} commits`, () => g(ctx, ["cherry-pick", ...shas]));
+}
+
+export async function rewriteMany(ctx: Ctx, shas: string[], action: "drop" | "squash"): Promise<void> {
+  const counts = await Promise.all(shas.map((sha) => git(ctx.cwd, ["rev-list", "--count", sha]).then(Number)));
+  const oldest = shas[counts.indexOf(Math.min(...counts))];
+  const base = await parentOf(ctx, oldest);
+  const entries = await rebaseRange(ctx, base);
+  const picked = entries.filter((e) => shas.includes(e.sha));
+  if (picked.length !== shas.length) {
+    ctx.ui.toast("All selected commits must be in the history of the current branch.", "error");
+    return;
+  }
+  if (action === "squash") {
+    const first = entries.findIndex((e) => e.sha === oldest);
+    const contiguous = entries.slice(first, first + shas.length).every((e) => shas.includes(e.sha));
+    if (!contiguous) {
+      ctx.ui.toast("Squash needs adjacent commits.", "error");
+      return;
+    }
+  }
+  const label = action === "drop" ? `Drop ${shas.length} commits` : `Squash ${shas.length} commits`;
+  if (!(await ctx.ui.confirm(label, `${label} in ${ctx.data.branch ?? "HEAD"}? This rewrites history.`, action === "drop" ? "Drop" : "Squash", action === "drop"))) {
+    return;
+  }
+  await runTodo(
+    ctx,
+    base,
+    entries.map((e) => (shas.includes(e.sha) && (action === "drop" || e.sha !== oldest) ? { ...e, action: action === "drop" ? "drop" : "squash" } : e)),
+  );
+}
+
 export async function startInteractiveRebase(ctx: Ctx, base: string): Promise<void> {
   ctx.openRebase(base, await rebaseRange(ctx, base));
 }
