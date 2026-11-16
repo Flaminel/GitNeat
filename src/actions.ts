@@ -41,6 +41,7 @@ export interface RangeInfo {
   isHead: boolean;
   children: number;
   hasMerges: boolean;
+  descendant: boolean;
 }
 
 const short = (sha: string) => sha.slice(0, 7);
@@ -94,13 +95,14 @@ export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
   const anc = await krill().git(cwd, ["merge-base", "--is-ancestor", sha, "HEAD"]);
   const head = (await krill().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"])).stdout.trim();
   if (anc.code !== 0) {
-    return { ancestor: false, isHead: false, children: 0, hasMerges: false };
+    const desc = head ? await krill().git(cwd, ["merge-base", "--is-ancestor", "HEAD", sha]) : { code: 1 };
+    return { ancestor: false, isHead: false, children: 0, hasMerges: false, descendant: desc.code === 0 };
   }
   const [count, merges] = await Promise.all([
     git(cwd, ["rev-list", "--count", `${sha}..HEAD`]),
     git(cwd, ["rev-list", "--count", "--merges", `${sha}~1..HEAD`]).catch(() => git(cwd, ["rev-list", "--count", "--merges", "HEAD"])),
   ]);
-  return { ancestor: true, isHead: head === sha, children: Number(count), hasMerges: Number(merges) > 0 };
+  return { ancestor: true, isHead: head === sha, children: Number(count), hasMerges: Number(merges) > 0, descendant: head === sha };
 }
 
 export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]));
@@ -229,6 +231,20 @@ export function fastForward(ctx: Ctx, local: Ref, target: string) {
   }
   return run(ctx, "Fast-forward", () => g(ctx, ["fetch", ".", `${target}:refs/heads/${local.name}`]));
 }
+
+export function pullBranch(ctx: Ctx, ref: Ref) {
+  if (ref.current) {
+    return pull(ctx, "ff");
+  }
+  if (!ref.upstream) {
+    ctx.ui.toast(`${ref.name} has no upstream.`, "error");
+    return Promise.resolve();
+  }
+  const [remote, ...rest] = ref.upstream.split("/");
+  return run(ctx, `Pull ${ref.name}`, () => g(ctx, ["fetch", remote, `${rest.join("/")}:refs/heads/${ref.name}`]));
+}
+
+export const mergeNoFf = (ctx: Ctx, name: string) => run(ctx, `Merge ${name}`, () => g(ctx, ["merge", "--no-ff", "--no-edit", name]));
 
 export type PullMode = "ff" | "ff-only" | "rebase" | "fetch";
 

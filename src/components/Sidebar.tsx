@@ -115,7 +115,7 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
         style={{ paddingLeft: 26 + depth * 14 }}
         onClick={() => onSelectSha(ref.sha)}
         onDoubleClick={() => (ref.kind === "remote" ? A.checkoutRemote(ctx, ref.name) : ref.kind === "local" ? A.checkoutRef(ctx, ref.name) : A.checkoutCommit(ctx, ref.sha))}
-        onContextMenu={() => M.refMenu(ctx, ref)}
+        onContextMenu={() => M.refMenu(ctx, ref, true)}
       >
         <span
           className={`gutter${ref.current ? " checked" : hidden ? " off" : ""}`}

@@ -74,70 +74,120 @@ function tagActions(ctx: Ctx, sha: string): MenuItem[] {
   ];
 }
 
-function hideSolo(ctx: Ctx, full: string): MenuItem[] {
-  return [
-    { label: ctx.hidden.includes(full) ? "Show" : "Hide", run: () => ctx.toggleHidden(full) },
-    { label: ctx.solo.includes(full) ? "Stop soloing" : "Solo", run: () => ctx.toggleSolo(full) },
-  ];
-}
-
 function prItem(ctx: Ctx, branch: string, remoteName?: string): MenuItem {
   const remote = ctx.data.remotes.find((r) => r.name === remoteName) ?? ctx.data.remotes.find((r) => r.name === "origin") ?? ctx.data.remotes[0];
   const url = remote && compareWebUrl(remote.url, branch);
   return url && { label: `Start a pull request from ${branch}`, run: () => krill().openExternal(url) };
 }
 
-function branchGroups(ctx: Ctx, ref: Ref, info: RangeInfo, submenu: boolean): MenuItem[] {
+const baseName = (ref: Ref) => (ref.kind === "remote" ? ref.name.split("/").slice(1).join("/") : ref.name);
+
+export function refGroups(refs: Ref[]): Ref[][] {
+  const map = new Map<string, Ref[]>();
+  for (const ref of refs) {
+    const key = `${ref.sha} ${baseName(ref)}`;
+    map.set(key, [...(map.get(key) ?? []), ref]);
+  }
+  return [...map.values()].map((g) => g.sort((a, b) => Number(a.kind !== "local") - Number(b.kind !== "local")));
+}
+
+function mergeItems(ctx: Ctx, ref: Ref, info: RangeInfo): MenuItem[] {
   const cur = currentName(ctx);
-  const local = ref.kind === "local";
-  const isCurrent = !!ref.current;
+  const rebase: MenuItem[] = [
+    { label: `Rebase ${cur} onto ${ref.name}`, run: () => A.rebaseOnto(ctx, ref.name) },
+    !info.descendant && { label: `Interactive Rebase ${cur} onto ${ref.name}`, run: () => A.startInteractiveRebase(ctx, ref.name) },
+  ];
+  if (info.descendant) {
+    return [
+      { label: `Fast-forward ${cur} to ${ref.name}`, run: () => A.merge(ctx, ref.name) },
+      { label: `Merge ${ref.name} into ${cur}`, run: () => A.mergeNoFf(ctx, ref.name) },
+      ...rebase,
+    ];
+  }
+  if (info.ancestor) {
+    return [ref.kind === "local" && { label: `Fast-forward ${ref.name} to ${cur}`, run: () => A.fastForward(ctx, ref, cur) }, ...rebase];
+  }
+  return [{ label: `Merge ${ref.name} into ${cur}`, run: () => A.merge(ctx, ref.name) }, ...rebase];
+}
+
+function checkoutItems(ctx: Ctx, group: Ref[], panel: boolean): MenuItem[] {
+  const sha = group[0].sha;
+  const others = group.filter((r) => !r.current);
+  const open: MenuItem[] = others
+    .filter((r) => r.worktree)
+    .map((r) => ({ label: `Open worktree from ${r.name}`, run: () => ctx.openTab(r.worktree as string) }));
+  const refs = others
+    .filter((r) => !r.worktree)
+    .map((r) => ({ name: r.name, run: () => (r.kind === "local" ? A.checkoutRef(ctx, r.name) : A.checkoutRemote(ctx, r.name)) }));
+  const detach = () => A.checkoutCommit(ctx, sha);
+  if (refs.length + (panel ? 0 : 1) > 1) {
+    return [{ label: "Checkout", submenu: [...refs.map((r) => ({ label: r.name, run: r.run })), { label: "this commit", run: detach }] }, ...open];
+  }
+  return [...refs.map((r) => ({ label: `Checkout ${r.name}`, run: r.run })), ...open, !panel && { label: "Checkout this commit", run: detach }];
+}
+
+function worktreeItems(ctx: Ctx, group: Ref[], panel: boolean): MenuItem[] {
+  const sha = group[0].sha;
+  const refs = group
+    .filter((r) => !r.worktree && !r.current)
+    .map((r) => ({ name: r.name, run: () => A.createWorktree(ctx, sha, r.kind === "local" ? r.name : undefined) }));
+  const fromCommit = () => A.createWorktree(ctx, sha);
+  if (refs.length + (panel ? 0 : 1) > 1) {
+    return [{ label: "Create worktree from", submenu: [...refs.map((r) => ({ label: r.name, run: r.run })), { label: "this commit", run: fromCommit }] }];
+  }
+  return [...refs.map((r) => ({ label: `Create worktree from ${r.name}`, run: r.run })), !panel && { label: "Create worktree from this commit", run: fromCommit }];
+}
+
+function deleteItems(ctx: Ctx, group: Ref[], local?: Ref): MenuItem[] {
+  const upstream = local?.upstream ? group.find((r) => r.name === local.upstream) : undefined;
+  return [
+    ...group
+      .filter((r) => !r.current)
+      .map((r): MenuItem => ({ label: `Delete ${r.name}`, run: () => (r.kind === "local" ? A.deleteBranch(ctx, r) : A.deleteRemoteBranch(ctx, r.name)) })),
+    !!local && !local.current && !!upstream && { label: `Delete ${local.name} and ${upstream.name}`, run: () => A.deleteBranch(ctx, local, true) },
+  ];
+}
+
+function soloItems(ctx: Ctx, group: Ref[], panel: boolean): MenuItem[] {
+  const solo = (r: Ref) => (ctx.solo.includes(r.full) ? "Stop soloing" : "Solo");
+  if (group.length === 1) {
+    const ref = group[0];
+    return [
+      panel && { label: ctx.hidden.includes(ref.full) ? "Show" : "Hide", run: () => ctx.toggleHidden(ref.full) },
+      { label: solo(ref), run: () => ctx.toggleSolo(ref.full) },
+    ];
+  }
+  return [{ label: "Solo", submenu: group.map((r) => ({ label: `${solo(r)} ${r.name}`, run: () => ctx.toggleSolo(r.full) })) }];
+}
+
+function branchGroups(ctx: Ctx, group: Ref[], info: RangeInfo, submenu: boolean, panel = false): MenuItem[] {
+  const ref = group[0];
+  const local = group.find((r) => r.kind === "local");
+  const remote = group.find((r) => r.kind === "remote");
   const commit = commitFor(ctx, ref.sha);
-  const [remoteName, ...rest] = ref.name.split("/");
-  const sameCommit = ref.sha === ctx.data.head;
+  const inGroup = group.some((r) => r.current) || ref.sha === ctx.data.head;
+  const prFrom = remote ? baseName(remote) : undefined;
   return groups(
-    local
+    local && ctx.data.remotes.length > 0
       ? [
-          isCurrent && ref.upstream && { label: "Pull (fast-forward if possible)", run: () => A.pull(ctx, "ff") },
-          { label: isCurrent ? "Push" : `Push ${ref.name}`, run: () => A.push(ctx, ref.name) },
-          { label: "Set Upstream", run: () => A.setUpstream(ctx, ref) },
+          { label: "Pull (fast-forward if possible)", run: () => A.pullBranch(ctx, local) },
+          { label: "Push", run: () => A.push(ctx, local.name) },
+          { label: "Set Upstream", run: () => A.setUpstream(ctx, local) },
         ]
       : [],
-    !isCurrent && !sameCommit && !!ctx.data.head
-      ? [
-          local && ref.upstream && (ref.behind ?? 0) > 0 && (ref.ahead ?? 0) === 0 && {
-            label: `Fast-forward ${ref.name} to ${ref.upstream}`,
-            run: () => A.fastForward(ctx, ref, ref.upstream as string),
-          },
-          { label: `Merge ${ref.name} into ${cur}`, run: () => A.merge(ctx, ref.name) },
-          { label: `Rebase ${cur} onto ${ref.name}`, run: () => A.rebaseOnto(ctx, ref.name) },
-          { label: `Interactive Rebase ${cur} onto ${ref.name}`, run: () => A.startInteractiveRebase(ctx, ref.name) },
-        ]
-      : [],
-    [
-      !isCurrent && {
-        label: `Checkout ${ref.name}`,
-        run: () => (local ? A.checkoutRef(ctx, ref.name) : A.checkoutRemote(ctx, ref.name)),
-      },
-    ],
-    [
-      !ref.worktree && { label: `Create worktree from ${ref.name}`, run: () => A.createWorktree(ctx, ref.sha, local ? ref.name : undefined) },
-      ref.worktree && !isCurrent && { label: `Open worktree from ${ref.name}`, run: () => ctx.openTab(ref.worktree as string) },
-    ],
+    !inGroup && !!ctx.data.branch ? mergeItems(ctx, ref, info) : [],
+    checkoutItems(ctx, group, panel),
+    worktreeItems(ctx, group, panel),
     submenu ? [] : commitActions(ctx, commit, info, "branch"),
     rebaseActions(ctx, commit, info),
-    [local ? prItem(ctx, ref.name, ref.upstream?.split("/")[0]) : prItem(ctx, rest.join("/"), remoteName)],
-    local
-      ? [
-          { label: `Rename ${ref.name}`, run: () => A.renameBranch(ctx, ref.name) },
-          !isCurrent && { label: `Delete ${ref.name}`, run: () => A.deleteBranch(ctx, ref) },
-          !isCurrent && ref.upstream && { label: `Delete ${ref.name} and ${ref.upstream}`, run: () => A.deleteBranch(ctx, ref, true) },
-        ]
-      : [{ label: `Delete ${ref.name}`, run: () => A.deleteRemoteBranch(ctx, ref.name) }],
+    [prFrom !== undefined && remote ? prItem(ctx, prFrom, remote.name.split("/")[0]) : false],
+    [local && { label: `Rename ${local.name}`, run: () => A.renameBranch(ctx, local.name) }, ...deleteItems(ctx, group, local)],
     [
       { label: "Copy branch name", run: () => krill().copy(ref.name) },
       { label: "Copy commit sha", run: () => krill().copy(ref.sha) },
+      !panel && { label: "Create patch from commit", run: () => A.savePatch(ctx, ref.sha) },
     ],
-    hideSolo(ctx, ref.full),
+    soloItems(ctx, group, panel),
   );
 }
 
@@ -146,9 +196,9 @@ export async function commitMenu(ctx: Ctx, commit: Commit): Promise<void> {
     return stashMenu(ctx, commit.stash, commit.sha);
   }
   const info = await A.rangeInfo(ctx.cwd, commit.sha);
-  const branches = ctx.data.refs.filter((r) => r.sha === commit.sha && r.kind !== "tag");
-  if (branches.length === 1) {
-    await showMenu([...branchGroups(ctx, branches[0], info, false), "-", ...tagActions(ctx, commit.sha)]);
+  const found = refGroups(ctx.data.refs.filter((r) => r.sha === commit.sha && r.kind !== "tag"));
+  if (found.length === 1) {
+    await showMenu([...branchGroups(ctx, found[0], info, false), "-", ...tagActions(ctx, commit.sha)]);
     return;
   }
   await showMenu(
@@ -157,19 +207,20 @@ export async function commitMenu(ctx: Ctx, commit: Commit): Promise<void> {
       [{ label: "Create worktree from this commit", run: () => A.createWorktree(ctx, commit.sha) }],
       commitActions(ctx, commit, info, "commit"),
       rebaseActions(ctx, commit, info),
-      branches.map((ref) => ({ label: ref.name, submenu: branchGroups(ctx, ref, info, true) })),
-      branches.length === 0 ? copyActions(ctx, commit.sha) : [],
+      found.map((g) => ({ label: g[0].name, submenu: branchGroups(ctx, g, info, true) })),
+      found.length === 0 ? copyActions(ctx, commit.sha) : [],
       tagActions(ctx, commit.sha),
     ),
   );
 }
 
-export async function refMenu(ctx: Ctx, ref: Ref): Promise<void> {
+export async function refMenu(ctx: Ctx, ref: Ref, panel = false): Promise<void> {
   if (ref.kind === "tag") {
-    return tagMenu(ctx, ref);
+    return tagMenu(ctx, ref, panel);
   }
   const info = await A.rangeInfo(ctx.cwd, ref.sha);
-  await showMenu(branchGroups(ctx, ref, info, false));
+  const group = panel ? [ref] : (refGroups(ctx.data.refs.filter((r) => r.sha === ref.sha && r.kind !== "tag")).find((g) => g.includes(ref)) ?? [ref]);
+  await showMenu(branchGroups(ctx, group, info, false, panel));
 }
 
 export function wipMenu(ctx: Ctx): Promise<void> {
@@ -193,7 +244,7 @@ export function stashMenu(ctx: Ctx, ref: string, sha: string): Promise<void> {
   );
 }
 
-export function tagMenu(ctx: Ctx, ref: Ref): Promise<void> {
+export function tagMenu(ctx: Ctx, ref: Ref, panel = false): Promise<void> {
   const remotes = ctx.data.remotes;
   const commit = commitFor(ctx, ref.sha);
   const isHead = ref.sha === ctx.data.head;
@@ -220,7 +271,7 @@ export function tagMenu(ctx: Ctx, ref: Ref): Promise<void> {
         },
       ],
       [{ label: "Copy tag name", run: () => krill().copy(ref.name) }],
-      hideSolo(ctx, ref.full),
+      soloItems(ctx, [ref], panel),
     ),
   );
 }

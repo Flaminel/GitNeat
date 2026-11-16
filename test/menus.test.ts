@@ -125,14 +125,63 @@ test("commit menu for a commit outside the HEAD history has no rebase items", as
   assert.ok(!l.includes("Edit commit message"));
 });
 
-test("commit with one branch shows the branch menu first", async () => {
+test("commit with one branch matches the Source branch menu", async () => {
   ancestorCode = 1;
-  const ref: Ref = { kind: "local", name: "add_amule", full: "refs/heads/add_amule", sha: OLD, ahead: 0, behind: 0 };
+  const ref: Ref = { kind: "local", name: "fix_session_revocation", full: "refs/heads/fix_session_revocation", sha: OLD, upstream: "origin/fix_session_revocation" };
   await M.commitMenu(makeCtx([ref]), commit(OLD));
+  assert.deepEqual(labels(shown), [
+    "Pull (fast-forward if possible)",
+    "Push",
+    "Set Upstream",
+    "|",
+    "Merge fix_session_revocation into fix_e2e_failures",
+    "Rebase fix_e2e_failures onto fix_session_revocation",
+    "Interactive Rebase fix_e2e_failures onto fix_session_revocation",
+    "|",
+    "Checkout",
+    "|",
+    "Create worktree from",
+    "|",
+    "Create branch here",
+    "Cherry pick commit",
+    "Reset fix_e2e_failures to this commit",
+    "Revert commit",
+    "|",
+    "Rename fix_session_revocation",
+    "Delete fix_session_revocation",
+    "|",
+    "Copy branch name",
+    "Copy commit sha",
+    "Create patch from commit",
+    "|",
+    "Solo",
+    "|",
+    "Create tag here",
+    "Create annotated tag here",
+  ]);
+  assert.deepEqual(labels(shown[8].submenu as MenuSpec[]), ["fix_session_revocation", "this commit"]);
+  assert.deepEqual(labels(shown[10].submenu as MenuSpec[]), ["fix_session_revocation", "this commit"]);
+});
+
+test("local and remote branch on one commit form one group", async () => {
+  ancestorCode = 1;
+  const local: Ref = { kind: "local", name: "main", full: "refs/heads/main", sha: OLD, upstream: "origin/main" };
+  const remote: Ref = { kind: "remote", name: "origin/main", full: "refs/remotes/origin/main", sha: OLD };
+  await M.commitMenu(makeCtx([remote, local]), commit(OLD));
   const l = labels(shown);
-  assert.deepEqual(l.slice(0, 3), ["Push add_amule", "Set Upstream", "|"]);
-  assert.ok(l.indexOf("Merge add_amule into fix_e2e_failures") < l.indexOf("Checkout add_amule"));
-  assert.ok(l.indexOf("Checkout add_amule") < l.indexOf("Rename add_amule"));
-  assert.ok(l.indexOf("Delete add_amule") < l.indexOf("Copy branch name"));
-  assert.deepEqual(l.slice(-2), ["Create tag here", "Create annotated tag here"]);
+  assert.equal(l[0], "Pull (fast-forward if possible)");
+  assert.ok(l.includes("Delete main and origin/main"));
+  assert.ok(l.includes("Start a pull request from main"));
+  assert.deepEqual(labels(shown[l.indexOf("Checkout")].submenu as MenuSpec[]), ["main", "origin/main", "this commit"]);
+});
+
+test("left panel branch menu has Hide and no commit checkout", async () => {
+  ancestorCode = 1;
+  const ref: Ref = { kind: "local", name: "feature", full: "refs/heads/feature", sha: OLD };
+  await M.refMenu(makeCtx([ref]), ref, true);
+  const l = labels(shown);
+  assert.ok(l.includes("Checkout feature"));
+  assert.ok(l.includes("Create worktree from feature"));
+  assert.ok(!l.includes("Create patch from commit"));
+  assert.deepEqual(l.slice(-2), ["Hide", "Solo"]);
 });
