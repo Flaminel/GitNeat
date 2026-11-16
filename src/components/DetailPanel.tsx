@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
 import { krill } from "../api";
@@ -224,6 +224,14 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   };
 
+  const canCommit = !!summary.trim() && (staged.length > 0 || amend);
+  const commitKey = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
+      e.preventDefault();
+      void doCommit();
+    }
+  };
+
   const open = (path: string, isStaged: boolean, untracked: boolean) =>
     onOpenFile({ source: isStaged ? { kind: "staged" } : { kind: "unstaged", untracked }, path });
 
@@ -290,11 +298,11 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             <input type="checkbox" checked={amend} disabled={!ctx.data.head} onChange={(e) => setAmend(e.target.checked)} /> Amend
           </label>
         </div>
-        <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} />
-        <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={commitKey} />
+        <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={commitKey} />
         <button
           className="commit-btn"
-          disabled={!summary.trim() || (!staged.length && !amend)}
+          disabled={!canCommit}
           onClick={doCommit}
         >
           {!staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
