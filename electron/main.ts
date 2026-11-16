@@ -52,6 +52,14 @@ function createWindow(): void {
   if (shot) {
     win.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
+        if (process.env.KRILL_SCREENSHOT_JS) {
+          try {
+            await win?.webContents.executeJavaScript(process.env.KRILL_SCREENSHOT_JS);
+          } catch (error) {
+            console.error("KRILL_SCREENSHOT_JS failed:", error);
+          }
+          await new Promise((r) => setTimeout(r, 1200));
+        }
         const image = await win?.webContents.capturePage(undefined, { stayHidden: true });
         if (image) {
           await fs.promises.writeFile(shot, image.toPNG());

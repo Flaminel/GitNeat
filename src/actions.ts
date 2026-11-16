@@ -22,6 +22,18 @@ export interface Ctx {
   toggleSolo(full: string): void;
   hidden: string[];
   solo: string[];
+  record(entry: UndoEntry): void;
+}
+
+export interface HeadState {
+  head: string | null;
+  branch: string | null;
+}
+
+export interface UndoEntry {
+  label: string;
+  before: HeadState;
+  after: HeadState;
 }
 
 export interface RangeInfo {
@@ -33,8 +45,45 @@ export interface RangeInfo {
 
 const short = (sha: string) => sha.slice(0, 7);
 
+async function headState(cwd: string): Promise<HeadState> {
+  const [head, branch] = await Promise.all([
+    krill().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"]),
+    krill().git(cwd, ["symbolic-ref", "-q", "--short", "HEAD"]),
+  ]);
+  return { head: head.stdout.trim() || null, branch: branch.stdout.trim() || null };
+}
+
 async function run(ctx: Ctx, label: string, fn: () => Promise<unknown>): Promise<boolean> {
+  const before = await headState(ctx.cwd);
   const ok = await ctx.ui.task(label, fn);
+  const after = await headState(ctx.cwd);
+  if (before.head && (before.head !== after.head || before.branch !== after.branch)) {
+    ctx.record({ label, before, after });
+  }
+  ctx.refresh();
+  return ok;
+}
+
+async function moveTo(ctx: Ctx, from: HeadState, to: HeadState, soft: boolean): Promise<void> {
+  const now = await headState(ctx.cwd);
+  if (now.head !== from.head || now.branch !== from.branch) {
+    throw new GitError("The repository changed since this action. Krill cannot undo it.");
+  }
+  if (from.branch !== to.branch) {
+    await g(ctx, to.branch ? ["switch", to.branch] : ["switch", "--detach", to.head as string]);
+    return;
+  }
+  await g(ctx, ["reset", soft ? "--soft" : "--keep", to.head as string]);
+}
+
+export async function undo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
+  const ok = await ctx.ui.task(`Undo ${entry.label}`, () => moveTo(ctx, entry.after, entry.before, entry.label === "Commit"));
+  ctx.refresh();
+  return ok;
+}
+
+export async function redo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
+  const ok = await ctx.ui.task(`Redo ${entry.label}`, () => moveTo(ctx, entry.before, entry.after, entry.label === "Commit"));
   ctx.refresh();
   return ok;
 }

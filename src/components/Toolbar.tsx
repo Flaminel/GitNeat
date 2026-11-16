@@ -6,12 +6,16 @@ import { showMenu } from "../ui";
 interface Props {
   ctx: Ctx;
   recent: string[];
+  undoLabel?: string;
+  redoLabel?: string;
+  onUndo(): void;
+  onRedo(): void;
 }
 
-function ToolButton(props: { label: string; icon: string; onClick(): void; disabled?: boolean; badge?: number; onMenu?(): void }) {
+function ToolButton(props: { label: string; icon: string; onClick(): void; disabled?: boolean; badge?: number; onMenu?(): void; title?: string }) {
   return (
     <div className="tool">
-      <button className="tool-btn" disabled={props.disabled} onClick={props.onClick} title={props.label}>
+      <button className="tool-btn" disabled={props.disabled} onClick={props.onClick} title={props.title ?? props.label}>
         <span className="tool-label">{props.label}</span>
         <span className="tool-icon">
           {props.icon}
@@ -27,7 +31,7 @@ function ToolButton(props: { label: string; icon: string; onClick(): void; disab
   );
 }
 
-export function Toolbar({ ctx, recent }: Props) {
+export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: Props) {
   const data = ctx.data;
   const current = data.refs.find((r) => r.current);
   const locals = data.refs.filter((r) => r.kind === "local");
@@ -53,6 +57,8 @@ export function Toolbar({ ctx, recent }: Props) {
         </button>
       </div>
       <div className="tools">
+        <ToolButton label="Undo" icon="↶" onClick={onUndo} disabled={!undoLabel} title={undoLabel && `Undo ${undoLabel}`} />
+        <ToolButton label="Redo" icon="↷" onClick={onRedo} disabled={!redoLabel} title={redoLabel && `Redo ${redoLabel}`} />
         <ToolButton
           label="Pull"
           icon="⤓"

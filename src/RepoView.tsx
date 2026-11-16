@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as A from "./actions";
-import { Ctx, TodoEntry } from "./actions";
+import { Ctx, TodoEntry, UndoEntry } from "./actions";
 import { krill } from "./api";
 import { DetailPanel, OpenFile } from "./components/DetailPanel";
 import { DiffView } from "./components/DiffView";
@@ -11,7 +11,7 @@ import { Toolbar } from "./components/Toolbar";
 import { layoutGraph } from "./graph";
 import * as M from "./menus";
 import { Commit, loadRepo, RepoData } from "./repo";
-import { useUi } from "./ui";
+import { Splitter, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
   hidden: string[];
@@ -40,6 +40,10 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [rebase, setRebase] = useState<{ base: string | null; entries: TodoEntry[] } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
+  const [leftWidth, setLeftWidth] = useStoredWidth("left", 280);
+  const [rightWidth, setRightWidth] = useStoredWidth("right", 380);
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +106,10 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         toggleSolo: (full) => setPrefs({ hidden: prefs.hidden, solo: toggle(prefs.solo, full) }),
         hidden: prefs.hidden,
         solo: prefs.solo,
+        record: (entry) => {
+          setUndoStack((list) => [...list.slice(-49), entry]);
+          setRedoStack([]);
+        },
       },
     [data, path, ui, load, openTab, prefs, setPrefs],
   );
@@ -128,7 +136,26 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
 
   return (
     <div className="repo-view">
-      <Toolbar ctx={ctx} recent={recent} />
+      <Toolbar
+        ctx={ctx}
+        recent={recent}
+        undoLabel={undoStack[undoStack.length - 1]?.label}
+        redoLabel={redoStack[redoStack.length - 1]?.label}
+        onUndo={async () => {
+          const entry = undoStack[undoStack.length - 1];
+          setUndoStack((list) => list.slice(0, -1));
+          if (entry && (await A.undo(ctx, entry))) {
+            setRedoStack((list) => [...list, entry]);
+          }
+        }}
+        onRedo={async () => {
+          const entry = redoStack[redoStack.length - 1];
+          setRedoStack((list) => list.slice(0, -1));
+          if (entry && (await A.redo(ctx, entry))) {
+            setUndoStack((list) => [...list, entry]);
+          }
+        }}
+      />
       {data.operation && (
         <div className="op-banner">
           <span>
@@ -144,7 +171,10 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         </div>
       )}
       <div className="panes">
-        <Sidebar ctx={ctx} onSelectSha={select} showAll={() => setPrefs({ hidden: [], solo: [] })} />
+        <div className="pane" style={{ width: leftWidth }}>
+          <Sidebar ctx={ctx} onSelectSha={select} showAll={() => setPrefs({ hidden: [], solo: [] })} />
+        </div>
+        <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />
         <main className="center">
           {openFile ? (
             <DiffView cwd={path} file={openFile} refreshKey={refreshKey} onClose={() => setOpenFile(null)} />
@@ -165,7 +195,14 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
             />
           )}
         </main>
-        {selected && <DetailPanel ctx={ctx} sha={selected} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />}
+        {selected && (
+          <>
+            <Splitter value={rightWidth} set={setRightWidth} min={260} max={900} invert />
+            <div className="pane" style={{ width: rightWidth }}>
+              <DetailPanel ctx={ctx} sha={selected} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />
+            </div>
+          </>
+        )}
       </div>
       {rebase && (
         <RebaseModal

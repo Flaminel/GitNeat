@@ -1,6 +1,8 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { GraphRow, Segment } from "../graph";
 import { Commit, Ref } from "../repo";
+import { Splitter, useStoredWidth } from "../ui";
+import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
 const LANE = 18;
@@ -69,30 +71,6 @@ export function relativeTime(seconds: number): string {
   }
   return diff < 730 * day ? "a year ago" : `${Math.round(diff / (365 * day))} years ago`;
 }
-
-const Icon = {
-  local: (
-    <svg viewBox="0 0 16 16" className="icon">
-      <path d="M3 3h10v7H3z M1 12h14v1H1z" fill="none" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  ),
-  remote: (
-    <svg viewBox="0 0 16 16" className="icon">
-      <path d="M4.5 12.5h7a3 3 0 0 0 .3-6 4 4 0 0 0-7.6-1A3.5 3.5 0 0 0 4.5 12.5z" fill="none" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  ),
-  tag: (
-    <svg viewBox="0 0 16 16" className="icon">
-      <path d="M2 2h6l6 6-6 6-6-6z" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="5.5" cy="5.5" r="1.2" fill="currentColor" />
-    </svg>
-  ),
-  check: (
-    <svg viewBox="0 0 16 16" className="icon">
-      <path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  ),
-};
 
 interface Pill {
   key: string;
@@ -232,7 +210,8 @@ export function GraphView(props: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(800);
-  const [refsWidth, setRefsWidth] = useState(220);
+  const [refsWidth, setRefsWidth] = useStoredWidth("refs", 220);
+  const [graphUser, setGraphUser] = useStoredWidth("graph", -1);
 
   useEffect(() => {
     const el = scroller.current;
@@ -252,10 +231,11 @@ export function GraphView(props: Props) {
     return map;
   }, [props.refs]);
 
-  const graphWidth = useMemo(() => {
+  const autoGraphWidth = useMemo(() => {
     const lanes = props.rows.reduce((max, r) => Math.max(max, r.width), 1);
     return Math.min(PAD * 2 + (lanes - 1) * LANE, 360);
   }, [props.rows]);
+  const graphWidth = graphUser > 0 ? graphUser : autoGraphWidth;
 
   const dateLabels = useMemo(() => {
     let previous = "";
@@ -301,27 +281,16 @@ export function GraphView(props: Props) {
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 10);
   const end = Math.min(props.commits.length, Math.ceil((scrollTop + height) / ROW_HEIGHT) + 10);
 
-  const startDrag = (e: MouseEvent) => {
-    const x0 = e.clientX;
-    const w0 = refsWidth;
-    const move = (ev: globalThis.MouseEvent) => setRefsWidth(Math.max(80, Math.min(500, w0 + ev.clientX - x0)));
-    const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-  };
-
   return (
     <div className="graph-view">
       <div className="graph-header">
         <div style={{ width: refsWidth }} className="col-head">
           BRANCH / TAG
-          <span className="col-resize" onMouseDown={startDrag} />
+          <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={60} max={600} />
         </div>
-        <div style={{ width: graphWidth }} className="col-head">
+        <div style={{ width: graphWidth }} className="col-head" onDoubleClick={() => setGraphUser(-1)}>
           GRAPH
+          <Splitter className="col-resize" value={graphWidth} set={setGraphUser} min={30} max={800} />
         </div>
         <div className="col-head">COMMIT MESSAGE</div>
       </div>

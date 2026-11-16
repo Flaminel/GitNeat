@@ -351,9 +351,33 @@ select:focus {
   min-height: 0;
 }
 
-.sidebar {
-  width: 280px;
+.pane {
   flex-shrink: 0;
+  display: flex;
+  min-height: 0;
+}
+
+.splitter {
+  width: 4px;
+  margin: 0 -2px;
+  z-index: 2;
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+
+.splitter:hover,
+body.resizing .splitter {
+  background: var(--accent);
+}
+
+body.resizing,
+body.resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.sidebar {
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -373,11 +397,93 @@ select:focus {
 }
 
 .filter {
+  position: relative;
   margin: 4px 8px 8px;
+  color: var(--text-dim);
+}
+
+.filter input {
+  width: 100%;
+  padding-right: 26px;
+}
+
+.filter .icon {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+.viewing .icon {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.section-icon {
+  display: flex;
+  color: var(--text-dim);
+}
+
+.gutter {
+  position: absolute;
+  left: 5px;
+  width: 16px;
+  display: flex;
+  justify-content: center;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.gutter .eye {
+  display: flex;
+  visibility: hidden;
+}
+
+.item:hover .gutter .eye {
+  visibility: visible;
+}
+
+.gutter.checked {
+  color: #fff;
+}
+
+.checkbox {
+  display: flex;
+  background: var(--green);
+  border-radius: 3px;
+  padding: 1px;
+}
+
+.checkbox .icon {
+  width: 10px;
+  height: 10px;
 }
 
 .sections {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.section.open {
+  flex: 0 1 auto;
+  min-height: 54px;
+}
+
+.section-head {
+  flex-shrink: 0;
+}
+
+.section-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -415,6 +521,7 @@ select:focus {
 }
 
 .item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -429,8 +536,8 @@ select:focus {
 }
 
 .item.current {
-  background: #23402a;
-  color: #e8f6ea;
+  background: rgba(92, 184, 92, 0.18);
+  color: #fff;
 }
 
 .item.hidden-ref .item-name {
@@ -444,9 +551,7 @@ select:focus {
   font-size: 11px;
 }
 
-.item.current .item-icon {
-  color: var(--green);
-}
+
 
 .item-name {
   flex: 1;
@@ -464,15 +569,6 @@ select:focus {
   color: var(--text-dim);
 }
 
-.eye {
-  visibility: hidden;
-  color: var(--text-dim);
-}
-
-.item:hover .eye,
-.item.hidden-ref .eye {
-  visibility: visible;
-}
 
 .icon-btn {
   background: none;
@@ -518,13 +614,20 @@ select:focus {
   flex: 1;
 }
 
-.col-resize {
+.splitter.col-resize {
   position: absolute;
-  right: -3px;
+  right: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
-  cursor: col-resize;
+  margin: 0;
+}
+
+.graph-scroll {
+  overflow-x: hidden;
+}
+
+.cell.graph {
+  overflow: hidden;
 }
 
 .graph-scroll {
@@ -657,8 +760,7 @@ select:focus {
 }
 
 .right-panel {
-  width: 360px;
-  flex-shrink: 0;
+  width: 100%;
   background: var(--panel);
   border-left: 1px solid var(--border);
   display: flex;
@@ -972,7 +1074,19 @@ a.sha {
   width: 100%;
   border-collapse: collapse;
   font: 12px/18px ui-monospace, Menlo, Consolas, monospace;
-  table-layout: fixed;
+}
+
+.diff-table .ln,
+.diff-table .code {
+  vertical-align: top;
+}
+
+.diff-table:not(.split) .code {
+  width: 100%;
+}
+
+.diff-table.split .code {
+  width: 50%;
 }
 
 .diff-table .ln {

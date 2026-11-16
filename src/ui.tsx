@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { krill, MenuSpec } from "./api";
 
 export interface Field {
@@ -211,4 +211,48 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
       </form>
     </div>
   );
+}
+
+export function useStoredWidth(key: string, initial: number): [number, (n: number) => void] {
+  const [value, setValue] = useState<number>(() => {
+    try {
+      const saved = Number(localStorage.getItem(`krill.width.${key}`));
+      return saved > 0 ? saved : initial;
+    } catch {
+      return initial;
+    }
+  });
+  const set = useCallback(
+    (n: number) => {
+      setValue(n);
+      try {
+        localStorage.setItem(`krill.width.${key}`, String(Math.round(n)));
+      } catch {
+        return;
+      }
+    },
+    [key],
+  );
+  return [value, set];
+}
+
+export function Splitter(props: { value: number; set(n: number): void; min: number; max: number; invert?: boolean; className?: string }) {
+  const start = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = props.value;
+    const move = (ev: MouseEvent) => {
+      const dx = (ev.clientX - x0) * (props.invert ? -1 : 1);
+      props.set(Math.max(props.min, Math.min(props.max, w0 + dx)));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.classList.remove("resizing");
+    };
+    document.body.classList.add("resizing");
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+  return <div className={`splitter ${props.className ?? ""}`} onMouseDown={start} />;
 }
