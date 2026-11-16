@@ -225,7 +225,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const [tree, setTree] = useState(false);
   const status = ctx.data.status;
   const unstaged = status.filter((e) => e.work !== " " || e.index === "?");
-  const staged = status.filter((e) => e.index !== " " && e.index !== "?");
+  const staged = status.filter((e) => e.index !== " " && e.index !== "?" && statusCode(e, true) !== "U");
 
   useEffect(() => {
     if (amend && !summary && ctx.data.head) {
