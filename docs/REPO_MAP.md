@@ -31,6 +31,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `test/graph.test.ts` | Lane layout tests |
 | `test/menus.test.ts` | Context menu order tests with a fake `window.krill` |
 | `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
+| `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
 | `docs/DECISIONS.md` | Design decisions and their limits |
 
