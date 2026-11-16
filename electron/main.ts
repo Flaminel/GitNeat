@@ -29,7 +29,8 @@ function createWindow(): void {
     height: 940,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: "#1b1d23",
+    backgroundColor: "#1c1e23",
+    show: !process.env.KRILL_SCREENSHOT,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     titleBarOverlay: isMac ? false : { color: "#14161b", symbolColor: "#c9ccd3", height: 36 },
     trafficLightPosition: { x: 12, y: 11 },
@@ -38,6 +39,7 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: !process.env.KRILL_SCREENSHOT,
     },
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -46,6 +48,18 @@ function createWindow(): void {
     }
     return { action: "deny" };
   });
+  const shot = process.env.KRILL_SCREENSHOT;
+  if (shot) {
+    win.webContents.once("did-finish-load", () => {
+      setTimeout(async () => {
+        const image = await win?.webContents.capturePage(undefined, { stayHidden: true });
+        if (image) {
+          await fs.promises.writeFile(shot, image.toPNG());
+        }
+        app.quit();
+      }, Number(process.env.KRILL_SCREENSHOT_DELAY ?? 2500));
+    });
+  }
   if (process.env.VITE_DEV) {
     void win.loadURL("http://localhost:5173");
   } else {
@@ -187,6 +201,10 @@ ipcMain.handle("unwatch", (_e, cwd: string) => {
   watchers.get(cwd)?.close();
   watchers.delete(cwd);
 });
+
+if (process.env.KRILL_USER_DATA) {
+  app.setPath("userData", process.env.KRILL_USER_DATA);
+}
 
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => app.quit());

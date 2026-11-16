@@ -36,6 +36,8 @@ export interface Worktree {
   branch?: string;
   sha: string;
   main: boolean;
+  locked: boolean;
+  prunable: boolean;
 }
 
 export interface Remote {
@@ -293,6 +295,8 @@ function parseWorktrees(out: string): Worktree[] {
         sha: get("HEAD") ?? "",
         branch: get("branch")?.replace("refs/heads/", ""),
         main: i === 0,
+        locked: lines.some((l) => l === "locked" || l.startsWith("locked ")),
+        prunable: lines.some((l) => l === "prunable" || l.startsWith("prunable ")),
       };
     });
 }
