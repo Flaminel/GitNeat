@@ -81,7 +81,7 @@ function runGit(cwd: string, args: string[], env?: Record<string, string>, input
     const child = execFile(
       "git",
       args,
-      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", LC_ALL: "C", ...env } },
+      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C", ...env } },
       (error, stdout, stderr) => {
         const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
         resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
@@ -117,9 +117,20 @@ function openTerminal(cwd: string): void {
   }
 }
 
-ipcMain.handle("git", (_e, cwd: string, args: string[], env?: Record<string, string>, input?: string) =>
-  runGit(cwd, args, env, input),
-);
+const BLOCKED_ARGS = /^(--upload-pack|--receive-pack|--exec|--exec-path|--config-env)(=|$)/;
+
+ipcMain.handle("git", (_e, cwd: string, args: string[], env?: Record<string, string>, input?: string) => {
+  if (args.some((a) => BLOCKED_ARGS.test(a)) || args[0] === "-c") {
+    return { code: 1, stdout: "", stderr: "Krill blocked a git option that can run commands." };
+  }
+  return runGit(cwd, args, env, input);
+});
+
+const insideOpenRepo = (target: string) =>
+  [...watchers.keys()].some((root) => {
+    const rel = path.relative(root, target);
+    return !rel.startsWith("..") && !path.isAbsolute(rel);
+  });
 
 ipcMain.handle("open-repo-dialog", async () => {
   const result = await dialog.showOpenDialog(win as BrowserWindow, { properties: ["openDirectory"] });
@@ -168,8 +179,8 @@ ipcMain.handle("open-external", (_e, url: string) => {
   }
 });
 
-ipcMain.handle("open-path", (_e, target: string) => shell.openPath(target));
-ipcMain.handle("show-item", (_e, target: string) => shell.showItemInFolder(target));
+ipcMain.handle("open-path", (_e, target: string) => (insideOpenRepo(target) ? shell.openPath(target) : "Krill opens only files inside an open repository."));
+ipcMain.handle("show-item", (_e, target: string) => (insideOpenRepo(target) ? shell.showItemInFolder(target) : undefined));
 ipcMain.handle("open-terminal", (_e, cwd: string) => openTerminal(cwd));
 
 ipcMain.handle("store-get", async () => {
@@ -199,6 +210,10 @@ ipcMain.handle("watch", (e, cwd: string) => {
           e.sender.send("repo-changed", cwd);
         }
       }, 400);
+    });
+    watcher.on("error", () => {
+      watcher.close();
+      watchers.delete(cwd);
     });
     watchers.set(cwd, watcher);
   } catch {

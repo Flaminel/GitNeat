@@ -1403,3 +1403,8 @@ a.sha {
   border-radius: 3px;
   padding: 0 6px;
 }
+
+.modal-error {
+  margin: 0;
+  color: var(--red);
+}

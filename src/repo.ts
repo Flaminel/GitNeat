@@ -97,8 +97,16 @@ export async function git(cwd: string, args: string[], env?: Record<string, stri
   return result.stdout;
 }
 
-async function tryGit(cwd: string, args: string[]): Promise<string> {
-  const result = await krill().git(cwd, args);
+export function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => {
+    const s = p.replace(/\\/g, "/").replace(/\/+$/, "");
+    return /^[a-zA-Z]:/.test(s) ? s.toLowerCase() : s;
+  };
+  return norm(a) === norm(b);
+}
+
+async function tryGit(cwd: string, args: string[], input?: string): Promise<string> {
+  const result = await krill().git(cwd, args, undefined, input);
   return result.code === 0 ? result.stdout : "";
 }
 
@@ -146,14 +154,19 @@ export async function loadRepo(cwd: string, hidden: string[], solo: string[], li
   }
 
   const logOut = revs.length
-    ? await tryGit(cwd, [
-        "log",
-        "--date-order",
-        `-n${limit}`,
-        `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`,
-        ...revs,
-        "--",
-      ])
+    ? await tryGit(
+        cwd,
+        [
+          "log",
+          "--date-order",
+          `-n${limit}`,
+          `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`,
+          ...revs.filter((r) => r.startsWith("--")),
+          "--stdin",
+          "--",
+        ],
+        revs.filter((r) => !r.startsWith("--")).join("\n") + "\n",
+      )
     : "";
   const commits = parseLog(logOut);
   insertStashes(commits, stashes, await stashTimes(cwd, stashes));
@@ -209,7 +222,11 @@ async function detectOperation(cwd: string): Promise<Operation> {
   ];
   const results = await Promise.all(checks.map(([ref]) => krill().git(cwd, ["rev-parse", "-q", "--verify", ref])));
   const hit = results.findIndex((r) => r.code === 0);
-  return hit >= 0 ? checks[hit][1] : null;
+  if (hit >= 0) {
+    return checks[hit][1];
+  }
+  const status = await krill().git(cwd, ["status", "--no-ahead-behind"]);
+  return /rebase in progress|You are currently rebasing|You are currently editing a commit while rebasing/.test(status.stdout) ? "rebase" : null;
 }
 
 export function parseLog(out: string): Commit[] {
@@ -353,7 +370,7 @@ export function parseNameStatus(out: string): FileChange[] {
 }
 
 export async function loadAllFiles(cwd: string, sha: string): Promise<string[]> {
-  return (await git(cwd, ["ls-tree", "-r", "--name-only", sha])).split("\n").filter(Boolean);
+  return (await git(cwd, ["ls-tree", "-r", "-z", "--name-only", sha])).split("\0").filter(Boolean);
 }
 
 export type DiffSource = { kind: "commit"; sha: string; parent?: string } | { kind: "staged" } | { kind: "unstaged"; untracked: boolean };

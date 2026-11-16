@@ -1,7 +1,7 @@
 import * as A from "./actions";
 import { Ctx, RangeInfo } from "./actions";
 import { krill } from "./api";
-import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, Worktree } from "./repo";
+import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, samePath, Worktree } from "./repo";
 import { MenuItem, showMenu } from "./ui";
 
 const short = (sha: string) => sha.slice(0, 7);
@@ -243,7 +243,7 @@ export function remoteMenu(ctx: Ctx, name: string, url: string): Promise<void> {
 }
 
 export function worktreeMenu(ctx: Ctx, wt: Worktree): Promise<void> {
-  const isSelf = wt.path === ctx.cwd;
+  const isSelf = samePath(wt.path, ctx.cwd);
   return showMenu(
     groups(
       [

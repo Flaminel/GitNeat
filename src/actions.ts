@@ -1,6 +1,6 @@
 import { krill } from "./api";
 import { Commit, git, GitError, Operation, Ref, RepoData } from "./repo";
-import { Ui } from "./ui";
+import { Field, Ui } from "./ui";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
 
@@ -53,11 +53,11 @@ async function headState(cwd: string): Promise<HeadState> {
   return { head: head.stdout.trim() || null, branch: branch.stdout.trim() || null };
 }
 
-async function run(ctx: Ctx, label: string, fn: () => Promise<unknown>): Promise<boolean> {
+async function run(ctx: Ctx, label: string, fn: () => Promise<unknown>, undoable = true): Promise<boolean> {
   const before = await headState(ctx.cwd);
   const ok = await ctx.ui.task(label, fn);
   const after = await headState(ctx.cwd);
-  if (before.head && (before.head !== after.head || before.branch !== after.branch)) {
+  if (undoable && ok && before.head && (before.head !== after.head || before.branch !== after.branch)) {
     ctx.record({ label, before, after });
   }
   ctx.refresh();
@@ -119,7 +119,7 @@ export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<vo
 }
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {
-  const v = await ctx.ui.prompt("Create branch", [{ name: "name", label: "Branch name", placeholder: "feature/my-branch" }], "Create branch");
+  const v = await ctx.ui.prompt("Create branch", [{ name: "name", label: "Branch name", ref: true, placeholder: "feature/my-branch" }], "Create branch");
   if (v?.name.trim()) {
     await run(ctx, "Create branch", () => g(ctx, ["switch", "-c", v.name.trim(), from]));
   }
@@ -130,7 +130,7 @@ export async function createWorktree(ctx: Ctx, from: string, branch?: string): P
   if (!dir) {
     return;
   }
-  const fields = branch ? [] : [{ name: "name", label: "New branch name (empty for detached HEAD)" }];
+  const fields = branch ? [] : [{ name: "name", label: "New branch name (empty for detached HEAD)", ref: true }];
   const v = fields.length ? await ctx.ui.prompt("Create worktree", fields, "Create worktree") : {};
   if (!v) {
     return;
@@ -166,7 +166,7 @@ export async function reset(ctx: Ctx, mode: "soft" | "mixed" | "hard", sha: stri
 }
 
 export async function createTag(ctx: Ctx, sha: string, annotated: boolean): Promise<void> {
-  const fields = [{ name: "name", label: "Tag name" }];
+  const fields: Field[] = [{ name: "name", label: "Tag name", ref: true }];
   if (annotated) {
     fields.push({ name: "message", label: "Message", kind: "textarea" } as never);
   }
@@ -212,9 +212,9 @@ export async function deleteRemoteBranch(ctx: Ctx, remoteBranch: string): Promis
 }
 
 export async function renameBranch(ctx: Ctx, name: string): Promise<void> {
-  const v = await ctx.ui.prompt(`Rename ${name}`, [{ name: "name", label: "New name", value: name }], "Rename");
+  const v = await ctx.ui.prompt(`Rename ${name}`, [{ name: "name", label: "New name", ref: true, value: name }], "Rename");
   if (v?.name.trim() && v.name.trim() !== name) {
-    await run(ctx, "Rename branch", () => g(ctx, ["branch", "-m", name, v.name.trim()]));
+    await run(ctx, "Rename branch", () => g(ctx, ["branch", "-m", name, v.name.trim()]), false);
   }
 }
 
@@ -263,7 +263,7 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
       `Push ${name}`,
       [
         { name: "remote", label: "Remote", kind: "select", options: remotes.includes("origin") ? ["origin", ...remotes.filter((r) => r !== "origin")] : remotes },
-        { name: "branch", label: "Remote branch", value: name },
+        { name: "branch", label: "Remote branch", ref: true, value: name },
       ],
       "Push",
     );
@@ -339,7 +339,7 @@ export async function deleteTag(ctx: Ctx, tag: string, remote?: string): Promise
 
 export async function addRemote(ctx: Ctx): Promise<void> {
   const v = await ctx.ui.prompt("Add remote", [
-    { name: "name", label: "Name", value: ctx.data.remotes.length ? "" : "origin" },
+    { name: "name", label: "Name", value: ctx.data.remotes.length ? "" : "origin", ref: true },
     { name: "url", label: "URL" },
   ], "Add remote");
   if (v?.name && v.url) {
@@ -403,12 +403,12 @@ export async function runTodo(ctx: Ctx, base: string | null, entries: TodoEntry[
   await run(ctx, "Rebase", async () => {
     const lines: string[] = [];
     for (const entry of entries) {
-      if (entry.action === "reword") {
+      if (entry.action === "reword" && entry.message !== undefined) {
         lines.push(`pick ${entry.sha}`);
-        const file = await krill().writeTemp(entry.message ?? entry.subject);
+        const file = await krill().writeTemp(entry.message);
         lines.push(`exec git commit --amend --only --allow-empty -F "${file}"`);
       } else {
-        lines.push(`${entry.action} ${entry.sha}`);
+        lines.push(`${entry.action === "reword" ? "pick" : entry.action} ${entry.sha}`);
       }
     }
     const todo = await krill().writeTemp(lines.join("\n") + "\n");
@@ -509,7 +509,10 @@ export async function discardFile(ctx: Ctx, path: string, untracked: boolean): P
   if (!(await ctx.ui.confirm("Discard changes", `Discard all changes to ${path}?`, "Discard", true))) {
     return;
   }
-  await run(ctx, "Discard", () => (untracked ? g(ctx, ["clean", "-f", "--", path]) : g(ctx, ["checkout", "HEAD", "--", path])));
+  const conflicted = ctx.data.status.some((e) => e.path === path && (e.index === "U" || e.work === "U"));
+  await run(ctx, "Discard", () =>
+    untracked ? g(ctx, ["clean", "-f", "--", path]) : g(ctx, conflicted ? ["checkout", "HEAD", "--", path] : ["checkout", "--", path]),
+  );
 }
 
 export async function discardAll(ctx: Ctx): Promise<void> {

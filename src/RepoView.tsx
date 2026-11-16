@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as A from "./actions";
 import { Ctx, TodoEntry, UndoEntry } from "./actions";
 import { krill } from "./api";
@@ -46,10 +46,17 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const next = await loadRepo(path, prefs.hidden, prefs.solo, COMMIT_LIMIT);
+      if (seq !== loadSeq.current) {
+        return;
+      }
       setData(next);
+      setMulti((list) => list.filter((sha) => next.commits.some((c) => c.sha === sha)));
+      setSelected((s) => (s && s !== WIP && !next.commits.some((c) => c.sha === s) ? next.head : s));
       setError(null);
       setRefreshKey((k) => k + 1);
       setSelected((s) => s ?? (next.status.length ? WIP : next.head));
@@ -157,15 +164,15 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         redoLabel={redoStack[redoStack.length - 1]?.label}
         onUndo={async () => {
           const entry = undoStack[undoStack.length - 1];
-          setUndoStack((list) => list.slice(0, -1));
           if (entry && (await A.undo(ctx, entry))) {
+            setUndoStack((list) => list.filter((x) => x !== entry));
             setRedoStack((list) => [...list, entry]);
           }
         }}
         onRedo={async () => {
           const entry = redoStack[redoStack.length - 1];
-          setRedoStack((list) => list.slice(0, -1));
           if (entry && (await A.redo(ctx, entry))) {
+            setRedoStack((list) => list.filter((x) => x !== entry));
             setUndoStack((list) => [...list, entry]);
           }
         }}

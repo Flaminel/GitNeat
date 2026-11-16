@@ -8,6 +8,7 @@ export interface Field {
   placeholder?: string;
   kind?: "text" | "textarea" | "checkbox" | "select";
   options?: string[];
+  ref?: boolean;
 }
 
 export type MenuItem = "-" | "" | false | null | undefined | { label: string; run?: () => unknown; enabled?: boolean; submenu?: MenuItem[] };
@@ -142,7 +143,11 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(request.fields.map((f) => [f.name, f.value ?? (f.kind === "select" ? f.options?.[0] ?? "" : "")])),
   );
+  const invalid = request.fields.find((f) => f.ref && /^-|\s|\.\.|[~^:?*\[\\]/.test(values[f.name] ?? ""));
   const finish = (result: Record<string, string> | null) => {
+    if (result && invalid) {
+      return;
+    }
     close();
     request.resolve(result);
   };
@@ -200,6 +205,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
             )}
           </label>
         ))}
+        {invalid && <p className="modal-error">{invalid.label} is not a valid git name.</p>}
         <div className="modal-buttons">
           <button type="button" onClick={() => finish(null)}>
             Cancel

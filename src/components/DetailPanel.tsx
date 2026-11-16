@@ -100,6 +100,7 @@ function Avatar({ name }: { name: string }) {
 
 function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [detail, setDetail] = useState<CommitDetail | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tree, setTree] = useState(false);
   const [all, setAll] = useState<string[] | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -109,9 +110,10 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
     let live = true;
     setDetail(null);
     setAll(null);
+    setLoadError(null);
     loadCommit(ctx.cwd, sha).then(
       (d) => live && setDetail(d),
-      () => undefined,
+      (e) => live && setLoadError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
       live = false;
@@ -125,7 +127,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   }, [showAll, all, ctx.cwd, sha]);
 
   if (!detail) {
-    return <div className="detail-empty">Loading…</div>;
+    return <div className="detail-empty">{loadError ?? "Loading…"}</div>;
   }
   const [subject, ...body] = detail.message.split("\n");
   const counts = detail.files.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.status]: (acc[f.status] ?? 0) + 1 }), {});

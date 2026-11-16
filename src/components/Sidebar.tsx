@@ -3,7 +3,7 @@ import * as A from "../actions";
 import { krill } from "../api";
 import { Ctx } from "../actions";
 import * as M from "../menus";
-import { Ref } from "../repo";
+import { Ref, samePath } from "../repo";
 import { showMenu } from "../ui";
 import { Icon } from "./icons";
 
@@ -223,10 +223,10 @@ export function Sidebar({ ctx, onSelectSha, showAll }: Props) {
           {data.worktrees.map((wt) => (
             <div
               key={wt.path}
-              className={`item${wt.path === data.cwd ? " current" : ""}`}
+              className={`item${samePath(wt.path, data.cwd) ? " current" : ""}`}
               style={{ paddingLeft: 26 }}
               title={wt.path}
-              onDoubleClick={() => wt.path !== data.cwd && ctx.openTab(wt.path)}
+              onDoubleClick={() => !samePath(wt.path, data.cwd) && ctx.openTab(wt.path)}
               onClick={() => onSelectSha(wt.sha)}
               onContextMenu={() => M.worktreeMenu(ctx, wt)}
             >
