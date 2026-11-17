@@ -18,8 +18,8 @@ export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
   git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
-  action?(cwd: string, name: string, args: unknown): Promise<unknown>;
-  loadRepo?(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData>;
+  action(cwd: string, name: string, args: unknown): Promise<unknown>;
+  loadRepo(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;
@@ -27,7 +27,7 @@ export interface GitNeatApi {
   readFile(cwd: string, rel: string): Promise<string | null>;
   writeFile(cwd: string, rel: string, content: string): Promise<boolean>;
   menu(items: MenuSpec[]): Promise<string | null>;
-  contextMenu?(cwd: string, kind: string, args: unknown): Promise<string | null>;
+  contextMenu(cwd: string, kind: string, args: unknown): Promise<string | null>;
   copy(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   openPath(target: string): Promise<string>;

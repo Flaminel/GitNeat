@@ -33,21 +33,22 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of `src/graph.ts`, `src/diff.ts`, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
 | `test/load-repo.test.ts`, `test/actions.test.ts`, `test/menus-rust.test.ts` | TS against Rust comparison tests. They run only with `GITNEAT_RUST_COMPARE=1`. |
 | `rust/app/tauri.conf.json` | Tauri build and bundle settings |
-| `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
+| `src/repo.ts` | Repository types, `loadRepo` (calls Rust), and the loaders for commit detail, diffs, blame, file history and remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
 | `src/merge.ts` | Merge conflict parser, selections and Output builder |
 | `src/diff.ts` | Unified diff parser and patch builder for hunks and selected lines |
 | `src/monaco.ts` | Monaco setup: worker, `gitneat` theme, language detection |
-| `src/actions.ts` | Git operations that change the repository (checkout, merge, rebase, reset, push, and so on) |
-| `src/menus.ts` | Context menu content for commits, branches, tags, stashes, remotes, worktrees, files and tabs |
+| `src/actions.ts` | UI flow of each repository action (prompts, confirms, toasts, undo records). The git work runs in Rust through `action`. |
+| `src/menus.ts` | Context menus: asks Rust for the menu with `contextMenu`, then runs the handler for the chosen id |
 | `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
 | `src/App.tsx` | Tabs, saved state, open repository |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
+| `test/reference/` | Frozen TS version of `loadRepo`, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
 | `test/graph.test.ts` | Lane layout tests |
-| `test/menus.test.ts` | Context menu order tests with a fake `window.gitneat` |
+| `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
 | `.github/workflows/build.yml` | CI job `tauri`: tests, Rust checks and Tauri bundles for macOS, Windows and Linux. Release on `v*` tags |
@@ -60,8 +61,8 @@ GitNeat is a Tauri 2 app with two parts.
 
 | Task | File |
 | --- | --- |
-| Add or reorder a context menu item | `src/menus.ts` |
-| Change the branch menu groups (Checkout and worktree submenus, merge items) | `branchGroups`, `checkoutItems`, `worktreeItems`, `mergeItems` in `src/menus.ts` |
+| Add or reorder a context menu item | `rust/app/src/menus/`, then the handler for its id in `src/menus.ts` |
+| Change the branch menu groups (Checkout and worktree submenus, merge items) | `rust/app/src/menus/`, then `branchHandlers` in `src/menus.ts` for the ids |
 | Add a git operation | `src/actions.ts`, then call it from `src/menus.ts` or `src/components/Toolbar.tsx` |
 | Load more data from git | `src/repo.ts` (`loadRepo` and the `RepoData` type) |
 | Change graph lanes or colors | `src/graph.ts` for lanes, `src/styles.css` (`--lane-*`) for colors |
@@ -70,7 +71,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
-| Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
+| Change undo or redo | `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
 | Change hunk view syntax or bracket colors | `renderModelLine` in `src/components/DiffView.tsx`, `.bracket-*` in `src/styles.css` |

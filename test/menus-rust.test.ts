@@ -53,10 +53,10 @@ type Api = Record<string, unknown>;
 
 let runRoot = "";
 let menuExample = "";
-let actionExample = "";
 let M: typeof import("../src/menus");
-let loadRepo: typeof import("../src/repo").loadRepo;
-const ranges = new Map<string, unknown>();
+let tsMenus: typeof import("../src/menus");
+let rsMenus: typeof import("../src/menus");
+let loadRepo: typeof import("./reference/repo").loadRepo;
 
 function setApi(api: Api): void {
   (globalThis as { window?: unknown }).window = { gitneat: api };
@@ -327,14 +327,6 @@ function runExample(file: string, args: string[]): Promise<unknown> {
 
 const rustTree = (cwd: string, kind: string, args: unknown) => runExample(menuExample, [cwd, kind, JSON.stringify(args)]);
 
-async function rangeOf(cwd: string, name: string, args: unknown): Promise<unknown> {
-  const key = `${cwd}|${name}|${JSON.stringify(args)}`;
-  if (!ranges.has(key)) {
-    ranges.set(key, await runExample(actionExample, [cwd, name, JSON.stringify(args)]));
-  }
-  return ranges.get(key);
-}
-
 const plain = (value: unknown) => (value === undefined ? null : JSON.parse(JSON.stringify(value)));
 
 function idsOf(items: MenuSpec[], out: string[] = []): string[] {
@@ -404,14 +396,8 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
 function effectApi(platform: string, log: string[], chosen: string | null, native: boolean): Api {
   return {
     platform,
-    git: async (_cwd: string, args: string[]) => {
-      log.push(`git ${args.join(" ")}`);
-      return { code: 0, stdout: "", stderr: "" };
-    },
-    action: async (cwd: string, name: string, args: unknown) => {
-      if (name === "rangeInfo") {
-        return rangeOf(cwd, name, args);
-      }
+    git: runGit,
+    action: async (_cwd: string, name: string, args: unknown) => {
       log.push(`action ${name} ${JSON.stringify(args)}`);
       if (name === "rebaseRange") {
         return [];
@@ -529,6 +515,7 @@ async function execute(s: Scenario, tag: string): Promise<number> {
           return null;
         },
       });
+      M = tsMenus;
       await call.run(makeCtx(d, data, [], marks));
       const expected = plain(shown);
 
@@ -544,6 +531,7 @@ async function execute(s: Scenario, tag: string): Promise<number> {
           return null;
         },
       });
+      M = rsMenus;
       await call.run(makeCtx(d, data, [], marks));
       assert.deepStrictEqual(actual, expected, where);
       checked += 1;
@@ -553,9 +541,11 @@ async function execute(s: Scenario, tag: string): Promise<number> {
       for (const id of ids) {
         const tsLog: string[] = [];
         setApi(effectApi(platform, tsLog, id, false));
+        M = tsMenus;
         await call.run(makeCtx(d, data, tsLog, marks));
         const rsLog: string[] = [];
         setApi(effectApi(platform, rsLog, id, true));
+        M = rsMenus;
         await call.run(makeCtx(d, data, rsLog, marks));
         assert.ok(rsLog.length > 0, `${where}: id ${id} ran nothing`);
         assert.deepStrictEqual(rsLog, tsLog, `${where}: id ${id}`);
@@ -580,14 +570,13 @@ before(
       GIT_AUTHOR_DATE: "2020-01-01T00:00:00Z",
       GIT_COMMITTER_DATE: "2020-01-01T00:00:00Z",
     });
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "menu", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "menu"], { cwd: rustDir, stdio: "inherit" });
     const dir = path.join(rustDir, "target", "debug", "examples");
-    const ext = process.platform === "win32" ? ".exe" : "";
-    menuExample = path.join(dir, `menu${ext}`);
-    actionExample = path.join(dir, `action${ext}`);
+    menuExample = path.join(dir, process.platform === "win32" ? "menu.exe" : "menu");
     setApi({ platform: "darwin", git: runGit });
-    M = await import("../src/menus");
-    ({ loadRepo } = await import("../src/repo"));
+    tsMenus = await import("./reference/menus");
+    rsMenus = await import("../src/menus");
+    ({ loadRepo } = await import("./reference/repo"));
   },
   { timeout: 600000 },
 );

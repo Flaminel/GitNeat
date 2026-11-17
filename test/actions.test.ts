@@ -4,12 +4,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
-import type * as ActionsModule from "../src/actions";
+import type * as ActionsModule from "./reference/actions";
+import type * as NativeActionsModule from "../src/actions";
 import type { Commit, Ref } from "../src/repo";
 import type { GitResult } from "../src/api";
 
-type Ctx = ActionsModule.Ctx;
-type UndoEntry = ActionsModule.UndoEntry;
+type Ctx = NativeActionsModule.Ctx;
+type UndoEntry = NativeActionsModule.UndoEntry;
 
 const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
@@ -56,7 +57,9 @@ interface Scenario {
 let runRoot = "";
 let example = "";
 let A: typeof ActionsModule;
-let loadRepo: typeof import("../src/repo").loadRepo;
+let tsActions: typeof ActionsModule;
+let rsActions: typeof ActionsModule;
+let loadRepo: typeof import("./reference/repo").loadRepo;
 
 function g(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -710,6 +713,7 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
     ...(native ? { action: runAction } : {}),
   };
   (globalThis as { window?: unknown }).window = { gitneat: api };
+  A = native ? rsActions : tsActions;
   const data = await loadRepo(d.repo, [], [], 1000);
   const ctx: Ctx = {
     cwd: d.repo,
@@ -761,8 +765,9 @@ before(
     execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
     example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "action.exe" : "action");
     (globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit } };
-    A = await import("../src/actions");
-    ({ loadRepo } = await import("../src/repo"));
+    tsActions = await import("./reference/actions");
+    rsActions = { ...(await import("../src/actions")), rangeInfo: (cwd: string, sha: string) => runAction(cwd, "rangeInfo", { sha }) } as typeof ActionsModule;
+    ({ loadRepo } = await import("./reference/repo"));
   },
   { timeout: 600000 },
 );

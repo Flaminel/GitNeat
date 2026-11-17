@@ -31,10 +31,10 @@ let ancestorCode = 0;
   },
 };
 
-let M: typeof import("../src/menus");
+let M: typeof import("./reference/menus");
 
 before(async () => {
-  M = await import("../src/menus");
+  M = await import("./reference/menus");
 });
 
 function labels(items: MenuSpec[]): string[] {
