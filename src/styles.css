@@ -131,6 +131,31 @@ select:focus {
   padding-right: 140px;
 }
 
+.tabbar.win.controls {
+  padding-right: 0;
+}
+
+.window-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls button {
+  width: 46px;
+  border: none;
+  background: none;
+  color: #c9ccd3;
+}
+
+.window-controls button:hover {
+  background: var(--bg);
+}
+
+.window-controls button.close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
 .tab,
 .tab-new {
   -webkit-app-region: no-drag;

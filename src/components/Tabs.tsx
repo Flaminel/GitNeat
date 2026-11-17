@@ -1,3 +1,4 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useState } from "react";
 import { gitneat } from "../api";
 import { showMenu } from "../ui";
@@ -26,8 +27,9 @@ export const tabTitle = (tab: Tab) => tab.title || tab.path.split(/[\\/]/).pop()
 export function Tabs(props: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const isMac = gitneat().platform === "darwin";
+  const controls = gitneat().windowControls === true;
   return (
-    <div className={`tabbar${isMac ? " mac" : " win"}`}>
+    <div className={`tabbar${isMac ? " mac" : " win"}${controls ? " controls" : ""}`} data-tauri-drag-region>
       {props.tabs.map((tab, i) => (
         <div
           key={tab.path}
@@ -75,7 +77,31 @@ export function Tabs(props: Props) {
       <button className="tab-new" title="Open repository" onClick={props.onNew}>
         +
       </button>
-      <div className="tabbar-drag" />
+      <div className="tabbar-drag" data-tauri-drag-region />
+      {controls && <WindowControls />}
+    </div>
+  );
+}
+
+function WindowControls() {
+  const win = getCurrentWindow();
+  return (
+    <div className="window-controls">
+      <button title="Minimize" onClick={() => void win.minimize()}>
+        <svg width="10" height="10" viewBox="0 0 10 10">
+          <path d="M0 5h10" stroke="currentColor" />
+        </svg>
+      </button>
+      <button title="Maximize" onClick={() => void win.toggleMaximize()}>
+        <svg width="10" height="10" viewBox="0 0 10 10">
+          <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" />
+        </svg>
+      </button>
+      <button className="close" title="Close" onClick={() => void win.close()}>
+        <svg width="10" height="10" viewBox="0 0 10 10">
+          <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" />
+        </svg>
+      </button>
     </div>
   );
 }

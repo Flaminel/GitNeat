@@ -4,3 +4,5 @@ dist-electron
 release
 .DS_Store
 .claude/
+rust/target
+rust/app/gen

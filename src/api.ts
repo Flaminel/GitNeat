@@ -14,6 +14,7 @@ export interface MenuSpec {
 
 export interface GitNeatApi {
   platform: string;
+  windowControls?: boolean;
   git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
