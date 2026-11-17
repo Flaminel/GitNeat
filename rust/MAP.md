@@ -29,21 +29,32 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | Wave | Unit | State | Notes |
 | --- | --- | --- | --- |
 | A | `electron/` to `rust/app` (Tauri shell) | done | 17 IPC handlers are Tauri commands. CI job `tauri`. |
-| B | `src/graph.ts` | open | UTF-16 offsets at lines 39, 63 |
-| B | `src/diff.ts` | open | UTF-16 offsets at lines 36, 55, 57 |
-| B | `src/merge.ts` | open | |
-| B | parsers in `src/repo.ts` | open | `parseLog`, `parseRefs`, `parseStatus`, `parseWorktrees`, `parseRemotes`, `parseNameStatus`, `samePath` |
+| B | `src/graph.ts` | done | crate `rust/graph`, gate passed, 202/202 cases. Bench 0.08x through napi: call it from Rust only. |
+| B | `src/diff.ts` | done | crate `rust/diff`, gate passed, 1149/1149 cases. Bench 0.34x through napi. |
+| B | `src/merge.ts` | done | crate `rust/merge`, gate passed, 867/867 cases. Bench 0.27x through napi. |
+| B | parsers in `src/repo.ts` | done | crate `rust/repo`, gate passed, 1971/1971 cases. Bench 0.13x through napi. Also `parse_worktrees`, `parse_remotes`, `parse_stashes`, `insert_stashes` with unit tests only. |
 | C | `loadRepo` in `src/repo.ts` | open | One `load_repo` command. Then the gix backend, the equality test and the benchmark (D31). |
 | D | `src/actions.ts` | open | |
 | E | `src/menus.ts` | open | |
+
+## Port rules
+
+These rules come from mistakes in earlier units. Follow them in each new unit.
+
+1. Run every `rust-anything` command with Node 24 on `PATH`. Node 26 removed a flag that `bench` uses.
+2. In a new unit crate, set `serde` to `features = ["derive"]` and add `chunks_exact_to_as_chunks = "allow"` under `[lints.clippy]`. The generated `wire.rs` fails this lint on Rust 1.100.
+3. Put typed core functions in an `impl` block. `refresh` exports every top-level `pub fn` in `port.rs`, and the build fails on `&` parameters. `rust/graph` has a top-level `pub fn layout`: move it before you run `refresh` on that crate.
+4. A TS function that returns `string | null` needs a `serde_json::Value` return in the wrapper. `Option<String>` becomes `undefined` in JS.
+5. Remove recorded cases larger than 1 MB from `cases.jsonl` before you commit.
+6. Do not edit `lib.rs`, `wire.rs`, `js.rs` or `index.cjs`. `bridge` and `refresh` generate them.
+7. Bench results through napi are below 1x for every Wave B unit. The app calls the ports from Rust, so the napi bench does not apply.
 
 ## Research
 
 | Topic | File | State |
 | --- | --- | --- |
-| `gix` status against `git status --porcelain=v1` | `rust/research/gix-status.md` | open (before wave C) |
-| `gix` commit walk in date order, stash reflog | `rust/research/gix-revwalk.md` | open (before wave C) |
-| Process start cost and `diff --no-index -- /dev/null` on Git for Windows | `rust/research/windows-git.md` | open (before wave C) |
+| `gix` for each read in `loadRepo` (refs, log walk, stashes, worktrees, remotes, status, operation) | `rust/research/gix-load-repo.md` | in progress |
+| Process start cost, read speed settings and `diff --no-index -- /dev/null` on Git for Windows | `rust/research/windows-git.md` | in progress |
 
 ## Open questions
 
