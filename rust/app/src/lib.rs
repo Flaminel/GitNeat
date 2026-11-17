@@ -1,3 +1,4 @@
+pub mod actions;
 pub mod commands;
 pub mod git;
 pub mod load;
@@ -59,6 +60,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::git,
+            commands::action,
             commands::load_repo,
             commands::open_repo_dialog,
             commands::pick_directory,

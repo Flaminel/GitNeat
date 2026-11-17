@@ -1,3 +1,4 @@
+use crate::actions;
 use crate::git::{self, GitResult};
 use crate::load::{self, RepoData};
 use crate::menu::{self, Chosen, MenuSpec};
@@ -46,6 +47,11 @@ pub async fn git(
         };
     }
     git::run_git(&cwd, &args, env, input).await
+}
+
+#[tauri::command]
+pub async fn action(cwd: String, name: String, args: Value) -> Res<Value> {
+    actions::dispatch(&cwd, &name, args).await
 }
 
 #[tauri::command]

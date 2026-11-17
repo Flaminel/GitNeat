@@ -243,3 +243,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: On macOS, a refresh with limit 3000 takes 42.1 ms with the CLI and 3.8 ms with gix on this repository. On glasshouse it takes 60.1 ms and 14.2 ms. Process starts cost more on Windows, so the gain there is larger.
 - Rules: gix produces the same text that the CLI produces. The parsers in `rust/repo` read it. The log order is a port of the git date order, not the gix date order (see `rust/research/gix-load-repo.md`). `test/load-repo.test.ts` compares both backends with the TS `loadRepo` on 21 fixtures and 6 variants.
 - Limits: gix returns an error, and the CLI path runs, for a bare repository, a shallow repository, `info/grafts`, `refs/replace/`, sparse checkout, and a `cwd` that is not the repository root. No test covers the Windows-specific cases (`core.symlinks=false`, `core.ignoreCase`). The comparison test runs on Windows in CI job `tauri`.
+
+## D41. Repository actions run in Rust
+
+- Decision: The git logic of each action in `src/actions.ts` runs in `rust/app/src/actions/`. One Tauri command `action(cwd, name, args)` dispatches by name. Prompts, confirms, toasts, the undo stack, refresh and tab changes stay in TS.
+- Reason: The user chose a full port of `src/actions.ts`.
+- Rules: If an action needs a second answer from the user after a git failure, Rust returns `needs-confirm:<kind>:<git error text>`. The kinds are `force-delete`, `force-push` and `rewrite`. TS asks and calls the action again with the answer. An action that goes through `run` returns `{record}` for the undo stack.
+- Limits: The TS sequences stay in `src/actions.ts` for Electron until cutover. `test/actions.test.ts` runs each action through both paths on identical fixture repos and compares the result, the UI calls and the repository state. The full compare suite takes about 2 minutes.

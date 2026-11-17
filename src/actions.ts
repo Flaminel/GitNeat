@@ -46,6 +46,60 @@ export interface RangeInfo {
 
 const short = (sha: string) => sha.slice(0, 7);
 
+interface Plan {
+  base: string | null;
+  entries: TodoEntry[];
+}
+
+interface Done {
+  record: { before: HeadState; after: HeadState } | null;
+  toast?: string;
+}
+
+async function act<T = Done>(cwd: string, name: string, args: unknown): Promise<T> {
+  try {
+    return (await gitneat().action?.(cwd, name, args)) as T;
+  } catch (error) {
+    throw new GitError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function runNative(ctx: Ctx, label: string, fn: () => Promise<Done>): Promise<boolean> {
+  const box: { done?: Done } = {};
+  const ok = await ctx.ui.task(label, async () => {
+    box.done = await fn();
+  });
+  if (ok && box.done?.record) {
+    ctx.record({ label, ...box.done.record });
+  }
+  ctx.refresh();
+  return ok;
+}
+
+const go = (ctx: Ctx, label: string, name: string, args: unknown) => runNative(ctx, label, () => act(ctx.cwd, name, args));
+
+const via = (ctx: Ctx, label: string, name: string, args: unknown, fallback: () => Promise<unknown>, undoable = true) =>
+  gitneat().action ? go(ctx, label, name, args) : run(ctx, label, fallback, undoable);
+
+const needsConfirm = (error: unknown, kind: string) => error instanceof Error && error.message.startsWith(`needs-confirm:${kind}:`);
+
+async function forceable(ctx: Ctx, name: string, args: object, kind: string, ask: () => Promise<boolean>): Promise<Done> {
+  try {
+    return await act(ctx.cwd, name, { ...args, force: false });
+  } catch (error) {
+    if (!needsConfirm(error, kind)) {
+      throw error;
+    }
+    return (await ask()) ? act(ctx.cwd, name, { ...args, force: true }) : { record: null };
+  }
+}
+
+const confirmForceDelete = (ctx: Ctx, name: string) =>
+  ctx.ui.confirm("Branch not merged", `${name} is not fully merged. Delete anyway?`, "Force delete", true);
+
+const confirmForcePush = (ctx: Ctx) =>
+  ctx.ui.confirm("Push rejected", "The remote has commits that your branch does not have. Force push with lease?", "Force push", true);
+
 async function headState(cwd: string): Promise<HeadState> {
   const [head, branch] = await Promise.all([
     gitneat().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"]),
@@ -78,12 +132,22 @@ async function moveTo(ctx: Ctx, from: HeadState, to: HeadState, soft: boolean): 
 }
 
 export async function undo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
+  if (gitneat().action) {
+    const ok = await ctx.ui.task(`Undo ${entry.label}`, () => act(ctx.cwd, "undo", { entry }));
+    ctx.refresh();
+    return ok;
+  }
   const ok = await ctx.ui.task(`Undo ${entry.label}`, () => moveTo(ctx, entry.after, entry.before, entry.label === "Commit"));
   ctx.refresh();
   return ok;
 }
 
 export async function redo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
+  if (gitneat().action) {
+    const ok = await ctx.ui.task(`Redo ${entry.label}`, () => act(ctx.cwd, "redo", { entry }));
+    ctx.refresh();
+    return ok;
+  }
   const ok = await ctx.ui.task(`Redo ${entry.label}`, () => moveTo(ctx, entry.before, entry.after, entry.label === "Commit"));
   ctx.refresh();
   return ok;
@@ -92,6 +156,9 @@ export async function redo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
 const g = (ctx: Ctx, args: string[], env?: Record<string, string>) => git(ctx.cwd, args, env);
 
 export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
+  if (gitneat().action) {
+    return act<RangeInfo>(cwd, "rangeInfo", { sha });
+  }
   const anc = await gitneat().git(cwd, ["merge-base", "--is-ancestor", sha, "HEAD"]);
   const head = (await gitneat().git(cwd, ["rev-parse", "-q", "--verify", "HEAD"])).stdout.trim();
   if (anc.code !== 0) {
@@ -105,10 +172,10 @@ export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
   return { ancestor: true, isHead: head === sha, children: Number(count), hasMerges: Number(merges) > 0, descendant: head === sha };
 }
 
-export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]));
+export const checkoutRef = (ctx: Ctx, name: string) => via(ctx, `Checkout ${name}`, "checkoutRef", { name }, () => g(ctx, ["switch", name]));
 
 export const checkoutCommit = (ctx: Ctx, sha: string) =>
-  run(ctx, `Checkout ${short(sha)}`, () => g(ctx, ["switch", "--detach", sha]));
+  via(ctx, `Checkout ${short(sha)}`, "checkoutCommit", { sha }, () => g(ctx, ["switch", "--detach", sha]));
 
 export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
   const local = remoteBranch.split("/").slice(1).join("/");
@@ -117,13 +184,15 @@ export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<vo
     await checkoutRef(ctx, local);
     return;
   }
-  await run(ctx, `Checkout ${remoteBranch}`, () => g(ctx, ["switch", "-c", local, "--track", remoteBranch]));
+  await via(ctx, `Checkout ${remoteBranch}`, "checkoutRemote", { remoteBranch, localExists: false }, () =>
+    g(ctx, ["switch", "-c", local, "--track", remoteBranch]),
+  );
 }
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {
   const v = await ctx.ui.prompt("Create branch", [{ name: "name", label: "Branch name", ref: true, placeholder: "feature/my-branch" }], "Create branch");
   if (v?.name.trim()) {
-    await run(ctx, "Create branch", () => g(ctx, ["switch", "-c", v.name.trim(), from]));
+    await via(ctx, "Create branch", "createBranch", { name: v.name, from }, () => g(ctx, ["switch", "-c", v.name.trim(), from]));
   }
 }
 
@@ -142,19 +211,19 @@ export async function createWorktree(ctx: Ctx, from: string, branch?: string): P
     args.push("-b", v.name.trim());
   }
   args.push(dir, branch ?? from);
-  if (await run(ctx, "Create worktree", () => g(ctx, args))) {
+  if (await via(ctx, "Create worktree", "createWorktree", { dir, name: v.name, branch, from }, () => g(ctx, args))) {
     ctx.openTab(dir);
   }
 }
 
 export function cherryPick(ctx: Ctx, commit: Commit) {
   const args = commit.parents.length > 1 ? ["cherry-pick", "-m", "1", commit.sha] : ["cherry-pick", commit.sha];
-  return run(ctx, "Cherry pick", () => g(ctx, args));
+  return via(ctx, "Cherry pick", "cherryPick", { sha: commit.sha, parents: commit.parents.length }, () => g(ctx, args));
 }
 
 export function revert(ctx: Ctx, commit: Commit) {
   const args = ["revert", "--no-edit", ...(commit.parents.length > 1 ? ["-m", "1"] : []), commit.sha];
-  return run(ctx, "Revert", () => g(ctx, args));
+  return via(ctx, "Revert", "revert", { sha: commit.sha, parents: commit.parents.length }, () => g(ctx, args));
 }
 
 export async function reset(ctx: Ctx, mode: "soft" | "mixed" | "hard", sha: string): Promise<void> {
@@ -164,7 +233,7 @@ export async function reset(ctx: Ctx, mode: "soft" | "mixed" | "hard", sha: stri
       return;
     }
   }
-  await run(ctx, "Reset", () => g(ctx, ["reset", `--${mode}`, sha]));
+  await via(ctx, "Reset", "reset", { mode, sha }, () => g(ctx, ["reset", `--${mode}`, sha]));
 }
 
 export async function createTag(ctx: Ctx, sha: string, annotated: boolean): Promise<void> {
@@ -177,12 +246,18 @@ export async function createTag(ctx: Ctx, sha: string, annotated: boolean): Prom
     return;
   }
   const args = annotated ? ["tag", "-a", v.name.trim(), "-m", v.message || v.name.trim(), sha] : ["tag", v.name.trim(), sha];
-  await run(ctx, "Create tag", () => g(ctx, args));
+  await via(ctx, "Create tag", "createTag", { sha, annotated, name: v.name, message: v.message }, () => g(ctx, args));
 }
 
 export async function deleteBranch(ctx: Ctx, ref: Ref, alsoRemote = false): Promise<void> {
   const ok = await ctx.ui.confirm("Delete branch", `Delete ${ref.name}${alsoRemote && ref.upstream ? ` and ${ref.upstream}` : ""}?`, "Delete", true);
   if (!ok) {
+    return;
+  }
+  if (gitneat().action) {
+    await runNative(ctx, "Delete branch", () =>
+      forceable(ctx, "deleteBranch", { name: ref.name, upstream: ref.upstream, alsoRemote }, "force-delete", () => confirmForceDelete(ctx, ref.name)),
+    );
     return;
   }
   await run(ctx, "Delete branch", async () => {
@@ -192,7 +267,7 @@ export async function deleteBranch(ctx: Ctx, ref: Ref, alsoRemote = false): Prom
       if (!(error instanceof GitError) || !/not fully merged/.test(error.message)) {
         throw error;
       }
-      const force = await ctx.ui.confirm("Branch not merged", `${ref.name} is not fully merged. Delete anyway?`, "Force delete", true);
+      const force = await confirmForceDelete(ctx, ref.name);
       if (!force) {
         return;
       }
@@ -209,23 +284,27 @@ export async function deleteRemoteBranch(ctx: Ctx, remoteBranch: string): Promis
   const ok = await ctx.ui.confirm("Delete remote branch", `Delete ${remoteBranch} on the remote?`, "Delete", true);
   if (ok) {
     const [remote, ...rest] = remoteBranch.split("/");
-    await run(ctx, "Delete remote branch", () => g(ctx, ["push", remote, "--delete", rest.join("/")]));
+    await via(ctx, "Delete remote branch", "deleteRemoteBranch", { remoteBranch }, () => g(ctx, ["push", remote, "--delete", rest.join("/")]));
   }
 }
 
 export async function renameBranch(ctx: Ctx, name: string): Promise<void> {
   const v = await ctx.ui.prompt(`Rename ${name}`, [{ name: "name", label: "New name", ref: true, value: name }], "Rename");
   if (v?.name.trim() && v.name.trim() !== name) {
-    await run(ctx, "Rename branch", () => g(ctx, ["branch", "-m", name, v.name.trim()]), false);
+    await via(ctx, "Rename branch", "renameBranch", { name, newName: v.name }, () => g(ctx, ["branch", "-m", name, v.name.trim()]), false);
   }
 }
 
-export const merge = (ctx: Ctx, name: string) => run(ctx, `Merge ${name}`, () => g(ctx, ["merge", "--no-edit", name]));
+export const merge = (ctx: Ctx, name: string) =>
+  via(ctx, `Merge ${name}`, "merge", { name, noFf: false }, () => g(ctx, ["merge", "--no-edit", name]));
 
 export const rebaseOnto = (ctx: Ctx, name: string) =>
-  run(ctx, `Rebase onto ${name}`, () => g(ctx, ["rebase", "--autostash", name], { GIT_EDITOR: ":" }));
+  via(ctx, `Rebase onto ${name}`, "rebaseOnto", { name }, () => g(ctx, ["rebase", "--autostash", name], { GIT_EDITOR: ":" }));
 
 export function fastForward(ctx: Ctx, local: Ref, target: string) {
+  if (gitneat().action) {
+    return go(ctx, "Fast-forward", "fastForward", { name: local.name, current: !!local.current, target });
+  }
   if (local.current) {
     return run(ctx, "Fast-forward", () => g(ctx, ["merge", "--ff-only", target]));
   }
@@ -241,19 +320,22 @@ export function pullBranch(ctx: Ctx, ref: Ref) {
     return Promise.resolve();
   }
   const [remote, ...rest] = ref.upstream.split("/");
-  return run(ctx, `Pull ${ref.name}`, () => g(ctx, ["fetch", remote, `${rest.join("/")}:refs/heads/${ref.name}`]));
+  return via(ctx, `Pull ${ref.name}`, "pullBranch", { name: ref.name, current: false, upstream: ref.upstream }, () =>
+    g(ctx, ["fetch", remote, `${rest.join("/")}:refs/heads/${ref.name}`]),
+  );
 }
 
-export const mergeNoFf = (ctx: Ctx, name: string) => run(ctx, `Merge ${name}`, () => g(ctx, ["merge", "--no-ff", "--no-edit", name]));
+export const mergeNoFf = (ctx: Ctx, name: string) =>
+  via(ctx, `Merge ${name}`, "merge", { name, noFf: true }, () => g(ctx, ["merge", "--no-ff", "--no-edit", name]));
 
 export type PullMode = "ff" | "ff-only" | "rebase" | "fetch";
 
 export function pull(ctx: Ctx, mode: PullMode = "ff") {
   if (mode === "fetch") {
-    return run(ctx, "Fetch", () => g(ctx, ["fetch", "--all", "--prune"]));
+    return via(ctx, "Fetch", "pull", { mode }, () => g(ctx, ["fetch", "--all", "--prune"]));
   }
   const args = mode === "rebase" ? ["pull", "--rebase", "--autostash"] : ["pull", `--${mode}`];
-  return run(ctx, "Pull", () => g(ctx, args));
+  return via(ctx, "Pull", "pull", { mode }, () => g(ctx, args));
 }
 
 export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<void> {
@@ -264,6 +346,7 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
   }
   const ref = ctx.data.refs.find((r) => r.kind === "local" && r.name === name);
   let args: string[];
+  let answer: { remote: string; branch: string } | undefined;
   if (remote) {
     args = ["push", remote, name];
   } else if (ref?.upstream) {
@@ -287,6 +370,11 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
       return;
     }
     args = ["push", "-u", v.remote, `${name}:${v.branch}`];
+    answer = { remote: v.remote, branch: v.branch };
+  }
+  if (gitneat().action) {
+    await runNative(ctx, "Push", () => forceable(ctx, "push", { name, remote, upstream: ref?.upstream, answer }, "force-push", () => confirmForcePush(ctx)));
+    return;
   }
   await run(ctx, "Push", async () => {
     try {
@@ -295,12 +383,7 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
       if (!(error instanceof GitError) || !/rejected|non-fast-forward|fetch first/.test(error.message)) {
         throw error;
       }
-      const force = await ctx.ui.confirm(
-        "Push rejected",
-        "The remote has commits that your branch does not have. Force push with lease?",
-        "Force push",
-        true,
-      );
+      const force = await confirmForcePush(ctx);
       if (force) {
         await g(ctx, [...args.slice(0, 1), "--force-with-lease", ...args.slice(1)]);
       }
@@ -309,7 +392,7 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
 }
 
 export const pushTo = (ctx: Ctx, local: string, remote: string, branch: string) =>
-  run(ctx, "Push", () => g(ctx, ["push", remote, `${local}:${branch}`]));
+  via(ctx, "Push", "pushTo", { local, remote, branch }, () => g(ctx, ["push", remote, `${local}:${branch}`]));
 
 export async function setUpstream(ctx: Ctx, ref: Ref): Promise<void> {
   const options = ctx.data.refs.filter((r) => r.kind === "remote").map((r) => r.name);
@@ -324,33 +407,38 @@ export async function setUpstream(ctx: Ctx, ref: Ref): Promise<void> {
     "Set upstream",
   );
   if (v) {
-    await run(ctx, "Set upstream", () => g(ctx, ["branch", `--set-upstream-to=${v.up}`, ref.name]));
+    await via(ctx, "Set upstream", "setUpstream", { up: v.up, name: ref.name }, () => g(ctx, ["branch", `--set-upstream-to=${v.up}`, ref.name]));
   }
 }
 
 export async function stashSave(ctx: Ctx): Promise<void> {
   const v = await ctx.ui.prompt("Stash changes", [{ name: "message", label: "Message (optional)" }], "Stash");
   if (v) {
-    await run(ctx, "Stash", () => g(ctx, ["stash", "push", "--include-untracked", ...(v.message ? ["-m", v.message] : [])]));
+    await via(ctx, "Stash", "stashSave", { message: v.message }, () =>
+      g(ctx, ["stash", "push", "--include-untracked", ...(v.message ? ["-m", v.message] : [])]),
+    );
   }
 }
 
-export const stashApply = (ctx: Ctx, ref = "stash@{0}") => run(ctx, "Apply stash", () => g(ctx, ["stash", "apply", ref]));
-export const stashPop = (ctx: Ctx, ref = "stash@{0}") => run(ctx, "Pop stash", () => g(ctx, ["stash", "pop", ref]));
+export const stashApply = (ctx: Ctx, ref = "stash@{0}") => via(ctx, "Apply stash", "stashApply", { ref }, () => g(ctx, ["stash", "apply", ref]));
+export const stashPop = (ctx: Ctx, ref = "stash@{0}") => via(ctx, "Pop stash", "stashPop", { ref }, () => g(ctx, ["stash", "pop", ref]));
 
 export async function stashDrop(ctx: Ctx, ref: string): Promise<void> {
   if (await ctx.ui.confirm("Delete stash", `Delete ${ref}?`, "Delete", true)) {
-    await run(ctx, "Delete stash", () => g(ctx, ["stash", "drop", ref]));
+    await via(ctx, "Delete stash", "stashDrop", { ref }, () => g(ctx, ["stash", "drop", ref]));
   }
 }
 
-export const pushTag = (ctx: Ctx, tag: string, remote: string) => run(ctx, "Push tag", () => g(ctx, ["push", remote, `refs/tags/${tag}`]));
+export const pushTag = (ctx: Ctx, tag: string, remote: string) =>
+  via(ctx, "Push tag", "pushTag", { tag, remote }, () => g(ctx, ["push", remote, `refs/tags/${tag}`]));
 
 export async function deleteTag(ctx: Ctx, tag: string, remote?: string): Promise<void> {
   if (!(await ctx.ui.confirm("Delete tag", `Delete ${tag}${remote ? ` from ${remote}` : " locally"}?`, "Delete", true))) {
     return;
   }
-  await run(ctx, "Delete tag", () => g(ctx, remote ? ["push", remote, "--delete", `refs/tags/${tag}`] : ["tag", "-d", tag]));
+  await via(ctx, "Delete tag", "deleteTag", { tag, remote }, () =>
+    g(ctx, remote ? ["push", remote, "--delete", `refs/tags/${tag}`] : ["tag", "-d", tag]),
+  );
 }
 
 export async function addRemote(ctx: Ctx): Promise<void> {
@@ -359,7 +447,7 @@ export async function addRemote(ctx: Ctx): Promise<void> {
     { name: "url", label: "URL" },
   ], "Add remote");
   if (v?.name && v.url) {
-    await run(ctx, "Add remote", async () => {
+    await via(ctx, "Add remote", "addRemote", { name: v.name, url: v.url }, async () => {
       await g(ctx, ["remote", "add", v.name, v.url]);
       await g(ctx, ["fetch", v.name]);
     });
@@ -369,37 +457,41 @@ export async function addRemote(ctx: Ctx): Promise<void> {
 export async function editRemote(ctx: Ctx, name: string, url: string): Promise<void> {
   const v = await ctx.ui.prompt(`Edit ${name}`, [{ name: "url", label: "URL", value: url }], "Save");
   if (v?.url && v.url !== url) {
-    await run(ctx, "Edit remote", () => g(ctx, ["remote", "set-url", name, v.url]));
+    await via(ctx, "Edit remote", "editRemote", { name, url: v.url }, () => g(ctx, ["remote", "set-url", name, v.url]));
   }
 }
 
 export async function removeRemote(ctx: Ctx, name: string): Promise<void> {
   if (await ctx.ui.confirm("Remove remote", `Remove ${name}?`, "Remove", true)) {
-    await run(ctx, "Remove remote", () => g(ctx, ["remote", "remove", name]));
+    await via(ctx, "Remove remote", "removeRemote", { name }, () => g(ctx, ["remote", "remove", name]));
   }
 }
 
-export const fetchRemote = (ctx: Ctx, name: string) => run(ctx, `Fetch ${name}`, () => g(ctx, ["fetch", "--prune", name]));
+export const fetchRemote = (ctx: Ctx, name: string) =>
+  via(ctx, `Fetch ${name}`, "fetchRemote", { name }, () => g(ctx, ["fetch", "--prune", name]));
 
 export async function removeWorktree(ctx: Ctx, path: string): Promise<void> {
   if (await ctx.ui.confirm("Delete worktree", `Delete the worktree at ${path}?`, "Delete", true)) {
-    await run(ctx, "Delete worktree", () => g(ctx, ["worktree", "remove", path]));
+    await via(ctx, "Delete worktree", "removeWorktree", { path }, () => g(ctx, ["worktree", "remove", path]));
   }
 }
 
 export const lockWorktree = (ctx: Ctx, path: string, lock: boolean) =>
-  run(ctx, lock ? "Lock worktree" : "Unlock worktree", () => g(ctx, ["worktree", lock ? "lock" : "unlock", path]));
+  via(ctx, lock ? "Lock worktree" : "Unlock worktree", "lockWorktree", { path, lock }, () => g(ctx, ["worktree", lock ? "lock" : "unlock", path]));
 
-export const pruneWorktrees = (ctx: Ctx) => run(ctx, "Prune worktrees", () => g(ctx, ["worktree", "prune"]));
+export const pruneWorktrees = (ctx: Ctx) => via(ctx, "Prune worktrees", "pruneWorktrees", {}, () => g(ctx, ["worktree", "prune"]));
 
 export async function savePatch(ctx: Ctx, sha: string): Promise<void> {
   await ctx.ui.task("Create patch", async () => {
-    const patch = await g(ctx, ["format-patch", "-1", "--stdout", sha]);
+    const patch = gitneat().action ? await act<string>(ctx.cwd, "formatPatch", { sha }) : await g(ctx, ["format-patch", "-1", "--stdout", sha]);
     await gitneat().saveFile(`${short(sha)}.patch`, patch);
   });
 }
 
 async function rebaseRange(ctx: Ctx, base: string | null): Promise<TodoEntry[]> {
+  if (gitneat().action) {
+    return act<TodoEntry[]>(ctx.cwd, "rebaseRange", { base });
+  }
   const out = await g(ctx, ["log", "--reverse", "--format=%H%x1f%s", base ? `${base}..HEAD` : "HEAD"]);
   return out
     .split("\n")
@@ -416,7 +508,7 @@ async function parentOf(ctx: Ctx, sha: string): Promise<string | null> {
 }
 
 export async function runTodo(ctx: Ctx, base: string | null, entries: TodoEntry[]): Promise<void> {
-  await run(ctx, "Rebase", async () => {
+  await via(ctx, "Rebase", "runTodo", { base, entries }, async () => {
     const lines: string[] = [];
     for (const entry of entries) {
       if (entry.action === "reword" && entry.message !== undefined) {
@@ -439,12 +531,24 @@ export async function dropCommit(ctx: Ctx, sha: string): Promise<void> {
   if (!(await ctx.ui.confirm("Drop commit", `Remove commit ${short(sha)} from the history of ${ctx.data.branch ?? "HEAD"}?`, "Drop", true))) {
     return;
   }
+  if (gitneat().action) {
+    const plan = await act<Plan>(ctx.cwd, "dropPlan", { sha });
+    await runTodo(ctx, plan.base, plan.entries);
+    return;
+  }
   const base = await parentOf(ctx, sha);
   const entries = await rebaseRange(ctx, base);
   await runTodo(ctx, base, entries.map((e) => (e.sha === sha ? { ...e, action: "drop" } : e)));
 }
 
 export async function moveCommit(ctx: Ctx, sha: string, direction: "up" | "down"): Promise<void> {
+  if (gitneat().action) {
+    const plan = await act<Plan | null>(ctx.cwd, "movePlan", { sha, direction });
+    if (plan) {
+      await runTodo(ctx, plan.base, plan.entries);
+    }
+    return;
+  }
   const target = direction === "up" ? sha : await parentOf(ctx, sha);
   if (!target) {
     return;
@@ -460,9 +564,18 @@ export async function moveCommit(ctx: Ctx, sha: string, direction: "up" | "down"
 }
 
 export async function editMessage(ctx: Ctx, sha: string, isHead: boolean): Promise<void> {
-  const current = (await g(ctx, ["show", "-s", "--format=%B", sha])).trim();
+  const current = gitneat().action ? await act<string>(ctx.cwd, "commitMessage", { sha }) : (await g(ctx, ["show", "-s", "--format=%B", sha])).trim();
   const v = await ctx.ui.prompt("Edit commit message", [{ name: "message", label: "Message", kind: "textarea", value: current }], "Save");
   if (!v?.message.trim() || v.message.trim() === current) {
+    return;
+  }
+  if (gitneat().action) {
+    if (isHead) {
+      await go(ctx, "Edit message", "amendMessage", { message: v.message });
+    } else {
+      const plan = await act<Plan>(ctx.cwd, "rewordPlan", { sha, message: v.message });
+      await runTodo(ctx, plan.base, plan.entries);
+    }
     return;
   }
   if (isHead) {
@@ -476,10 +589,43 @@ export async function editMessage(ctx: Ctx, sha: string, isHead: boolean): Promi
 
 export function cherryPickMany(ctx: Ctx, newestFirst: Commit[]) {
   const shas = [...newestFirst].reverse().map((c) => c.sha);
-  return run(ctx, `Cherry pick ${shas.length} commits`, () => g(ctx, ["cherry-pick", ...shas]));
+  return via(ctx, `Cherry pick ${shas.length} commits`, "cherryPickMany", { shas: newestFirst.map((c) => c.sha) }, () => g(ctx, ["cherry-pick", ...shas]));
+}
+
+const confirmRewrite = (ctx: Ctx, shas: string[], action: "drop" | "squash") => {
+  const label = action === "drop" ? `Drop ${shas.length} commits` : `Squash ${shas.length} commits`;
+  return ctx.ui.confirm(label, `${label} in ${ctx.data.branch ?? "HEAD"}? This rewrites history.`, action === "drop" ? "Drop" : "Squash", action === "drop");
+};
+
+async function rewriteNative(ctx: Ctx, shas: string[], action: "drop" | "squash"): Promise<void> {
+  const send = (confirmed: boolean) => act(ctx.cwd, "rewriteMany", { shas, action, confirmed });
+  try {
+    const result = await send(false);
+    if (result.toast) {
+      ctx.ui.toast(result.toast, "error");
+    }
+    return;
+  } catch (error) {
+    if (!needsConfirm(error, "rewrite")) {
+      throw error;
+    }
+  }
+  if (!(await confirmRewrite(ctx, shas, action))) {
+    return;
+  }
+  await runNative(ctx, "Rebase", async () => {
+    const result = await send(true);
+    if (result.toast) {
+      ctx.ui.toast(result.toast, "error");
+    }
+    return result;
+  });
 }
 
 export async function rewriteMany(ctx: Ctx, shas: string[], action: "drop" | "squash"): Promise<void> {
+  if (gitneat().action) {
+    return rewriteNative(ctx, shas, action);
+  }
   const counts = await Promise.all(shas.map((sha) => git(ctx.cwd, ["rev-list", "--count", sha]).then(Number)));
   const oldest = shas[counts.indexOf(Math.min(...counts))];
   const base = await parentOf(ctx, oldest);
@@ -497,8 +643,7 @@ export async function rewriteMany(ctx: Ctx, shas: string[], action: "drop" | "sq
       return;
     }
   }
-  const label = action === "drop" ? `Drop ${shas.length} commits` : `Squash ${shas.length} commits`;
-  if (!(await ctx.ui.confirm(label, `${label} in ${ctx.data.branch ?? "HEAD"}? This rewrites history.`, action === "drop" ? "Drop" : "Squash", action === "drop"))) {
+  if (!(await confirmRewrite(ctx, shas, action))) {
     return;
   }
   await runTodo(
@@ -512,21 +657,21 @@ export async function startInteractiveRebase(ctx: Ctx, base: string): Promise<vo
   ctx.openRebase(base, await rebaseRange(ctx, base));
 }
 
-export const stageFile = (ctx: Ctx, path: string) => run(ctx, "Stage", () => g(ctx, ["add", "--", path]));
-export const stageAll = (ctx: Ctx) => run(ctx, "Stage all", () => g(ctx, ["add", "-A"]));
+export const stageFile = (ctx: Ctx, path: string) => via(ctx, "Stage", "stageFile", { path }, () => g(ctx, ["add", "--", path]));
+export const stageAll = (ctx: Ctx) => via(ctx, "Stage all", "stageAll", {}, () => g(ctx, ["add", "-A"]));
 
 export const unstageFile = (ctx: Ctx, path: string) =>
-  run(ctx, "Unstage", () => (ctx.data.head ? g(ctx, ["reset", "-q", "HEAD", "--", path]) : g(ctx, ["rm", "--cached", "-q", "--", path])));
+  via(ctx, "Unstage", "unstageFile", { path, hasHead: !!ctx.data.head }, () => (ctx.data.head ? g(ctx, ["reset", "-q", "HEAD", "--", path]) : g(ctx, ["rm", "--cached", "-q", "--", path])));
 
 export const unstageAll = (ctx: Ctx) =>
-  run(ctx, "Unstage all", () => (ctx.data.head ? g(ctx, ["reset", "-q"]) : g(ctx, ["rm", "-r", "--cached", "-q", "."])));
+  via(ctx, "Unstage all", "unstageAll", { hasHead: !!ctx.data.head }, () => (ctx.data.head ? g(ctx, ["reset", "-q"]) : g(ctx, ["rm", "-r", "--cached", "-q", "."])));
 
 export async function discardFile(ctx: Ctx, path: string, untracked: boolean): Promise<void> {
   if (!(await ctx.ui.confirm("Discard changes", `Discard all changes to ${path}?`, "Discard", true))) {
     return;
   }
   const conflicted = ctx.data.status.some((e) => e.path === path && (e.index === "U" || e.work === "U"));
-  await run(ctx, "Discard", () =>
+  await via(ctx, "Discard", "discardFile", { path, untracked, conflicted }, () =>
     untracked ? g(ctx, ["clean", "-f", "--", path]) : g(ctx, conflicted ? ["checkout", "HEAD", "--", path] : ["checkout", "--", path]),
   );
 }
@@ -535,7 +680,7 @@ export async function discardAll(ctx: Ctx): Promise<void> {
   if (!(await ctx.ui.confirm("Discard all changes", "Discard all changes, including untracked files?", "Discard all", true))) {
     return;
   }
-  await run(ctx, "Discard all", async () => {
+  await via(ctx, "Discard all", "discardAll", {}, async () => {
     await g(ctx, ["reset", "--hard"]);
     await g(ctx, ["clean", "-fd"]);
   });
@@ -552,9 +697,11 @@ export async function applyPatch(ctx: Ctx, patch: string, action: "stage" | "uns
     revert: ["apply", "-R", "--3way"],
   }[action];
   const label = { stage: "Stage", unstage: "Unstage", discard: "Discard", revert: "Revert hunk" }[action];
-  await run(
+  await via(
     ctx,
     label,
+    "applyPatch",
+    { patch, action },
     async () => {
       const result = await gitneat().git(ctx.cwd, [...args, "--recount", "--whitespace=nowarn", "-"], undefined, patch);
       if (result.code !== 0) {
@@ -566,23 +713,26 @@ export async function applyPatch(ctx: Ctx, patch: string, action: "stage" | "uns
 }
 
 export function commit(ctx: Ctx, message: string, amend: boolean) {
-  return run(ctx, "Commit", () => g(ctx, ["commit", ...(amend ? ["--amend"] : []), "-m", message]));
+  return via(ctx, "Commit", "commit", { message, amend }, () => g(ctx, ["commit", ...(amend ? ["--amend"] : []), "-m", message]));
 }
 
 export function continueOperation(ctx: Ctx, op: Operation) {
   const env = { GIT_EDITOR: ":" };
   if (op === "merge") {
-    return run(ctx, "Commit merge", () => g(ctx, ["commit", "--no-edit"], env));
+    return via(ctx, "Commit merge", "continueOperation", { op }, () => g(ctx, ["commit", "--no-edit"], env));
   }
-  return run(ctx, `Continue ${op}`, () => g(ctx, [op as string, "--continue"], env));
+  return via(ctx, `Continue ${op}`, "continueOperation", { op }, () => g(ctx, [op as string, "--continue"], env));
 }
 
-export const abortOperation = (ctx: Ctx, op: Operation) => run(ctx, `Abort ${op}`, () => g(ctx, [op as string, "--abort"]));
+export const abortOperation = (ctx: Ctx, op: Operation) =>
+  via(ctx, `Abort ${op}`, "abortOperation", { op }, () => g(ctx, [op as string, "--abort"]));
 
 export const resolveFile = (ctx: Ctx, path: string, how: "ours" | "theirs" | "delete") =>
-  run(
+  via(
     ctx,
     "Resolve",
+    "resolveFile",
+    { path, how },
     async () => {
       if (how === "delete") {
         await g(ctx, ["rm", "-q", "--", path]);
@@ -594,15 +744,25 @@ export const resolveFile = (ctx: Ctx, path: string, how: "ours" | "theirs" | "de
     false,
   );
 
-export const saveResolved = (ctx: Ctx, path: string, content: string) =>
-  run(
+export const saveResolved = (ctx: Ctx, path: string, content: string) => {
+  const write = async () => {
+    if (!(await gitneat().writeFile(ctx.cwd, path, content))) {
+      throw new GitError(`Could not write ${path}`);
+    }
+  };
+  if (gitneat().action) {
+    return runNative(ctx, "Save output", async () => {
+      await write();
+      return act(ctx.cwd, "stageFile", { path });
+    });
+  }
+  return run(
     ctx,
     "Save output",
     async () => {
-      if (!(await gitneat().writeFile(ctx.cwd, path, content))) {
-        throw new GitError(`Could not write ${path}`);
-      }
+      await write();
       await g(ctx, ["add", "--", path]);
     },
     false,
   );
+};
