@@ -29,6 +29,13 @@ On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main pro
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
+| `rust/app/src/load.rs` | `load_repo`: backend choice and the `git` CLI path |
+| `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
+| `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
+| `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
+| `rust/app/examples/` | Command line entry points that the TS comparison tests run |
+| `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of `src/graph.ts`, `src/diff.ts`, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
+| `test/load-repo.test.ts`, `test/actions.test.ts`, `test/menus-rust.test.ts` | TS against Rust comparison tests. They run only with `GITNEAT_RUST_COMPARE=1`. |
 | `rust/app/tauri.conf.json` | Tauri build and bundle settings |
 | `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
@@ -84,6 +91,8 @@ On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main pro
 | Name | Effect |
 | --- | --- |
 | `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). The Tauri app reads it too. |
+| `GITNEAT_BACKEND` | `cli` makes the Tauri `load_repo` use the `git` CLI instead of gix |
+| `GITNEAT_RUST_COMPARE` | `1` runs the TS against Rust comparison tests in `npm test` |
 | `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. The Tauri app reads it too. |
 | `GITNEAT_SCREENSHOT` | PNG path. The app captures the window and quits. |
 | `GITNEAT_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
