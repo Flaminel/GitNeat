@@ -35,6 +35,9 @@ const specs = {
   parseRefs: [[0], 'json', false],
   parseStatus: [[0], 'json', false],
   parseNameStatus: [[0], 'json', false],
+  remoteWebUrl: [[0], 'json', false],
+  commitWebUrl: [[0, 0], 'json', false],
+  compareWebUrl: [[0, 0], 'json', false],
 }
 const classes = {
 
@@ -532,6 +535,100 @@ return t
 }
 module.exports.parseNameStatus = function parseNameStatus (...a) {
   if (a.length <= 1 && encode(a[0]) && wireCall(call)) {
+    return decode()
+  }
+  return json(...a)
+}
+}
+
+// `remoteWebUrl`: binary wire; the JSON version handles inputs of other shapes.
+{
+const json = module.exports.remoteWebUrl
+const call = native.remoteWebUrlWire
+const encode = (a0) => {
+at = 0
+if (typeof a0 !== 'string') return false
+wStr(a0)
+return true
+}
+const decode = () => {
+let t
+{
+const g0 = rU8()
+if (g0 === 0) t = undefined
+else if (g0 === 2) t = null
+else {
+t = rStr()
+}
+}
+return t
+}
+module.exports.remoteWebUrl = function remoteWebUrl (...a) {
+  if (a.length <= 1 && encode(a[0]) && wireCall(call)) {
+    return decode()
+  }
+  return json(...a)
+}
+}
+
+// `commitWebUrl`: binary wire; the JSON version handles inputs of other shapes.
+{
+const json = module.exports.commitWebUrl
+const call = native.commitWebUrlWire
+const encode = (a0, a1) => {
+at = 0
+if (typeof a0 !== 'string') return false
+wStr(a0)
+if (typeof a1 !== 'string') return false
+wStr(a1)
+return true
+}
+const decode = () => {
+let t
+{
+const g0 = rU8()
+if (g0 === 0) t = undefined
+else if (g0 === 2) t = null
+else {
+t = rStr()
+}
+}
+return t
+}
+module.exports.commitWebUrl = function commitWebUrl (...a) {
+  if (a.length <= 2 && encode(a[0], a[1]) && wireCall(call)) {
+    return decode()
+  }
+  return json(...a)
+}
+}
+
+// `compareWebUrl`: binary wire; the JSON version handles inputs of other shapes.
+{
+const json = module.exports.compareWebUrl
+const call = native.compareWebUrlWire
+const encode = (a0, a1) => {
+at = 0
+if (typeof a0 !== 'string') return false
+wStr(a0)
+if (typeof a1 !== 'string') return false
+wStr(a1)
+return true
+}
+const decode = () => {
+let t
+{
+const g0 = rU8()
+if (g0 === 0) t = undefined
+else if (g0 === 2) t = null
+else {
+t = rStr()
+}
+}
+return t
+}
+module.exports.compareWebUrl = function compareWebUrl (...a) {
+  if (a.length <= 2 && encode(a[0], a[1]) && wireCall(call)) {
     return decode()
   }
   return json(...a)

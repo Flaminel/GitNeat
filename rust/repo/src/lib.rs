@@ -77,43 +77,28 @@ pub fn parse_name_status(out: String) -> napi::Result<String> {
 
 /// `remoteWebUrl`.
 #[napi(js_name = "remoteWebUrl")]
-pub fn remote_web_url(url: String) -> napi::Result<napi::bindgen_prelude::Either<String, ()>> {
+pub fn remote_web_url(url: String) -> napi::Result<String> {
     run(move || {
         let out = port::remote_web_url(url)?;
-        Ok(out.map_or(
-            napi::bindgen_prelude::Either::B(()),
-            napi::bindgen_prelude::Either::A,
-        ))
+        crate::js::to_json(&out)
     })
 }
 
 /// `commitWebUrl`.
 #[napi(js_name = "commitWebUrl")]
-pub fn commit_web_url(
-    remote_url: String,
-    sha: String,
-) -> napi::Result<napi::bindgen_prelude::Either<String, ()>> {
+pub fn commit_web_url(remote_url: String, sha: String) -> napi::Result<String> {
     run(move || {
         let out = port::commit_web_url(remote_url, sha)?;
-        Ok(out.map_or(
-            napi::bindgen_prelude::Either::B(()),
-            napi::bindgen_prelude::Either::A,
-        ))
+        crate::js::to_json(&out)
     })
 }
 
 /// `compareWebUrl`.
 #[napi(js_name = "compareWebUrl")]
-pub fn compare_web_url(
-    remote_url: String,
-    branch: String,
-) -> napi::Result<napi::bindgen_prelude::Either<String, ()>> {
+pub fn compare_web_url(remote_url: String, branch: String) -> napi::Result<String> {
     run(move || {
         let out = port::compare_web_url(remote_url, branch)?;
-        Ok(out.map_or(
-            napi::bindgen_prelude::Either::B(()),
-            napi::bindgen_prelude::Either::A,
-        ))
+        crate::js::to_json(&out)
     })
 }
 
@@ -274,6 +259,47 @@ pub fn parse_name_status_wire(len: u32) -> napi::Result<f64> {
         for x0 in out.iter() {
             wire::write_value(w, x0, S_PARSE_NAME_STATUS_OUT.inner())?;
         }
+        Ok(())
+    })
+}
+
+static S_REMOTE_WEB_URL_OUT: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
+
+/// `remoteWebUrl` over the binary wire.
+#[napi(js_name = "remoteWebUrlWire")]
+pub fn remote_web_url_wire(len: u32) -> napi::Result<f64> {
+    wire_io(len, |r, w| {
+        let url: String = r.string16()?;
+        let out = &port::remote_web_url(url)?;
+        wire::write_value(w, out, &S_REMOTE_WEB_URL_OUT)?;
+        Ok(())
+    })
+}
+
+static S_COMMIT_WEB_URL_OUT: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
+
+/// `commitWebUrl` over the binary wire.
+#[napi(js_name = "commitWebUrlWire")]
+pub fn commit_web_url_wire(len: u32) -> napi::Result<f64> {
+    wire_io(len, |r, w| {
+        let remote_url: String = r.string16()?;
+        let sha: String = r.string16()?;
+        let out = &port::commit_web_url(remote_url, sha)?;
+        wire::write_value(w, out, &S_COMMIT_WEB_URL_OUT)?;
+        Ok(())
+    })
+}
+
+static S_COMPARE_WEB_URL_OUT: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
+
+/// `compareWebUrl` over the binary wire.
+#[napi(js_name = "compareWebUrlWire")]
+pub fn compare_web_url_wire(len: u32) -> napi::Result<f64> {
+    wire_io(len, |r, w| {
+        let remote_url: String = r.string16()?;
+        let branch: String = r.string16()?;
+        let out = &port::compare_web_url(remote_url, branch)?;
+        wire::write_value(w, out, &S_COMPARE_WEB_URL_OUT)?;
         Ok(())
     })
 }
