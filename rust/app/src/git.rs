@@ -31,11 +31,16 @@ pub fn blocked(args: &[String]) -> bool {
     })
 }
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+const WINDOWS_CONFIG: [(&str, &str); 2] = [("core.fscache", "true"), ("core.preloadindex", "true")];
+
 pub fn command(program: &str) -> Command {
     #[cfg(windows)]
     {
         let mut cmd = Command::new(program);
-        cmd.creation_flags(0x0800_0000);
+        cmd.creation_flags(CREATE_NO_WINDOW);
         cmd
     }
     #[cfg(not(windows))]
@@ -55,8 +60,15 @@ pub async fn run_git(
         .current_dir(cwd)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("LC_ALL", "C")
-        .envs(env.unwrap_or_default())
+        .env("LC_ALL", "C");
+    if cfg!(windows) {
+        cmd.env("GIT_CONFIG_COUNT", WINDOWS_CONFIG.len().to_string());
+        for (i, (key, value)) in WINDOWS_CONFIG.iter().enumerate() {
+            cmd.env(format!("GIT_CONFIG_KEY_{i}"), key)
+                .env(format!("GIT_CONFIG_VALUE_{i}"), value);
+        }
+    }
+    cmd.envs(env.unwrap_or_default())
         .stdin(if input.is_some() {
             Stdio::piped()
         } else {
