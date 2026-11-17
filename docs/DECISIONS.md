@@ -174,3 +174,53 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The sidebar header has a "Collapse Panel" button. Cmd+J (Ctrl+J on Windows and Linux) toggles the collapse. A collapsed panel is a 32px rail with an "Expand Panel" button and one icon per section with its count. Clicking a section icon expands the panel and opens that section. The collapsed flag is saved in local storage.
 - Reason: Source uses `view:toggleRefPanel` on Cmd+J and shows the same rail.
 - Rules: The shortcut does nothing while focus is in an input, a textarea or a Monaco editor. The splitter is hidden while the panel is collapsed.
+
+## D29. Rust rewrite on Tauri 2
+
+- Decision: On the `rust-rewrite` branch, a Tauri 2 app in `rust/app` replaces Electron. The React UI stays. The Rust crate implements every `window.gitneat` call as a Tauri command.
+- Reason: Electron is large and slow on Windows. Tauri keeps the UI and moves the backend to Rust.
+- Rules: `src/tauri-api.ts` sets `window.gitneat` when `__TAURI_INTERNALS__` exists. Electron does not load it, so both shells run the same UI.
+- Limits: This entry supersedes D1 only on the `rust-rewrite` branch. `electron/` stays as reference until cutover.
+
+## D30. Faithful port first
+
+- Decision: Each unit moves to Rust with the same behavior as the TypeScript or Electron code. Bug fixes come after the port, one change each.
+- Reason: If a port also fixes bugs, a difference from the old app can be a fix or a new bug. A faithful port keeps the two apart.
+
+## D31. Hybrid git backend
+
+- Decision: Reads on the hot path (refs, log, stashes, worktrees, status, operation state) move in-process to `gix` when a benchmark proves a gain and a test proves equal results. Writes, network operations, hooks, signing, `merge-file`, `blame` and diff text stay on the `git` CLI.
+- Reason: `loadRepo` in `src/repo.ts` starts about 15 `git` processes per refresh. A process start is slow on Windows.
+- Limits: This entry refines D2. Until the benchmark exists, all calls use the CLI.
+
+## D32. Targets
+
+- Decision: The Tauri app builds for macOS, Windows and Linux. CI job `tauri` in `.github/workflows/build.yml` builds the dmg, msi, nsis, AppImage and deb bundles.
+
+## D33. State file stays compatible
+
+- Decision: The Tauri app reads and writes `gitneat-state.json` in the Electron `userData` folder: `~/Library/Application Support/GitNeat` on macOS, `%APPDATA%\GitNeat` on Windows and `~/.config/GitNeat` on Linux. `GITNEAT_USER_DATA` overrides the folder.
+- Reason: Open tabs and recent repositories carry over from the Electron app.
+- Rules: `serde_json` has the `preserve_order` feature, so the key order and the 2-space indent match `JSON.stringify(data, null, 2)`.
+
+## D34. Port proof and checkpoints
+
+- Decision: Each unit gets its proof from `rust-anything record`, `diff` and `gate`. Work stops for approval after each wave in `rust/MAP.md`.
+- Reason: `rust-anything app record` and `app replay` support only CLIs, HTTP servers and libraries.
+
+## D35. Window chrome in Tauri
+
+- Decision: On macOS, the window uses the overlay title bar with the traffic lights at 12, 11. On Windows and Linux, the window has no decorations. `WindowControls` in `src/components/Tabs.tsx` draws the minimize, maximize and close buttons.
+- Reason: Tauri has no equivalent of the Electron `titleBarOverlay`.
+- Rules: `data-tauri-drag-region` on the tab bar moves the window. `-webkit-app-region` stays for Electron.
+- Limits: The maximize button does not show the Windows 11 snap layout flyout.
+
+## D36. Context menu result in Tauri
+
+- Decision: The `menu` command shows the menu, waits for it to close, and then reads the chosen id in a task on the main thread.
+- Reason: The popup call blocks until the menu closes on all three platforms. The click event reaches the event loop before the queued task. This matches the `setTimeout` in the Electron handler.
+- Rules: Item ids get the prefix `gitneat:`. Items without an id do nothing, as in Electron.
+
+## D37. Known differences of the Tauri shell
+
+- Limits: `GITNEAT_SCREENSHOT` and the related variables do nothing in the Tauri app. The `git` command has no 512 MB output limit. A watcher error does not remove the watcher. The error text for a missing `git` executable is different.

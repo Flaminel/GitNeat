@@ -11,6 +11,8 @@ GitNeat has two processes.
 
 The preload script (`electron/preload.ts`) connects the two. It exposes `window.gitneat`. The type of `window.gitneat` is in `src/api.ts`.
 
+On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main process. `src/tauri-api.ts` then sets `window.gitneat` (see D29 in `docs/DECISIONS.md`). Run it with `npm run tauri:dev`.
+
 ## Files
 
 | Path | Purpose |
@@ -18,6 +20,16 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `electron/main.ts` | Window, IPC handlers, `git` runner, native menu popup, file watcher, saved state file |
 | `electron/preload.ts` | Exposes the IPC handlers as `window.gitneat` |
 | `src/api.ts` | Types for `window.gitneat` and `MenuSpec` |
+| `src/tauri-api.ts` | `window.gitneat` for the Tauri app, through Tauri `invoke` and `listen` |
+| `rust/MAP.md` | Rust port status: units, waves, claims |
+| `rust/app/src/main.rs` | Tauri window, plugins, menu event handler, command list |
+| `rust/app/src/commands.rs` | One Tauri command per `window.gitneat` call |
+| `rust/app/src/git.rs` | `git` runner and the blocked option check |
+| `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
+| `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
+| `rust/app/src/store.rs` | Saved state file |
+| `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
+| `rust/app/tauri.conf.json` | Tauri build and bundle settings |
 | `src/repo.ts` | Loads and parses repository data: log, refs, status, stashes, worktrees, commit detail, diffs, remote web URLs |
 | `src/graph.ts` | Lane layout for the commit graph |
 | `src/merge.ts` | Merge conflict parser, selections and Output builder |
@@ -35,7 +47,7 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | `test/menus.test.ts` | Context menu order tests with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
-| `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags |
+| `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags. Job `tauri`: Rust checks and Tauri bundles for macOS, Windows and Linux |
 | `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
 | `docs/EVIDENCE-DIFF.md` | Evidence for the Source diff and merge views |
@@ -52,7 +64,8 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 | Change graph lanes or colors | `src/graph.ts` for lanes, `src/styles.css` (`--lane-*`) for colors |
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
-| Add a new IPC call | `electron/main.ts`, `electron/preload.ts`, `src/api.ts` |
+| Add a new IPC call | `electron/main.ts`, `electron/preload.ts`, `src/api.ts`, then the same call in `rust/app/src/commands.rs`, `rust/app/src/main.rs` and `src/tauri-api.ts` |
+| Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `build` in `package.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
@@ -70,7 +83,8 @@ The preload script (`electron/preload.ts`) connects the two. It exposes `window.
 
 | Name | Effect |
 | --- | --- |
-| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches) |
+| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). The Tauri app reads it too. |
+| `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. The Tauri app reads it too. |
 | `GITNEAT_SCREENSHOT` | PNG path. The app captures the window and quits. |
 | `GITNEAT_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
 | `GITNEAT_SCREENSHOT_JS` | JavaScript that runs in the page before the capture |
