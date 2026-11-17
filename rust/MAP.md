@@ -24,6 +24,8 @@ The decisions are in `docs/DECISIONS.md`.
 | D40 | gix is the default backend for `load_repo` |
 | D41 | Repository actions run in Rust |
 | D42 | Context menus are built in Rust |
+| D43 | Cutover to Tauri |
+| D44 | PR builds start from a comment |
 
 Domain terms and their Rust names are in `rust/GLOSSARY.md`.
 
@@ -41,6 +43,7 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | C | `loadRepo` in `src/repo.ts` | done | `load_repo` command with gix default and CLI fallback (D40). 252 comparisons with TS equal. 3.8 ms against 42.1 ms on this repo. |
 | D | `src/actions.ts` | done | `action` command with 58 actions in `rust/app/src/actions/` (D41). 164 scenarios equal with TS. |
 | E | `src/menus.ts` | done | `context_menu` command builds 10 menu kinds in `rust/app/src/menus/`. `test/menus-rust.test.ts` compares the trees with TS. |
+| F | Cutover | done | Electron removed (D43). TS fallback paths moved to `test/reference/`. Unit crates are plain libraries with `cargo test` replays. |
 
 ## Port rules
 
