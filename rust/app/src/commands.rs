@@ -2,6 +2,7 @@ use crate::actions;
 use crate::git::{self, GitResult};
 use crate::load::{self, RepoData};
 use crate::menu::{self, Chosen, MenuSpec};
+use crate::menus::{self, MenuKind};
 use crate::paths;
 use crate::store;
 use crate::watch::{self, Watchers};
@@ -166,12 +167,11 @@ pub async fn write_file(
     Ok(true)
 }
 
-#[tauri::command]
-pub async fn menu(window: Window, items: Vec<MenuSpec>) -> Res<Option<String>> {
+async fn show(window: &Window, items: &[MenuSpec]) -> Res<Option<String>> {
     if let Ok(mut chosen) = window.state::<Chosen>().0.lock() {
         *chosen = None;
     }
-    menu::popup(&window, &items).map_err(err)?;
+    menu::popup(window, items).map_err(err)?;
     let (tx, rx) = oneshot::channel();
     let handle = window.app_handle().clone();
     window
@@ -186,6 +186,24 @@ pub async fn menu(window: Window, items: Vec<MenuSpec>) -> Res<Option<String>> {
         })
         .map_err(err)?;
     Ok(rx.await.ok().flatten())
+}
+
+#[tauri::command]
+pub async fn menu(window: Window, items: Vec<MenuSpec>) -> Res<Option<String>> {
+    show(&window, &items).await
+}
+
+#[tauri::command]
+pub async fn context_menu(
+    window: Window,
+    cwd: String,
+    kind: MenuKind,
+    args: Value,
+) -> Res<Option<String>> {
+    match menus::build(&cwd, kind, &args).await? {
+        Some(items) => show(&window, &items).await,
+        None => Ok(None),
+    }
 }
 
 #[tauri::command]

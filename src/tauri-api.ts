@@ -24,6 +24,7 @@ export function tauriApi(): GitNeatApi {
     readFile: (cwd, rel) => invoke("read_file", { cwd, rel }),
     writeFile: (cwd, rel, content) => invoke("write_file", { cwd, rel, content }),
     menu: (items) => invoke("menu", { items }),
+    contextMenu: (cwd, kind, args) => invoke("context_menu", { cwd, kind, args }),
     copy: (text) => invoke("clipboard", { text }),
     openExternal: (url) => invoke("open_external", { url }),
     openPath: (target) => invoke("open_path", { target }),

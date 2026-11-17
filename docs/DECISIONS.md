@@ -250,3 +250,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The user chose a full port of `src/actions.ts`.
 - Rules: If an action needs a second answer from the user after a git failure, Rust returns `needs-confirm:<kind>:<git error text>`. The kinds are `force-delete`, `force-push` and `rewrite`. TS asks and calls the action again with the answer. An action that goes through `run` returns `{record}` for the undo stack.
 - Limits: The TS sequences stay in `src/actions.ts` for Electron until cutover. `test/actions.test.ts` runs each action through both paths on identical fixture repos and compares the result, the UI calls and the repository state. The full compare suite takes about 2 minutes.
+
+## D42. Context menus are built in Rust
+
+- Decision: The Tauri command `context_menu(cwd, kind, args)` builds the menu tree in `rust/app/src/menus/`, shows it with the popup of D36 and returns the chosen id. `src/menus.ts` calls it when `window.gitneat.contextMenu` exists. Then it runs the handler that has the returned id. Without `contextMenu`, the TS code builds and shows the menu as before (Electron).
+- Reason: The user chose a full port of `src/menus.ts`.
+- Rules: Each TS item has a stable `id`: the handler name, then an index when a list gives several items (`checkout:0`, `reset:hard`, `pushTag:1`). Items inside a ref group submenu of a commit with several branches get the prefix `g<n>:`. Items without a handler (submenu parents) have no id. TS builds the items again after the choice and looks up the handler by id. `showMenu` uses `item.id` when it exists.
+- Limits: `test/menus-rust.test.ts` compares the trees of 24 repository fixtures and checks that each id runs the same handler on both paths. Rust lowercases only ASCII in the host of "View on" and does not punycode it.

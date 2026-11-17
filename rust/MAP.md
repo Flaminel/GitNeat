@@ -23,6 +23,7 @@ The decisions are in `docs/DECISIONS.md`.
 | D39 | Git settings for speed on Windows |
 | D40 | gix is the default backend for `load_repo` |
 | D41 | Repository actions run in Rust |
+| D42 | Context menus are built in Rust |
 
 Domain terms and their Rust names are in `rust/GLOSSARY.md`.
 
@@ -39,7 +40,7 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | B | parsers in `src/repo.ts` | done | crate `rust/repo`, gate passed, 1971/1971 cases. Bench 0.13x through napi. Also `parse_worktrees`, `parse_remotes`, `parse_stashes`, `insert_stashes` with unit tests only. |
 | C | `loadRepo` in `src/repo.ts` | done | `load_repo` command with gix default and CLI fallback (D40). 252 comparisons with TS equal. 3.8 ms against 42.1 ms on this repo. |
 | D | `src/actions.ts` | done | `action` command with 58 actions in `rust/app/src/actions/` (D41). 164 scenarios equal with TS. |
-| E | `src/menus.ts` | open | |
+| E | `src/menus.ts` | done | `context_menu` command builds 10 menu kinds in `rust/app/src/menus/`. `test/menus-rust.test.ts` compares the trees with TS. |
 
 ## Port rules
 

@@ -4,6 +4,7 @@ pub mod git;
 pub mod load;
 pub mod load_gix;
 pub mod menu;
+pub mod menus;
 pub mod paths;
 pub mod store;
 pub mod watch;
@@ -69,6 +70,7 @@ pub fn run() {
             commands::read_file,
             commands::write_file,
             commands::menu,
+            commands::context_menu,
             commands::clipboard,
             commands::open_external,
             commands::open_path,

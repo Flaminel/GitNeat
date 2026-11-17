@@ -27,6 +27,7 @@ export interface GitNeatApi {
   readFile(cwd: string, rel: string): Promise<string | null>;
   writeFile(cwd: string, rel: string, content: string): Promise<boolean>;
   menu(items: MenuSpec[]): Promise<string | null>;
+  contextMenu?(cwd: string, kind: string, args: unknown): Promise<string | null>;
   copy(text: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   openPath(target: string): Promise<string>;

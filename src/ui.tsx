@@ -11,7 +11,7 @@ export interface Field {
   ref?: boolean;
 }
 
-export type MenuItem = "-" | "" | false | null | undefined | { label: string; run?: () => unknown; enabled?: boolean; submenu?: MenuItem[] };
+export type MenuItem = "-" | "" | false | null | undefined | { label: string; id?: string; run?: () => unknown; enabled?: boolean; submenu?: MenuItem[] };
 
 type RealItem = Exclude<MenuItem, "" | false | null | undefined>;
 
@@ -63,7 +63,7 @@ export async function showMenu(items: MenuItem[]): Promise<void> {
         if (item === "-") {
           return { type: "separator" };
         }
-        const id = String(actions.size + 1);
+        const id = item.id ?? String(actions.size + 1);
         if (item.run) {
           actions.set(id, item.run);
         }
