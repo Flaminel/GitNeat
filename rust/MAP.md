@@ -19,6 +19,9 @@ The decisions are in `docs/DECISIONS.md`.
 | D35 | Window chrome |
 | D36 | Context menu result |
 | D37 | Known differences of the Tauri shell |
+| D38 | Submodule paths come only from path keys |
+| D39 | Git settings for speed on Windows |
+| D40 | gix is the default backend for `load_repo` |
 
 Domain terms and their Rust names are in `rust/GLOSSARY.md`.
 
@@ -33,7 +36,7 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | B | `src/diff.ts` | done | crate `rust/diff`, gate passed, 1149/1149 cases. Bench 0.34x through napi. |
 | B | `src/merge.ts` | done | crate `rust/merge`, gate passed, 867/867 cases. Bench 0.27x through napi. |
 | B | parsers in `src/repo.ts` | done | crate `rust/repo`, gate passed, 1971/1971 cases. Bench 0.13x through napi. Also `parse_worktrees`, `parse_remotes`, `parse_stashes`, `insert_stashes` with unit tests only. |
-| C | `loadRepo` in `src/repo.ts` | open | One `load_repo` command. Then the gix backend, the equality test and the benchmark (D31). |
+| C | `loadRepo` in `src/repo.ts` | done | `load_repo` command with gix default and CLI fallback (D40). 252 comparisons with TS equal. 3.8 ms against 42.1 ms on this repo. |
 | D | `src/actions.ts` | open | |
 | E | `src/menus.ts` | open | |
 
@@ -53,8 +56,8 @@ These rules come from mistakes in earlier units. Follow them in each new unit.
 
 | Topic | File | State |
 | --- | --- | --- |
-| `gix` for each read in `loadRepo` (refs, log walk, stashes, worktrees, remotes, status, operation) | `rust/research/gix-load-repo.md` | in progress |
-| Process start cost, read speed settings and `diff --no-index -- /dev/null` on Git for Windows | `rust/research/windows-git.md` | in progress |
+| `gix` for each read in `loadRepo` (refs, log walk, stashes, worktrees, remotes, status, operation) | `rust/research/gix-load-repo.md` | done |
+| Process start cost, read speed settings and `diff --no-index -- /dev/null` on Git for Windows | `rust/research/windows-git.md` | done |
 
 ## Open questions
 

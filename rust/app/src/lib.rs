@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod git;
 pub mod load;
+pub mod load_gix;
 pub mod menu;
 pub mod paths;
 pub mod store;

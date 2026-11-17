@@ -31,9 +31,13 @@ function runGit(cwd: string, args: string[], env?: Record<string, string>, input
 
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false", "-c", "protocol.file.allow=always"];
 let root = "";
+let example = "";
+const backends = ["cli", "gix"];
+
+let extraEnv: Record<string, string> = {};
 
 function g(cwd: string, ...args: string[]): string {
-  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C" } });
+  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C", ...extraEnv } });
 }
 
 function gTry(cwd: string, ...args: string[]): void {
@@ -176,6 +180,100 @@ const fixtures: Record<string, () => string> = {
     gTry(dir, "cherry-pick", "side");
     return dir;
   },
+  tagoftag: () => {
+    const dir = base("tagoftag");
+    g(dir, "tag", "-a", "inner", "-m", "inner tag");
+    g(dir, "tag", "-a", "outer", "-m", "outer tag", "inner");
+    g(dir, "tag", "-a", "outermost", "-m", "outermost tag", "outer");
+    commit(dir, "c.txt", "c\n", "third");
+    g(dir, "tag", "-a", "treetag", "-m", "tree tag", "HEAD^{tree}");
+    return dir;
+  },
+  localupstream: () => {
+    const dir = base("localupstream");
+    g(dir, "checkout", "-q", "-b", "topic");
+    commit(dir, "t1.txt", "t\n", "topic one");
+    commit(dir, "t2.txt", "t\n", "topic two");
+    g(dir, "branch", "--set-upstream-to=main", "topic");
+    g(dir, "checkout", "-q", "main");
+    commit(dir, "m1.txt", "m\n", "main one");
+    g(dir, "branch", "gone", "main");
+    g(dir, "config", "branch.gone.remote", "origin");
+    g(dir, "config", "branch.gone.merge", "refs/heads/missing");
+    return dir;
+  },
+  ties: () => {
+    const dir = base("ties");
+    const stamps = ["2020-01-01T00:00:00Z", "2020-01-01T00:00:01Z"];
+    let n = 0;
+    const tick = (): void => {
+      extraEnv = { GIT_COMMITTER_DATE: stamps[n % 2], GIT_AUTHOR_DATE: stamps[(n + 1) % 2] };
+      n += 1;
+    };
+    try {
+      for (const branch of ["b1", "b2", "b3", "b4"]) {
+        g(dir, "checkout", "-q", "-b", branch, "main");
+        for (let i = 0; i < 6; i++) {
+          tick();
+          commit(dir, `${branch}-${i}.txt`, `${i}\n`, `${branch} commit ${i}`);
+          if (i % 3 === 2) {
+            g(dir, "checkout", "-q", "-b", `${branch}-side${i}`);
+            tick();
+            commit(dir, `${branch}-side${i}.txt`, "s\n", `${branch} side ${i}`);
+            g(dir, "checkout", "-q", branch);
+          }
+        }
+      }
+      g(dir, "checkout", "-q", "main");
+      for (const branch of ["b1", "b2", "b3"]) {
+        tick();
+        g(dir, "merge", "-q", "--no-ff", "-m", `merge ${branch}`, branch);
+      }
+      g(dir, "tag", "-a", "tie-tag", "-m", "tie", "b4");
+    } finally {
+      extraEnv = {};
+    }
+    return dir;
+  },
+  subjectspaces: () => {
+    const dir = base("subjectspaces");
+    write(dir, "c.txt", "c\n");
+    g(dir, "add", "-A");
+    g(dir, "commit", "-q", "--cleanup=verbatim", "-m", "   leading spaces subject");
+    write(dir, "d.txt", "d\n");
+    g(dir, "add", "-A");
+    g(dir, "commit", "-q", "--cleanup=verbatim", "-m", "\n\n  blank first\nsecond line\n\nbody");
+    return dir;
+  },
+  crlf: () => {
+    const dir = base("crlf");
+    g(dir, "config", "core.autocrlf", "true");
+    commit(dir, "win.txt", "one\r\ntwo\r\n", "crlf file");
+    write(dir, "win.txt", "one\r\ntwo\r\nthree\r\n");
+    commit(dir, "clean.txt", "x\r\ny\r\n", "crlf clean");
+    return dir;
+  },
+  intentadd: () => {
+    const dir = base("intentadd");
+    write(dir, "new.txt", "n\n");
+    g(dir, "add", "-N", "new.txt");
+    return dir;
+  },
+  ignored: () => {
+    const dir = base("ignored");
+    commit(dir, ".gitignore", "*.log\nbuild/\n", "ignore");
+    write(dir, "x.log", "l\n");
+    write(dir, "build/out.txt", "o\n");
+    write(dir, "keep.txt", "k\n");
+    return dir;
+  },
+  nesteduntracked: () => {
+    const dir = base("nesteduntracked");
+    write(dir, "deep/er/est/file.txt", "f\n");
+    write(dir, "deep/er/other.txt", "o\n");
+    write(dir, "deep/top.txt", "t\n");
+    return dir;
+  },
   empty: () => init("empty"),
   detached: () => {
     const dir = base("detached");
@@ -202,6 +300,7 @@ before(
     }
     root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-load-")));
     execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "load_repo"], { cwd: rustDir, stdio: "inherit" });
+    example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "load_repo.exe" : "load_repo");
   },
   { timeout: 600000 },
 );
@@ -220,12 +319,14 @@ for (const [name, build] of Object.entries(fixtures)) {
       if (name === "submodules") {
         assert.deepStrictEqual(expected.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
       }
-      const out = execFileSync("cargo", ["run", "-q", "-p", "gitneat", "--example", "load_repo", "--", dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), String(v.limit)], {
-        cwd: rustDir,
-        encoding: "utf8",
-        maxBuffer: 512 * 1024 * 1024,
-      });
-      assert.deepStrictEqual(JSON.parse(out), expected, `${name} / ${v.name}`);
+      for (const backend of backends) {
+        const out = execFileSync(example, [dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), String(v.limit)], {
+          encoding: "utf8",
+          maxBuffer: 512 * 1024 * 1024,
+          env: { ...process.env, GITNEAT_BACKEND: backend === "cli" ? "cli" : "" },
+        });
+        assert.deepStrictEqual(JSON.parse(out), expected, `${name} / ${v.name} / ${backend}`);
+      }
     }
   });
 }

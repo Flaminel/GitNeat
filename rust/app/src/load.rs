@@ -1,4 +1,5 @@
 use crate::git::{GitResult, run_git};
+use crate::load_gix::load_repo_gix;
 use repo::js::is_undefined;
 use repo::port::{
     Commit, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log, read_refs,
@@ -75,7 +76,7 @@ fn is_js_space(c: char) -> bool {
     )
 }
 
-fn non_blank(text: &str) -> Option<String> {
+pub(crate) fn non_blank(text: &str) -> Option<String> {
     let trimmed = text.trim_matches(is_js_space);
     if trimmed.is_empty() {
         None
@@ -97,7 +98,7 @@ fn clean(value: Value) -> Value {
     }
 }
 
-fn values<T: Serialize>(items: &[T]) -> Vec<Value> {
+pub(crate) fn values<T: Serialize>(items: &[T]) -> Vec<Value> {
     items
         .iter()
         .map(|item| clean(serde_json::to_value(item).unwrap_or(Value::Null)))
@@ -157,6 +158,17 @@ async fn detect_operation(cwd: &str) -> Option<Operation> {
 }
 
 pub async fn load_repo(cwd: &str, hidden: &[String], solo: &[String], limit: u32) -> RepoData {
+    if std::env::var("GITNEAT_BACKEND").as_deref() != Ok("cli") {
+        let (dir, hide, only) = (cwd.to_string(), hidden.to_vec(), solo.to_vec());
+        let job = tokio::task::spawn_blocking(move || load_repo_gix(&dir, &hide, &only, limit));
+        if let Ok(Ok(data)) = job.await {
+            return data;
+        }
+    }
+    load_repo_cli(cwd, hidden, solo, limit).await
+}
+
+pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit: u32) -> RepoData {
     let ref_format = format!(
         "--format=%(refname){FS}%(objectname){FS}%(*objectname){FS}%(upstream:short){FS}%(upstream:track,nobracket){FS}%(HEAD){FS}%(worktreepath)"
     );

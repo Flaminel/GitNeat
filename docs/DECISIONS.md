@@ -236,3 +236,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: On Windows, `run_git` in `rust/app/src/git.rs` sets `core.fscache=true` and `core.preloadindex=true` through `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_n` and `GIT_CONFIG_VALUE_n`. The env from the caller comes after, so the caller wins.
 - Reason: `core.fscache` caches file status for whole folders on Git for Windows. These variables do not change the config of the user. See `rust/research/windows-git.md`.
 - Limits: GitNeat does not call `mingw64\bin\git.exe` directly. That path skips the `cmd\git.exe` wrapper process, but the wrapper sets `PATH`, `HOME` and `MSYSTEM` for hooks and ssh. Measure it on Windows before it is added. `core.untrackedCache` and `core.fsmonitor` stay off: the first writes the index, the second starts a daemon.
+
+## D40. gix is the default backend for `load_repo`
+
+- Decision: `load_repo` reads the repository with gix in-process (`rust/app/src/load_gix.rs`). `GITNEAT_BACKEND=cli` forces the `git` CLI path in `rust/app/src/load.rs`. If gix returns an error, `load_repo` runs the CLI path.
+- Reason: On macOS, a refresh with limit 3000 takes 42.1 ms with the CLI and 3.8 ms with gix on this repository. On glasshouse it takes 60.1 ms and 14.2 ms. Process starts cost more on Windows, so the gain there is larger.
+- Rules: gix produces the same text that the CLI produces. The parsers in `rust/repo` read it. The log order is a port of the git date order, not the gix date order (see `rust/research/gix-load-repo.md`). `test/load-repo.test.ts` compares both backends with the TS `loadRepo` on 21 fixtures and 6 variants.
+- Limits: gix returns an error, and the CLI path runs, for a bare repository, a shallow repository, `info/grafts`, `refs/replace/`, sparse checkout, and a `cwd` that is not the repository root. No test covers the Windows-specific cases (`core.symlinks=false`, `core.ignoreCase`). The comparison test runs on Windows in CI job `tauri`.
