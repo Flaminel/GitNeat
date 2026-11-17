@@ -20,6 +20,21 @@ fn err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
 }
 
+fn long_path(p: &Path) -> std::path::PathBuf {
+    #[cfg(windows)]
+    {
+        if let Ok(full) = std::fs::canonicalize(p) {
+            let text = full.to_string_lossy().into_owned();
+            if let Some(rest) = text.strip_prefix(r"\\?\")
+                && !rest.starts_with("UNC\\")
+            {
+                return std::path::PathBuf::from(rest);
+            }
+        }
+    }
+    p.to_path_buf()
+}
+
 fn norm(p: &Path) -> String {
     p.to_string_lossy()
         .replace('\\', "/")
@@ -55,7 +70,7 @@ fn wt_of(path: String, r: &gix::Repository, locked: bool, prunable: bool) -> Wt 
 fn worktrees(repo: &gix::Repository) -> Result<Vec<Wt>, String> {
     let main = repo.main_repo().map_err(err)?;
     let root = main.workdir().ok_or("bare repository")?;
-    let mut list = vec![wt_of(norm(root), &main, false, false)];
+    let mut list = vec![wt_of(norm(&long_path(root)), &main, false, false)];
     for proxy in main.worktrees().map_err(err)? {
         let (locked, prunable) = (proxy.is_locked(), proxy.is_prunable());
         let base = proxy.base().map_err(err)?;
