@@ -27,6 +27,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: Repository tabs are React state in `src/App.tsx`. GitNeat has one `BrowserWindow`.
 - Reason: The user asked for tabs, not windows. One renderer keeps tab switches fast and makes shared state simple.
 - Limits: Only the active tab is mounted. A tab switch reloads that repository from git.
+- Evidence: Source also keeps one live repository per window. It saves a store snapshot for each repository path and restores it on a tab switch (see `docs/EVIDENCE.md` section 4.1).
 
 ## D5. Native context menus
 
