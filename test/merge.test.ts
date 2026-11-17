@@ -20,7 +20,7 @@ function segments() {
   git("checkout", "-q", "main");
   write("top\nA1\nA2\nA3\nmid\nA-y\nbottom\n");
   git("commit", "-qam", "main");
-  spawnSync("git", ["merge", "other"], { cwd: dir });
+  spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@x", "merge", "other"], { cwd: dir });
   const show = (stage: number) => {
     const file = path.join(dir, `stage${stage}`);
     fs.writeFileSync(file, git("show", `:${stage}:f.txt`));
