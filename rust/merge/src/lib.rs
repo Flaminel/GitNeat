@@ -218,8 +218,7 @@ static S_SIDE_LINES_OUT: wire::Schema = wire::Schema::Obj(&[
 #[napi(js_name = "sideLinesWire")]
 pub fn side_lines_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let segments: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_SIDE_LINES_0.inner()))?;
+        let segments: Vec<Value> = r.list(|r| wire::read_value(r, S_SIDE_LINES_0.inner()))?;
         let side: String = r.string16()?;
         let out = &port::side_lines(segments, side)?;
         wire::write_value(w, out, &S_SIDE_LINES_OUT)?;
@@ -247,11 +246,8 @@ static S_BUILD_OUTPUT_OUT: wire::Schema = wire::Schema::Obj(&[
 #[napi(js_name = "buildOutputWire")]
 pub fn build_output_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let segments: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_BUILD_OUTPUT_0.inner()))?;
-        let selections: Vec<Option<Vec<serde_json::Value>>> = r.list(|r| {
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_BUILD_OUTPUT_1.inner().inner().inner())))
-        })?;
+        let segments: Vec<Value> = r.list(|r| wire::read_value(r, S_BUILD_OUTPUT_0.inner()))?;
+        let selections: Value = wire::read_value(r, &S_BUILD_OUTPUT_1)?;
         let markers: Option<bool> = r.opt_js(|r| r.bool())?;
         let out = &port::build_output(segments, selections, markers)?;
         wire::write_value(w, out, &S_BUILD_OUTPUT_OUT)?;
@@ -276,9 +272,8 @@ static S_TOGGLE_PICK_OUT: wire::Schema =
 #[napi(js_name = "togglePickWire")]
 pub fn toggle_pick_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let sel: Option<Vec<serde_json::Value>> =
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_TOGGLE_PICK_0.inner().inner())))?;
-        let p: serde_json::Value = wire::read_value(r, &S_TOGGLE_PICK_1)?;
+        let sel: Value = wire::read_value(r, &S_TOGGLE_PICK_0)?;
+        let p: Value = wire::read_value(r, &S_TOGGLE_PICK_1)?;
         let out = &port::toggle_pick(sel, p)?;
         match out {
             Some(x0) => {
@@ -305,8 +300,7 @@ static S_SIDE_TAKEN_0: wire::Schema =
 #[napi(js_name = "sideTakenWire")]
 pub fn side_taken_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let sel: Option<Vec<serde_json::Value>> =
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_SIDE_TAKEN_0.inner().inner())))?;
+        let sel: Value = wire::read_value(r, &S_SIDE_TAKEN_0)?;
         let side: String = r.string16()?;
         let count: f64 = r.f64()?;
         let out = &port::side_taken(sel, side, count)?;
@@ -330,8 +324,7 @@ static S_TOGGLE_SIDE_OUT: wire::Schema =
 #[napi(js_name = "toggleSideWire")]
 pub fn toggle_side_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let sel: Option<Vec<serde_json::Value>> =
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_TOGGLE_SIDE_0.inner().inner())))?;
+        let sel: Value = wire::read_value(r, &S_TOGGLE_SIDE_0)?;
         let side: String = r.string16()?;
         let count: f64 = r.f64()?;
         let out = &port::toggle_side(sel, side, count)?;
@@ -359,11 +352,8 @@ static S_ALL_TAKEN_1: wire::Schema = wire::Schema::List(&wire::Schema::OptJs(&wi
 #[napi(js_name = "allTakenWire")]
 pub fn all_taken_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let segments: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_ALL_TAKEN_0.inner()))?;
-        let sels: Vec<Option<Vec<serde_json::Value>>> = r.list(|r| {
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_ALL_TAKEN_1.inner().inner().inner())))
-        })?;
+        let segments: Vec<Value> = r.list(|r| wire::read_value(r, S_ALL_TAKEN_0.inner()))?;
+        let sels: Value = wire::read_value(r, &S_ALL_TAKEN_1)?;
         let side: String = r.string16()?;
         let out = &port::all_taken(segments, sels, side)?;
         w.bool(*out);
@@ -384,11 +374,8 @@ static S_TAKE_ALL_OUT: wire::Schema =
 #[napi(js_name = "takeAllWire")]
 pub fn take_all_wire(len: u32) -> napi::Result<f64> {
     wire_io(len, |r, w| {
-        let segments: Vec<serde_json::Value> =
-            r.list(|r| wire::read_value(r, S_TAKE_ALL_0.inner()))?;
-        let sels: Vec<Option<Vec<serde_json::Value>>> = r.list(|r| {
-            r.opt_js(|r| r.list(|r| wire::read_value(r, S_TAKE_ALL_1.inner().inner().inner())))
-        })?;
+        let segments: Vec<Value> = r.list(|r| wire::read_value(r, S_TAKE_ALL_0.inner()))?;
+        let sels: Value = wire::read_value(r, &S_TAKE_ALL_1)?;
         let side: String = r.string16()?;
         let out = &port::take_all(segments, sels, side)?;
         w.tag(1);
