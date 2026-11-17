@@ -33,7 +33,7 @@ module.exports = { ...native }
 const specs = {
   parseDiff: [[0], 'json', false],
   hunkPatch: [[1, 1], 'raw', false],
-  linesPatch: [[1, 1, 1, 0], 'raw', false],
+  linesPatch: [[1, 1, 1, 0], 'json', false],
   linesInRange: [[1, 0, 0, 0], 'raw', false],
 }
 const classes = {

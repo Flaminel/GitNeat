@@ -57,16 +57,13 @@ pub fn lines_patch(
     hunk: String,
     selected: String,
     reverse: bool,
-) -> napi::Result<napi::bindgen_prelude::Either<String, ()>> {
+) -> napi::Result<String> {
     run(move || {
         let diff = crate::js::from_json(&diff)?;
         let hunk = crate::js::from_json(&hunk)?;
         let selected = crate::js::from_json(&selected)?;
         let out = port::lines_patch(diff, hunk, selected, reverse)?;
-        Ok(out.map_or(
-            napi::bindgen_prelude::Either::B(()),
-            napi::bindgen_prelude::Either::A,
-        ))
+        crate::js::to_json(&out)
     })
 }
 
@@ -243,6 +240,7 @@ static S_LINES_PATCH_1: wire::Schema = wire::Schema::Obj(&[
     ),
 ]);
 static S_LINES_PATCH_2: wire::Schema = wire::Schema::List(&wire::Schema::Num);
+static S_LINES_PATCH_OUT: wire::Schema = wire::Schema::OptJs(&wire::Schema::Str16);
 
 /// `linesPatch` over the binary wire.
 #[napi(js_name = "linesPatchWire")]
@@ -253,13 +251,7 @@ pub fn lines_patch_wire(len: u32) -> napi::Result<f64> {
         let selected: serde_json::Value = wire::read_value(r, &S_LINES_PATCH_2)?;
         let reverse: bool = r.bool()?;
         let out = &port::lines_patch(diff, hunk, selected, reverse)?;
-        match out {
-            Some(x0) => {
-                w.tag(1);
-                w.string16(x0);
-            }
-            None => w.tag(2),
-        }
+        wire::write_value(w, out, &S_LINES_PATCH_OUT)?;
         Ok(())
     })
 }
