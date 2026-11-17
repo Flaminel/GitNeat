@@ -1,23 +1,15 @@
-//! JS string indexing in Rust.
-//!
-//! JS strings are indexed in UTF-16 code units; Rust `str` in UTF-8 bytes. A port that returns
-//! or consumes offsets must use these helpers, or non-ASCII text gets wrong results silently.
-
 #![forbid(unsafe_code)]
 
-/// The UTF-16 code units of `s`, as JS sees the string.
 pub fn units(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
 }
 
-/// The string `units[start..end]` decodes to, like JS `slice` (lone surrogates become U+FFFD).
 pub fn slice(units: &[u16], start: usize, end: usize) -> String {
     let end = end.min(units.len());
     let start = start.min(end);
     String::from_utf16_lossy(&units[start..end])
 }
 
-/// JS `haystack.indexOf(needle, from)`, in UTF-16 code units.
 pub fn index_of(haystack: &[u16], needle: &[u16], from: usize) -> Option<usize> {
     let from = from.min(haystack.len());
     if needle.is_empty() {
@@ -29,7 +21,6 @@ pub fn index_of(haystack: &[u16], needle: &[u16], from: usize) -> Option<usize> 
         .map(|i| i + from)
 }
 
-/// JS `haystack.lastIndexOf(needle)`, in UTF-16 code units.
 pub fn last_index_of(haystack: &[u16], needle: &[u16]) -> Option<usize> {
     if needle.is_empty() {
         return Some(haystack.len());
@@ -37,7 +28,6 @@ pub fn last_index_of(haystack: &[u16], needle: &[u16]) -> Option<usize> {
     haystack.windows(needle.len()).rposition(|w| w == needle)
 }
 
-/// UTF-8 byte offset of a UTF-16 offset in `s`, for slicing a Rust `str`.
 pub fn byte_offset(s: &str, utf16_offset: usize) -> usize {
     let mut seen = 0;
     for (byte, c) in s.char_indices() {
@@ -49,7 +39,6 @@ pub fn byte_offset(s: &str, utf16_offset: usize) -> usize {
     s.len()
 }
 
-/// UTF-16 offset of a UTF-8 byte offset in `s`, for returning ranges to JS.
 pub fn utf16_offset(s: &str, byte_offset: usize) -> usize {
     s[..byte_offset.min(s.len())].encode_utf16().count()
 }

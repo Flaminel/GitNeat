@@ -467,149 +467,154 @@ impl Typed {
     }
 }
 
-fn segments_of(values: Vec<Value>) -> Vec<Segment> {
-    values.into_iter().map(Segment::from_value).collect()
-}
+#[cfg(test)]
+pub(crate) mod wrappers {
+    use super::*;
 
-fn falsy(v: &Value) -> bool {
-    match v {
-        Value::Null | Value::Bool(false) => true,
-        Value::String(s) => s.is_empty(),
-        Value::Number(n) => n.as_f64() == Some(0.0),
-        _ => {
-            crate::js::is_undefined(v)
-                || crate::js::as_number(v).is_some_and(|n| n == 0.0 || n.is_nan())
-        }
+    fn segments_of(values: Vec<Value>) -> Vec<Segment> {
+        values.into_iter().map(Segment::from_value).collect()
     }
-}
 
-fn selection_of(v: &Value) -> Result<Selection, String> {
-    match v {
-        Value::Null => Ok(None),
-        _ if crate::js::is_undefined(v) => Ok(None),
-        Value::Array(items) => Ok(Some(items.iter().cloned().map(Pick).collect())),
-        _ => Err("TypeError: selection is not an array".to_string()),
-    }
-}
-
-fn js_index(v: &Value, i: usize) -> Result<Value, String> {
-    match v {
-        Value::Null => Err("TypeError: Cannot read properties of null".to_string()),
-        _ if crate::js::is_undefined(v) => {
-            Err("TypeError: Cannot read properties of undefined".to_string())
-        }
-        Value::Array(items) => Ok(items.get(i).cloned().unwrap_or_else(crate::js::undefined)),
-        Value::Object(o) => Ok(o
-            .get(&i.to_string())
-            .cloned()
-            .unwrap_or_else(crate::js::undefined)),
-        Value::String(s) => Ok(s
-            .chars()
-            .nth(i)
-            .map_or_else(crate::js::undefined, |c| Value::String(c.to_string()))),
-        _ => Ok(crate::js::undefined()),
-    }
-}
-
-fn selection_list(v: &Value, n: usize) -> Result<Vec<Selection>, String> {
-    (0..n).map(|i| selection_of(&js_index(v, i)?)).collect()
-}
-
-fn build_selections(v: &Value, n: usize) -> Result<Vec<Selection>, String> {
-    (0..n)
-        .map(|i| {
-            let item = js_index(v, i)?;
-            if falsy(&item) {
-                Ok(None)
-            } else {
-                selection_of(&item)
+    fn falsy(v: &Value) -> bool {
+        match v {
+            Value::Null | Value::Bool(false) => true,
+            Value::String(s) => s.is_empty(),
+            Value::Number(n) => n.as_f64() == Some(0.0),
+            _ => {
+                crate::js::is_undefined(v)
+                    || crate::js::as_number(v).is_some_and(|n| n == 0.0 || n.is_nan())
             }
-        })
-        .collect()
-}
-
-fn selection_picks(sel: Selection) -> Option<Vec<Value>> {
-    sel.map(|picks| picks.into_iter().map(|p| p.0).collect())
-}
-
-pub fn split_lines(text: String) -> Result<Vec<String>, String> {
-    Ok(Typed::split_text(&text))
-}
-
-pub fn parse_merge(text: String) -> Result<Vec<Value>, String> {
-    Ok(Typed::parse_segments(&text)
-        .iter()
-        .map(Segment::to_value)
-        .collect())
-}
-
-pub fn side_lines(segments: Vec<Value>, side: String) -> Result<Value, String> {
-    let segments = segments_of(segments);
-    serde_json::to_value(Typed::side_text(&segments, &side)?).map_err(|e| e.to_string())
-}
-
-pub fn build_output(
-    segments: Vec<Value>,
-    selections: Value,
-    markers: Option<bool>,
-) -> Result<Value, String> {
-    let segments = segments_of(segments);
-    let mut n = 0;
-    for s in &segments {
-        if s.kind()? != Some("common") {
-            n += 1;
         }
     }
-    let sels = build_selections(&selections, n)?;
-    let built = Typed::build_text(&segments, &sels, markers.unwrap_or(false))?;
-    serde_json::to_value(built).map_err(|e| e.to_string())
-}
 
-pub fn toggle_pick(sel: Value, p: Value) -> Result<Option<Vec<Value>>, String> {
-    let sel = selection_of(&sel)?;
-    Ok(selection_picks(Typed::toggle(&sel, &Pick(p))?))
-}
-
-pub fn side_taken(sel: Value, side: String, count: f64) -> Result<bool, String> {
-    if count.is_nan() || count <= 0.0 || falsy(&sel) {
-        return Ok(false);
+    fn selection_of(v: &Value) -> Result<Selection, String> {
+        match v {
+            Value::Null => Ok(None),
+            _ if crate::js::is_undefined(v) => Ok(None),
+            Value::Array(items) => Ok(Some(items.iter().cloned().map(Pick).collect())),
+            _ => Err("TypeError: selection is not an array".to_string()),
+        }
     }
-    Typed::taken(&selection_of(&sel)?, &side, count)
-}
 
-pub fn toggle_side(sel: Value, side: String, count: f64) -> Result<Option<Vec<Value>>, String> {
-    let sel = selection_of(&sel)?;
-    Ok(selection_picks(Typed::toggle_whole_side(
-        &sel, &side, count,
-    )?))
-}
-
-pub fn all_taken(segments: Vec<Value>, sels: Value, side: String) -> Result<bool, String> {
-    let segments = segments_of(segments);
-    let n = Typed::counts(&segments, &side)?;
-    if !n.iter().any(|&c| c > 0) {
-        return Ok(false);
+    fn js_index(v: &Value, i: usize) -> Result<Value, String> {
+        match v {
+            Value::Null => Err("TypeError: Cannot read properties of null".to_string()),
+            _ if crate::js::is_undefined(v) => {
+                Err("TypeError: Cannot read properties of undefined".to_string())
+            }
+            Value::Array(items) => Ok(items.get(i).cloned().unwrap_or_else(crate::js::undefined)),
+            Value::Object(o) => Ok(o
+                .get(&i.to_string())
+                .cloned()
+                .unwrap_or_else(crate::js::undefined)),
+            Value::String(s) => Ok(s
+                .chars()
+                .nth(i)
+                .map_or_else(crate::js::undefined, |c| Value::String(c.to_string()))),
+            _ => Ok(crate::js::undefined()),
+        }
     }
-    for (i, &c) in n.iter().enumerate() {
-        if c != 0 && !side_taken(js_index(&sels, i)?, side.clone(), c as f64)? {
+
+    fn selection_list(v: &Value, n: usize) -> Result<Vec<Selection>, String> {
+        (0..n).map(|i| selection_of(&js_index(v, i)?)).collect()
+    }
+
+    fn build_selections(v: &Value, n: usize) -> Result<Vec<Selection>, String> {
+        (0..n)
+            .map(|i| {
+                let item = js_index(v, i)?;
+                if falsy(&item) {
+                    Ok(None)
+                } else {
+                    selection_of(&item)
+                }
+            })
+            .collect()
+    }
+
+    fn selection_picks(sel: Selection) -> Option<Vec<Value>> {
+        sel.map(|picks| picks.into_iter().map(|p| p.0).collect())
+    }
+
+    pub fn split_lines(text: String) -> Result<Vec<String>, String> {
+        Ok(Typed::split_text(&text))
+    }
+
+    pub fn parse_merge(text: String) -> Result<Vec<Value>, String> {
+        Ok(Typed::parse_segments(&text)
+            .iter()
+            .map(Segment::to_value)
+            .collect())
+    }
+
+    pub fn side_lines(segments: Vec<Value>, side: String) -> Result<Value, String> {
+        let segments = segments_of(segments);
+        serde_json::to_value(Typed::side_text(&segments, &side)?).map_err(|e| e.to_string())
+    }
+
+    pub fn build_output(
+        segments: Vec<Value>,
+        selections: Value,
+        markers: Option<bool>,
+    ) -> Result<Value, String> {
+        let segments = segments_of(segments);
+        let mut n = 0;
+        for s in &segments {
+            if s.kind()? != Some("common") {
+                n += 1;
+            }
+        }
+        let sels = build_selections(&selections, n)?;
+        let built = Typed::build_text(&segments, &sels, markers.unwrap_or(false))?;
+        serde_json::to_value(built).map_err(|e| e.to_string())
+    }
+
+    pub fn toggle_pick(sel: Value, p: Value) -> Result<Option<Vec<Value>>, String> {
+        let sel = selection_of(&sel)?;
+        Ok(selection_picks(Typed::toggle(&sel, &Pick(p))?))
+    }
+
+    pub fn side_taken(sel: Value, side: String, count: f64) -> Result<bool, String> {
+        if count.is_nan() || count <= 0.0 || falsy(&sel) {
             return Ok(false);
         }
+        Typed::taken(&selection_of(&sel)?, &side, count)
     }
-    Ok(true)
-}
 
-pub fn take_all(
-    segments: Vec<Value>,
-    sels: Value,
-    side: String,
-) -> Result<Vec<Option<Vec<Value>>>, String> {
-    let segments = segments_of(segments);
-    let n = Typed::counts(&segments, &side)?.len();
-    let sels = selection_list(&sels, n)?;
-    Ok(Typed::take_every(&segments, &sels, &side)?
-        .into_iter()
-        .map(selection_picks)
-        .collect())
+    pub fn toggle_side(sel: Value, side: String, count: f64) -> Result<Option<Vec<Value>>, String> {
+        let sel = selection_of(&sel)?;
+        Ok(selection_picks(Typed::toggle_whole_side(
+            &sel, &side, count,
+        )?))
+    }
+
+    pub fn all_taken(segments: Vec<Value>, sels: Value, side: String) -> Result<bool, String> {
+        let segments = segments_of(segments);
+        let n = Typed::counts(&segments, &side)?;
+        if !n.iter().any(|&c| c > 0) {
+            return Ok(false);
+        }
+        for (i, &c) in n.iter().enumerate() {
+            if c != 0 && !side_taken(js_index(&sels, i)?, side.clone(), c as f64)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    pub fn take_all(
+        segments: Vec<Value>,
+        sels: Value,
+        side: String,
+    ) -> Result<Vec<Option<Vec<Value>>>, String> {
+        let segments = segments_of(segments);
+        let n = Typed::counts(&segments, &side)?.len();
+        let sels = selection_list(&sels, n)?;
+        Ok(Typed::take_every(&segments, &sels, &side)?
+            .into_iter()
+            .map(selection_picks)
+            .collect())
+    }
 }
 
 #[cfg(test)]

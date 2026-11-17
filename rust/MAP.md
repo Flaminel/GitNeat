@@ -46,13 +46,15 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 
 These rules come from mistakes in earlier units. Follow them in each new unit.
 
-1. Run every `rust-anything` command with Node 24 on `PATH`. Node 26 removed a flag that `bench` uses.
-2. In a new unit crate, set `serde` to `features = ["derive"]` and add `chunks_exact_to_as_chunks = "allow"` under `[lints.clippy]`. The generated `wire.rs` fails this lint on Rust 1.100.
-3. Put typed core functions in an `impl` block. `refresh` exports every top-level `pub fn` in `port.rs`, and the build fails on `&` parameters. `rust/graph` has a top-level `pub fn layout`: move it before you run `refresh` on that crate.
-4. A TS function that returns `string | null` needs a `serde_json::Value` return in the wrapper. `Option<String>` becomes `undefined` in JS.
+The unit crates `rust/graph`, `rust/diff`, `rust/merge` and `rust/repo` are plain libraries now. The napi bridge is gone. Each crate replays its recorded `cases.jsonl` with `cargo test` (graph 202, diff 1149, merge 867, repo 1971). A case that differs fails the test.
+
+1. Obsolete: napi needed Node 24 on `PATH`.
+2. Obsolete: the generated `wire.rs` is gone.
+3. Obsolete: the `port.rs` exports are gone. The `serde_json::Value` wrappers live in `port::wrappers` under `cfg(test)` and only the replay calls them.
+4. Obsolete: the `Value` return type was for the napi wrapper.
 5. Remove recorded cases larger than 1 MB from `cases.jsonl` before you commit.
-6. Do not edit `lib.rs`, `wire.rs`, `js.rs` or `index.cjs`. `bridge` and `refresh` generate them.
-7. Bench results through napi are below 1x for every Wave B unit. The app calls the ports from Rust, so the napi bench does not apply.
+6. Obsolete: `lib.rs` is hand-written now.
+7. Obsolete: the app calls the ports from Rust, so the napi bench does not apply.
 
 ## Research
 

@@ -102,16 +102,21 @@ pub fn layout(commits: &[GraphCommit]) -> Vec<GraphRow> {
     rows
 }
 
-pub fn layout_graph(commits: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>, String> {
-    let typed: Vec<GraphCommit> = commits
-        .into_iter()
-        .map(serde_json::from_value)
-        .collect::<Result<_, _>>()
-        .map_err(|e| format!("TypeError: {e}"))?;
-    layout(&typed)
-        .iter()
-        .map(|row| serde_json::to_value(row).map_err(|e| e.to_string()))
-        .collect()
+#[cfg(test)]
+pub(crate) mod wrappers {
+    use super::*;
+
+    pub fn layout_graph(commits: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>, String> {
+        let typed: Vec<GraphCommit> = commits
+            .into_iter()
+            .map(serde_json::from_value)
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("TypeError: {e}"))?;
+        layout(&typed)
+            .iter()
+            .map(|row| serde_json::to_value(row).map_err(|e| e.to_string()))
+            .collect()
+    }
 }
 
 #[cfg(test)]

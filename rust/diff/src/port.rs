@@ -306,99 +306,105 @@ impl Hunk {
     }
 }
 
-fn typed<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, String> {
-    serde_json::from_value(value).map_err(|e| format!("TypeError: {e}"))
-}
+#[cfg(test)]
+pub(crate) mod wrappers {
+    use super::*;
 
-fn js_string(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::Null => "null".to_string(),
-        serde_json::Value::Bool(b) => b.to_string(),
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::Array(items) => items
-            .iter()
-            .map(|i| {
-                if i.is_null() {
-                    String::new()
-                } else {
-                    js_string(i)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(","),
-        serde_json::Value::Object(_) if crate::js::is_undefined(v) => "undefined".to_string(),
-        serde_json::Value::Object(_) => match crate::js::as_number(v) {
-            Some(n) if n.is_nan() => "NaN".to_string(),
-            Some(n) if n.is_infinite() && n > 0.0 => "Infinity".to_string(),
-            Some(n) if n.is_infinite() => "-Infinity".to_string(),
-            Some(_) => "0".to_string(),
-            None => "[object Object]".to_string(),
-        },
+    fn typed<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Result<T, String> {
+        serde_json::from_value(value).map_err(|e| format!("TypeError: {e}"))
     }
-}
 
-fn header_only(diff: &serde_json::Value) -> Result<ParsedDiff, String> {
-    let file_header = match diff {
-        serde_json::Value::Null => {
-            return Err(
-                "TypeError: Cannot read properties of null (reading 'fileHeader')".to_string(),
-            );
+    fn js_string(v: &serde_json::Value) -> String {
+        match v {
+            serde_json::Value::Null => "null".to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Array(items) => items
+                .iter()
+                .map(|i| {
+                    if i.is_null() {
+                        String::new()
+                    } else {
+                        js_string(i)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(","),
+            serde_json::Value::Object(_) if crate::js::is_undefined(v) => "undefined".to_string(),
+            serde_json::Value::Object(_) => match crate::js::as_number(v) {
+                Some(n) if n.is_nan() => "NaN".to_string(),
+                Some(n) if n.is_infinite() && n > 0.0 => "Infinity".to_string(),
+                Some(n) if n.is_infinite() => "-Infinity".to_string(),
+                Some(_) => "0".to_string(),
+                None => "[object Object]".to_string(),
+            },
         }
-        serde_json::Value::Object(o) if crate::js::is_undefined(diff) => {
-            let _ = o;
-            return Err(
-                "TypeError: Cannot read properties of undefined (reading 'fileHeader')".to_string(),
-            );
-        }
-        serde_json::Value::Object(o) => o
-            .get("fileHeader")
-            .map_or_else(|| "undefined".to_string(), js_string),
-        _ => "undefined".to_string(),
-    };
-    Ok(ParsedDiff {
-        file_header,
-        hunks: Vec::new(),
-        binary: false,
-    })
-}
+    }
 
-pub fn parse_diff(text: String) -> Result<serde_json::Value, String> {
-    serde_json::to_value(ParsedDiff::parse(&text)).map_err(|e| e.to_string())
-}
+    fn header_only(diff: &serde_json::Value) -> Result<ParsedDiff, String> {
+        let file_header = match diff {
+            serde_json::Value::Null => {
+                return Err(
+                    "TypeError: Cannot read properties of null (reading 'fileHeader')".to_string(),
+                );
+            }
+            serde_json::Value::Object(o) if crate::js::is_undefined(diff) => {
+                let _ = o;
+                return Err(
+                    "TypeError: Cannot read properties of undefined (reading 'fileHeader')"
+                        .to_string(),
+                );
+            }
+            serde_json::Value::Object(o) => o
+                .get("fileHeader")
+                .map_or_else(|| "undefined".to_string(), js_string),
+            _ => "undefined".to_string(),
+        };
+        Ok(ParsedDiff {
+            file_header,
+            hunks: Vec::new(),
+            binary: false,
+        })
+    }
 
-pub fn hunk_patch(diff: serde_json::Value, hunk: serde_json::Value) -> Result<String, String> {
-    let hunk: Hunk = typed(hunk)?;
-    let diff = header_only(&diff)?;
-    Ok(hunk.patch(&diff))
-}
+    pub fn parse_diff(text: String) -> Result<serde_json::Value, String> {
+        serde_json::to_value(ParsedDiff::parse(&text)).map_err(|e| e.to_string())
+    }
 
-pub fn lines_patch(
-    diff: serde_json::Value,
-    hunk: serde_json::Value,
-    selected: serde_json::Value,
-    reverse: bool,
-) -> Result<serde_json::Value, String> {
-    let hunk: Hunk = typed(hunk)?;
-    let set: Option<Vec<f64>> = selected
-        .get("$set")
-        .and_then(serde_json::Value::as_array)
-        .map(|items| items.iter().filter_map(crate::js::as_number).collect());
-    let Some(body) = lines_body(&hunk, set.as_deref(), reverse)? else {
-        return Ok(serde_json::Value::Null);
-    };
-    let diff = header_only(&diff)?;
-    Ok(serde_json::Value::String(assemble(&diff, &hunk, &body)))
-}
+    pub fn hunk_patch(diff: serde_json::Value, hunk: serde_json::Value) -> Result<String, String> {
+        let hunk: Hunk = typed(hunk)?;
+        let diff = header_only(&diff)?;
+        Ok(hunk.patch(&diff))
+    }
 
-pub fn lines_in_range(
-    hunk: serde_json::Value,
-    side: String,
-    start: f64,
-    end: f64,
-) -> Result<Vec<f64>, String> {
-    let hunk: Hunk = typed(hunk)?;
-    Ok(hunk.lines_in_range(&side, start, end))
+    pub fn lines_patch(
+        diff: serde_json::Value,
+        hunk: serde_json::Value,
+        selected: serde_json::Value,
+        reverse: bool,
+    ) -> Result<serde_json::Value, String> {
+        let hunk: Hunk = typed(hunk)?;
+        let set: Option<Vec<f64>> = selected
+            .get("$set")
+            .and_then(serde_json::Value::as_array)
+            .map(|items| items.iter().filter_map(crate::js::as_number).collect());
+        let Some(body) = lines_body(&hunk, set.as_deref(), reverse)? else {
+            return Ok(serde_json::Value::Null);
+        };
+        let diff = header_only(&diff)?;
+        Ok(serde_json::Value::String(assemble(&diff, &hunk, &body)))
+    }
+
+    pub fn lines_in_range(
+        hunk: serde_json::Value,
+        side: String,
+        start: f64,
+        end: f64,
+    ) -> Result<Vec<f64>, String> {
+        let hunk: Hunk = typed(hunk)?;
+        Ok(hunk.lines_in_range(&side, start, end))
+    }
 }
 
 #[cfg(test)]

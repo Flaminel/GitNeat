@@ -238,17 +238,6 @@ fn encode_uri_component(s: &str) -> String {
     out
 }
 
-fn nullable(v: Option<String>) -> serde_json::Value {
-    v.map_or(serde_json::Value::Null, serde_json::Value::String)
-}
-
-fn to_values<T: Serialize>(items: &[T]) -> Result<Vec<serde_json::Value>, String> {
-    items
-        .iter()
-        .map(|item| serde_json::to_value(item).map_err(|e| e.to_string()))
-        .collect()
-}
-
 pub fn paths_equal(a: &str, b: &str) -> bool {
     fn norm(p: &str) -> String {
         let s = p.replace('\\', "/");
@@ -558,36 +547,55 @@ pub fn insert_stashes(
     }
 }
 
-pub fn same_path(a: String, b: String) -> Result<bool, String> {
-    Ok(paths_equal(&a, &b))
-}
+#[cfg(test)]
+pub(crate) mod wrappers {
+    use super::*;
 
-pub fn parse_log(out: String) -> Result<Vec<serde_json::Value>, String> {
-    to_values(&read_log(&out))
-}
+    fn nullable(v: Option<String>) -> serde_json::Value {
+        v.map_or(serde_json::Value::Null, serde_json::Value::String)
+    }
 
-pub fn parse_refs(out: String) -> Result<Vec<serde_json::Value>, String> {
-    to_values(&read_refs(&out))
-}
+    fn to_values<T: Serialize>(items: &[T]) -> Result<Vec<serde_json::Value>, String> {
+        items
+            .iter()
+            .map(|item| serde_json::to_value(item).map_err(|e| e.to_string()))
+            .collect()
+    }
 
-pub fn parse_status(out: String) -> Result<Vec<serde_json::Value>, String> {
-    to_values(&read_status(&out))
-}
+    pub fn same_path(a: String, b: String) -> Result<bool, String> {
+        Ok(paths_equal(&a, &b))
+    }
 
-pub fn parse_name_status(out: String) -> Result<Vec<serde_json::Value>, String> {
-    to_values(&read_name_status(&out))
-}
+    pub fn parse_log(out: String) -> Result<Vec<serde_json::Value>, String> {
+        to_values(&read_log(&out))
+    }
 
-pub fn remote_web_url(url: String) -> Result<serde_json::Value, String> {
-    Ok(nullable(web_base(&url)))
-}
+    pub fn parse_refs(out: String) -> Result<Vec<serde_json::Value>, String> {
+        to_values(&read_refs(&out))
+    }
 
-pub fn commit_web_url(remote_url: String, sha: String) -> Result<serde_json::Value, String> {
-    Ok(nullable(commit_url(&remote_url, &sha)))
-}
+    pub fn parse_status(out: String) -> Result<Vec<serde_json::Value>, String> {
+        to_values(&read_status(&out))
+    }
 
-pub fn compare_web_url(remote_url: String, branch: String) -> Result<serde_json::Value, String> {
-    Ok(nullable(compare_url(&remote_url, &branch)))
+    pub fn parse_name_status(out: String) -> Result<Vec<serde_json::Value>, String> {
+        to_values(&read_name_status(&out))
+    }
+
+    pub fn remote_web_url(url: String) -> Result<serde_json::Value, String> {
+        Ok(nullable(web_base(&url)))
+    }
+
+    pub fn commit_web_url(remote_url: String, sha: String) -> Result<serde_json::Value, String> {
+        Ok(nullable(commit_url(&remote_url, &sha)))
+    }
+
+    pub fn compare_web_url(
+        remote_url: String,
+        branch: String,
+    ) -> Result<serde_json::Value, String> {
+        Ok(nullable(compare_url(&remote_url, &branch)))
+    }
 }
 
 #[cfg(test)]
@@ -621,7 +629,7 @@ mod tests {
 
     #[test]
     fn missing_time_is_null() {
-        let v = parse_log("abc".into()).unwrap();
+        let v = wrappers::parse_log("abc".into()).unwrap();
         assert_eq!(
             v[0],
             serde_json::json!({"sha": "abc", "parents": [], "author": {"$undefined": true}, "email": {"$undefined": true}, "time": {"$num": "NaN"}, "subject": ""})
