@@ -1,0 +1,246 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "/Users/marius/workspace/projects/rea-source",
+  "unit": "src/merge.ts",
+  "language": "ts",
+  "kind": "napi",
+  "crate_name": "merge",
+  "exports": [
+    {
+      "name": "splitLines",
+      "file": "src/merge.ts",
+      "line": 15,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parseMerge",
+      "file": "src/merge.ts",
+      "line": 23,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "({ kind: \"common\"; lines: string[] } | { kind: \"conflict\"; a: string[]; base: string[]; b: string[] })[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "sideLines",
+      "file": "src/merge.ts",
+      "line": 57,
+      "params": [
+        {
+          "name": "segments",
+          "ts_type": "({ kind: \"common\"; lines: string[] } | { kind: \"conflict\"; a: string[]; base: string[]; b: string[] })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"a\" | \"b\"",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "{ lines: string[]; starts: number[] }",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "buildOutput",
+      "file": "src/merge.ts",
+      "line": 71,
+      "params": [
+        {
+          "name": "segments",
+          "ts_type": "({ kind: \"common\"; lines: string[] } | { kind: \"conflict\"; a: string[]; base: string[]; b: string[] })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "selections",
+          "ts_type": "(Pick[] | undefined)[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "markers",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false
+        }
+      ],
+      "returns": "Built",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "togglePick",
+      "file": "src/merge.ts",
+      "line": 92,
+      "params": [
+        {
+          "name": "sel",
+          "ts_type": "(Pick[] | undefined)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "p",
+          "ts_type": "Pick",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(Pick[] | undefined)",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "sideTaken",
+      "file": "src/merge.ts",
+      "line": 104,
+      "params": [
+        {
+          "name": "sel",
+          "ts_type": "(Pick[] | undefined)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"a\" | \"b\"",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "count",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "toggleSide",
+      "file": "src/merge.ts",
+      "line": 107,
+      "params": [
+        {
+          "name": "sel",
+          "ts_type": "(Pick[] | undefined)",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"a\" | \"b\"",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "count",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(Pick[] | undefined)",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "allTaken",
+      "file": "src/merge.ts",
+      "line": 118,
+      "params": [
+        {
+          "name": "segments",
+          "ts_type": "({ kind: \"common\"; lines: string[] } | { kind: \"conflict\"; a: string[]; base: string[]; b: string[] })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "sels",
+          "ts_type": "(Pick[] | undefined)[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"a\" | \"b\"",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "takeAll",
+      "file": "src/merge.ts",
+      "line": 123,
+      "params": [
+        {
+          "name": "segments",
+          "ts_type": "({ kind: \"common\"; lines: string[] } | { kind: \"conflict\"; a: string[]; base: string[]; b: string[] })[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "sels",
+          "ts_type": "(Pick[] | undefined)[]",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"a\" | \"b\"",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "(Pick[] | undefined)[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": []
+}

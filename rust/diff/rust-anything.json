@@ -1,0 +1,126 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "/Users/marius/workspace/projects/rea-source",
+  "unit": "src/diff.ts",
+  "language": "ts",
+  "kind": "napi",
+  "crate_name": "diff",
+  "exports": [
+    {
+      "name": "parseDiff",
+      "file": "src/diff.ts",
+      "line": 27,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "ParsedDiff",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "hunkPatch",
+      "file": "src/diff.ts",
+      "line": 72,
+      "params": [
+        {
+          "name": "diff",
+          "ts_type": "ParsedDiff",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hunk",
+          "ts_type": "Hunk",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "linesPatch",
+      "file": "src/diff.ts",
+      "line": 77,
+      "params": [
+        {
+          "name": "diff",
+          "ts_type": "ParsedDiff",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "hunk",
+          "ts_type": "Hunk",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "selected",
+          "ts_type": "Set<number>",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "reverse",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | null",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "linesInRange",
+      "file": "src/diff.ts",
+      "line": 101,
+      "params": [
+        {
+          "name": "hunk",
+          "ts_type": "Hunk",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "side",
+          "ts_type": "\"old\" | \"new\"",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "start",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "end",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "number[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": []
+}
