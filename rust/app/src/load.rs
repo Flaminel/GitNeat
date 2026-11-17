@@ -185,7 +185,13 @@ pub async fn load_repo(cwd: &str, hidden: &[String], solo: &[String], limit: u32
         ),
         try_git(
             cwd,
-            &["config", "-f", ".gitmodules", "--get-regexp", "path"],
+            &[
+                "config",
+                "-f",
+                ".gitmodules",
+                "--get-regexp",
+                r"^submodule\..*\.path$"
+            ],
             None
         ),
     );

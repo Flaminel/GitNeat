@@ -132,7 +132,7 @@ export async function loadRepo(cwd: string, hidden: string[], solo: string[], li
     tryGit(cwd, ["worktree", "list", "--porcelain"]),
     tryGit(cwd, ["remote", "-v"]),
     tryGit(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
-    tryGit(cwd, ["config", "-f", ".gitmodules", "--get-regexp", "path"]),
+    tryGit(cwd, ["config", "-f", ".gitmodules", "--get-regexp", "^submodule\\..*\\.path$"]),
   ]);
 
   const refs = parseRefs(refOut);

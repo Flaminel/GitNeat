@@ -140,6 +140,8 @@ const fixtures: Record<string, () => string> = {
     g(dir, "config", "-f", ".gitmodules", "submodule.a.url", "https://example.com/a.git");
     g(dir, "config", "-f", ".gitmodules", "submodule.b.path", "my lib/b");
     g(dir, "config", "-f", ".gitmodules", "submodule.b.url", "https://example.com/b.git");
+    g(dir, "config", "-f", ".gitmodules", "submodule.path-utils.path", "vendor/pu");
+    g(dir, "config", "-f", ".gitmodules", "submodule.path-utils.url", "https://example.com/pu.git");
     return dir;
   },
   files: () => {
@@ -215,6 +217,9 @@ for (const [name, build] of Object.entries(fixtures)) {
     const dir = build();
     for (const v of variants) {
       const expected = JSON.parse(JSON.stringify(await loadRepo(dir, v.hidden, v.solo, v.limit)));
+      if (name === "submodules") {
+        assert.deepStrictEqual(expected.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
+      }
       const out = execFileSync("cargo", ["run", "-q", "-p", "gitneat", "--example", "load_repo", "--", dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), String(v.limit)], {
         cwd: rustDir,
         encoding: "utf8",

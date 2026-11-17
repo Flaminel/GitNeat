@@ -224,3 +224,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 ## D37. Known differences of the Tauri shell
 
 - Limits: `GITNEAT_SCREENSHOT` and the related variables do nothing in the Tauri app. The `git` command has no 512 MB output limit. A watcher error does not remove the watcher. The error text for a missing `git` executable is different.
+
+## D38. Submodule paths come only from path keys
+
+- Decision: `loadRepo` reads submodule paths with `git config -f .gitmodules --get-regexp '^submodule\..*\.path$'`.
+- Reason: The old pattern `path` matched every key that contains "path". A submodule named `path-utils` added its URL to the list of paths.
+- Rules: The TS and the Rust `load_repo` use the same pattern. `test/load-repo.test.ts` checks the list for the `submodules` fixture.
