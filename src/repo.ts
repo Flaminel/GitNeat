@@ -114,6 +114,10 @@ const FS = "\x1f";
 const RS = "\x1e";
 
 export async function loadRepo(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData> {
+  const native = gitneat().loadRepo;
+  if (native) {
+    return native(cwd, hidden, solo, limit);
+  }
   const [refOut, headOut, branchOut, stashOut, wtOut, remoteOut, statusOut, subOut] = await Promise.all([
     tryGit(cwd, [
       "for-each-ref",

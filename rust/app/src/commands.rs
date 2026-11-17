@@ -1,4 +1,5 @@
 use crate::git::{self, GitResult};
+use crate::load::{self, RepoData};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::paths;
 use crate::store;
@@ -45,6 +46,16 @@ pub async fn git(
         };
     }
     git::run_git(&cwd, &args, env, input).await
+}
+
+#[tauri::command]
+pub async fn load_repo(
+    cwd: String,
+    hidden: Vec<String>,
+    solo: Vec<String>,
+    limit: u32,
+) -> RepoData {
+    load::load_repo(&cwd, &hidden, &solo, limit).await
 }
 
 async fn pick_folder(window: &Window, create: bool) -> Option<PathBuf> {

@@ -1,3 +1,5 @@
+import type { RepoData } from "./repo";
+
 export interface GitResult {
   code: number;
   stdout: string;
@@ -16,6 +18,7 @@ export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
   git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
+  loadRepo?(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;

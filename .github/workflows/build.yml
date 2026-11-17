@@ -75,6 +75,8 @@ jobs:
 
       - run: npm ci
       - run: npm test
+        env:
+          GITNEAT_RUST_COMPARE: "1"
 
       - name: Rust checks
         working-directory: rust
