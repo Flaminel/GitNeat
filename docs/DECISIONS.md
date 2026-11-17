@@ -263,3 +263,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: GitNeat is a Tauri app only. `electron/`, `tsconfig.electron.json`, the Electron npm packages and the CI job `build` are removed. `npm run dev` and `npm run build` run Tauri.
 - Reason: Waves A to E moved the main process, `loadRepo`, the actions and the context menus to Rust.
 - Rules: This entry supersedes D1. `GITNEAT_SCREENSHOT` and the related variables are gone (D37). The release job on `v*` tags uses the bundles of job `tauri`.
+
+## D44. PR builds start from a comment
+
+- Decision: A pull request does not start a build. A comment `/build` on the pull request starts the build on macOS, Windows and Linux. `/build windows`, `/build mac` and `/build linux` start one platform. Pushes to `main`, `v*` tags and a manual run (`workflow_dispatch`) still start a build.
+- Reason: The full build takes too long to run on each push to a pull request.
+- Rules: Only the owner, members and collaborators of the repository can start a build. The build checks out the head of the pull request. The `plan` job adds a rocket reaction to the comment. The workflow has read access to the contents by default.
+- Limits: GitHub runs `issue_comment` workflows from the file on the default branch. The comment trigger works only after this workflow is on `main`. The build does not show as a check on the pull request. Open the Actions tab to see it.
