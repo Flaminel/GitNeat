@@ -1,6 +1,6 @@
 # GitNeat
 
-GitNeat is an open source Git client for macOS and Windows with repository tabs, a commit graph, and Source-style context menus.
+GitNeat is an open source Git client for macOS, Windows and Linux with repository tabs, a commit graph, and Source-style context menus.
 
 ## Features
 
@@ -17,33 +17,25 @@ GitNeat is an open source Git client for macOS and Windows with repository tabs,
 
 - Git 2.30 or later. Make the `git` command available on the PATH.
 - On Windows, install Git for Windows.
-- Node.js 24 to build the app.
+- Node.js 24 and Rust (stable) to build the app.
+- On Linux, the WebKitGTK and GTK development packages that Tauri needs.
 
 ## Build and run
 
 Run these commands in the root folder of the repository.
 
 1. Run `npm install` to install the dependencies.
-2. Run `npm start` to build and run the app.
-3. Run `npm run dev` to start development mode with hot reload.
-4. Run `npm run dist:mac` to build the macOS app. The installers go to `release/`.
-5. Run `npm run dist:win` to build the Windows installer. The installers go to `release/`.
+2. Run `npm run dev` to start the app in development mode with hot reload.
+3. Run `npm run build` to build the app for the current platform. The installers go to `rust/target/release/bundle/`.
 
-Note: Build the Windows installer on Windows. Build the macOS app on macOS.
+Note: Build each platform on that platform.
 
 ## Tests
 
 - Run `npm test` to run the unit tests.
+- Run `GITNEAT_RUST_COMPARE=1 npm test` to also compare the Rust code with the TypeScript reference in `test/reference/`.
 - Run `npm run typecheck` to check the TypeScript types.
-
-## Screenshot smoke test
-
-Use the screenshot smoke test to capture the app window without user input. Set these environment variables before you start the app.
-
-- `GITNEAT_USER_DATA`: Folder for the saved state file.
-- `GITNEAT_SCREENSHOT`: PNG file path. The app captures the window and quits.
-- `GITNEAT_SCREENSHOT_DELAY`: Delay in milliseconds before the capture. The default is 2500.
-- `GITNEAT_SCREENSHOT_JS`: JavaScript that runs in the page before the capture.
+- In `rust/`, run `cargo test`.
 
 ## Documentation
 

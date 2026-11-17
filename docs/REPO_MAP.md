@@ -4,21 +4,17 @@ Use this map to find the file to change.
 
 ## Processes
 
-GitNeat has two processes.
+GitNeat is a Tauri 2 app with two parts.
 
-1. The main process (`electron/`) creates the window, runs `git`, shows native menus and dialogs, and watches the repository folders.
-2. The renderer (`src/`) holds all UI and all git logic.
+1. The Rust app (`rust/app`) creates the window, runs `git`, reads repositories with gix, runs the repository actions, builds the context menus, shows dialogs and watches the repository folders.
+2. The webview (`src/`) holds the React UI.
 
-The preload script (`electron/preload.ts`) connects the two. It exposes `window.gitneat`. The type of `window.gitneat` is in `src/api.ts`.
-
-On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main process. `src/tauri-api.ts` then sets `window.gitneat` (see D29 in `docs/DECISIONS.md`). Run it with `npm run tauri:dev`.
+`src/tauri-api.ts` connects the two. It sets `window.gitneat`, which calls the Tauri commands. The type of `window.gitneat` is in `src/api.ts`.
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
-| `electron/main.ts` | Window, IPC handlers, `git` runner, native menu popup, file watcher, saved state file |
-| `electron/preload.ts` | Exposes the IPC handlers as `window.gitneat` |
 | `src/api.ts` | Types for `window.gitneat` and `MenuSpec` |
 | `src/tauri-api.ts` | `window.gitneat` for the Tauri app, through Tauri `invoke` and `listen` |
 | `rust/MAP.md` | Rust port status: units, waves, claims |
@@ -54,7 +50,7 @@ On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main pro
 | `test/menus.test.ts` | Context menu order tests with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
-| `.github/workflows/build.yml` | CI: typecheck, tests, macOS and Windows packages, release on `v*` tags. Job `tauri`: Rust checks and Tauri bundles for macOS, Windows and Linux |
+| `.github/workflows/build.yml` | CI job `tauri`: tests, Rust checks and Tauri bundles for macOS, Windows and Linux. Release on `v*` tags |
 | `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
 | `docs/EVIDENCE-DIFF.md` | Evidence for the Source diff and merge views |
@@ -71,9 +67,9 @@ On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main pro
 | Change graph lanes or colors | `src/graph.ts` for lanes, `src/styles.css` (`--lane-*`) for colors |
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
-| Add a new IPC call | `electron/main.ts`, `electron/preload.ts`, `src/api.ts`, then the same call in `rust/app/src/commands.rs`, `rust/app/src/main.rs` and `src/tauri-api.ts` |
+| Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
-| Change the build targets | `build` in `package.json` and `.github/workflows/build.yml` |
+| Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `run`, `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
@@ -90,13 +86,7 @@ On the `rust-rewrite` branch, a Tauri app in `rust/app` can replace the main pro
 
 | Name | Effect |
 | --- | --- |
-| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). The Tauri app reads it too. |
+| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). |
 | `GITNEAT_BACKEND` | `cli` makes the Tauri `load_repo` use the `git` CLI instead of gix |
 | `GITNEAT_RUST_COMPARE` | `1` runs the TS against Rust comparison tests in `npm test` |
-| `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. The Tauri app reads it too. |
-| `GITNEAT_SCREENSHOT` | PNG path. The app captures the window and quits. |
-| `GITNEAT_SCREENSHOT_DELAY` | Milliseconds before the capture. The default is 2500. |
-| `GITNEAT_SCREENSHOT_JS` | JavaScript that runs in the page before the capture |
-| `VITE_DEV` | Load the renderer from the Vite dev server (`npm run dev` sets it) |
-
-Some editors set `ELECTRON_RUN_AS_NODE=1` in the shell. If your shell has this variable, unset it before you start GitNeat.
+| `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. |

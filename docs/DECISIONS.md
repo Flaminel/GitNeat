@@ -257,3 +257,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The user chose a full port of `src/menus.ts`.
 - Rules: Each TS item has a stable `id`: the handler name, then an index when a list gives several items (`checkout:0`, `reset:hard`, `pushTag:1`). Items inside a ref group submenu of a commit with several branches get the prefix `g<n>:`. Items without a handler (submenu parents) have no id. TS builds the items again after the choice and looks up the handler by id. `showMenu` uses `item.id` when it exists.
 - Limits: `test/menus-rust.test.ts` compares the trees of 24 repository fixtures and checks that each id runs the same handler on both paths. Rust lowercases only ASCII in the host of "View on" and does not punycode it.
+
+## D43. Cutover to Tauri
+
+- Decision: GitNeat is a Tauri app only. `electron/`, `tsconfig.electron.json`, the Electron npm packages and the CI job `build` are removed. `npm run dev` and `npm run build` run Tauri.
+- Reason: Waves A to E moved the main process, `loadRepo`, the actions and the context menus to Rust.
+- Rules: This entry supersedes D1. `GITNEAT_SCREENSHOT` and the related variables are gone (D37). The release job on `v*` tags uses the bundles of job `tauri`.
