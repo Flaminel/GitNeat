@@ -1,12 +1,6 @@
 import type { ParsedDiff } from "./diff";
 import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, HeadMessage, MergeLoad, Operation, RepoData } from "./repo";
 
-export interface GitResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
 export interface MenuSpec {
   label?: string;
   id?: string;
@@ -18,7 +12,6 @@ export interface MenuSpec {
 export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
-  git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
   action(cwd: string, name: string, args: unknown): Promise<unknown>;
   loadRepo(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData>;
   loadCommit(cwd: string, sha: string): Promise<CommitDetail>;

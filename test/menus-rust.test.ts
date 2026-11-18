@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
 import type { Ctx } from "../src/actions";
-import type { GitResult, MenuSpec } from "../src/api";
+import type { MenuSpec } from "../src/api";
+import type { GitResult } from "./reference/api";
 import type { Commit, Ref, RepoData } from "../src/repo";
 
 const enabled = process.env.GITNEAT_RUST_COMPARE === "1";

@@ -11,7 +11,7 @@ Each term has one name in TypeScript and one name in Rust. Use these names in ev
 | Worktree | One entry of `git worktree list` | `Worktree` in `src/repo.ts` | `Worktree` |
 | Operation | A merge, rebase, cherry-pick or revert in progress | `Operation` in `src/repo.ts` | `Operation` (enum) |
 | Status entry | One line of `git status --porcelain=v1 -z` | `StatusEntry` in `src/repo.ts` | `StatusEntry` |
-| Git result | Exit code, stdout and stderr of one `git` run | `GitResult` in `src/api.ts` | `git::GitResult` |
+| Git result | Exit code, stdout and stderr of one `git` run | `GitResult` in `test/reference/api.ts` | `git::GitResult` |
 | Menu spec | One context menu item from the UI | `MenuSpec` in `src/api.ts` | `menu::MenuSpec` |
 | Open repository | A folder with an active watcher. File commands work only inside it. | `insideOpenRepo` in `electron/main.ts` | `paths::inside` with `watch::Watchers` |
 | Graph row | The lane, color and line segments of one commit row | `GraphRow` in `src/repo.ts` | `graph::port::GraphRow` |

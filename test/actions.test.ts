@@ -7,7 +7,7 @@ import test, { after, before } from "node:test";
 import type * as ActionsModule from "./reference/actions";
 import type * as NativeActionsModule from "../src/actions";
 import type { Commit, Ref } from "../src/repo";
-import type { GitResult } from "../src/api";
+import type { GitResult } from "./reference/api";
 
 type Ctx = NativeActionsModule.Ctx;
 type UndoEntry = NativeActionsModule.UndoEntry;

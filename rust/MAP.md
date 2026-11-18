@@ -29,6 +29,7 @@ The decisions are in `docs/DECISIONS.md`.
 | D45 | The loaders and the graph layout run in Rust |
 | D46 | The merge tool and the patch builders stay in TS |
 | D47 | The merge load, the amend message, clone and init run in Rust |
+| D48 | The `git` command is removed |
 
 Domain terms and their Rust names are in `rust/GLOSSARY.md`.
 

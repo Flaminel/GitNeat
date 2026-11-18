@@ -293,3 +293,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: `load_merge` parses the `git merge-file` output with `merge::port::Typed::parse_segments`, so `parseMerge` moves to `test/reference/merge.ts`. The selection and Output functions of D46 stay in TS. `src/App.tsx` still makes the folder name from the URL, because the task label shows it.
 - Proof: `test/loaders.test.ts` compares `load_merge` on text, binary and delete conflicts for each operation, and `load_head_message` on each fixture. It runs clone and init through both paths and compares the result and the repository state. The suite has 2905 comparisons on 14 fixtures.
 - Limits: The `git` command and `GitNeatApi.git` stay, because the TS reference in `test/reference/` calls them. Blame lines of uncommitted changes have the current time, so the test accepts a time difference up to the run time of the fixture for these lines only.
+
+## D48. The `git` command is removed
+
+- Decision: The Tauri command `git` and `GitNeatApi.git` are removed. The webview reaches git only through the named commands and actions in `rust/app`.
+- Reason: After D47, no code in `src/` called the `git` command. The command let the webview run `git` with any arguments. This entry supersedes the channel of D2 and D3 and the limit of D3.
+- Rules: `test/reference/api.ts` adds `git` and `GitResult` to the API type for the TS reference. The comparison tests mock `window.gitneat.git` with Node. `git::blocked` stays, because `actions::raw` checks each git call with it.

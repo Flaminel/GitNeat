@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
-import type { GitResult } from "../src/api";
+import type { GitResult } from "./reference/api";
 import { layoutGraph } from "./reference/graph";
 import { loadRepo } from "./reference/repo";
 

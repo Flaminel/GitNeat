@@ -1,5 +1,5 @@
 import type { Ctx } from "../../src/actions";
-import { gitneat } from "../../src/api";
+import { gitneat } from "./api";
 import type { Segment } from "../../src/merge";
 import { parseMerge } from "./merge";
 import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, FileChange, Operation, Ref, RepoData, Remote, StatusEntry, Stash, Worktree } from "../../src/repo";

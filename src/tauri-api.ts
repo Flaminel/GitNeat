@@ -14,7 +14,6 @@ export function tauriApi(): GitNeatApi {
   return {
     platform: platform(),
     windowControls: platform() !== "darwin",
-    git: (cwd, args, env, input) => invoke("git", { cwd, args, env, input }),
     action: (cwd, name, args) => invoke("action", { cwd, name, args }),
     loadRepo: (cwd, hidden, solo, limit) => invoke("load_repo", { cwd, hidden, solo, limit }),
     loadCommit: (cwd, sha) => invoke("load_commit", { cwd, sha }),

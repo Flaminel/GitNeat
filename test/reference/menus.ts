@@ -1,6 +1,6 @@
 import * as A from "../../src/actions";
 import type { Ctx, RangeInfo } from "../../src/actions";
-import { gitneat } from "../../src/api";
+import { gitneat } from "./api";
 import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, samePath, Worktree } from "../../src/repo";
 import { MenuItem, showMenu } from "../../src/ui";
 import { rangeInfo } from "./actions";

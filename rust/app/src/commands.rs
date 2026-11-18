@@ -1,5 +1,5 @@
 use crate::actions;
-use crate::git::{self, GitResult};
+use crate::git;
 use crate::load::Operation;
 use crate::load::{self, RepoData};
 use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad};
@@ -11,7 +11,6 @@ use crate::watch::{self, Watchers};
 use diff::port::ParsedDiff;
 use repo::port::BlameLine;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State, Window};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -35,23 +34,6 @@ fn open_roots(watchers: &Watchers) -> Vec<String> {
 
 fn to_path(picked: Option<FilePath>) -> Option<PathBuf> {
     picked.and_then(|p| p.into_path().ok())
-}
-
-#[tauri::command]
-pub async fn git(
-    cwd: String,
-    args: Vec<String>,
-    env: Option<HashMap<String, String>>,
-    input: Option<String>,
-) -> GitResult {
-    if git::blocked(&args) {
-        return GitResult {
-            code: 1,
-            stdout: String::new(),
-            stderr: "GitNeat blocked a git option that can run commands.".into(),
-        };
-    }
-    git::run_git(&cwd, &args, env, input).await
 }
 
 #[tauri::command]

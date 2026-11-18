@@ -1,5 +1,5 @@
 import type { Ctx, HeadState, RangeInfo, TodoAction, TodoEntry, UndoEntry } from "../../src/actions";
-import { gitneat } from "../../src/api";
+import { gitneat } from "./api";
 import type { Commit, Operation, Ref } from "../../src/repo";
 import type { Field } from "../../src/ui";
 import { git, GitError } from "./repo";
