@@ -168,10 +168,6 @@ export const autoFetch = (cwd: string, prune: boolean): Promise<boolean> =>
     () => false,
   );
 
-export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => act<string>(parent, "clone", { url, target });
-
-export const initRepo = (dir: string, branch: string): Promise<string> => act<string>(dir, "init", { branch });
-
 interface RemoteChoice {
   mode: "create" | "reset";
   newName?: string;

@@ -8,7 +8,7 @@ import type { GitResult } from "./reference/api";
 import type { Ctx } from "../src/actions";
 import type { DiffSource } from "../src/repo";
 import { parseDiff } from "./reference/diff";
-import { cloneRepo, initRepo, loadAllFiles, loadBlame, loadCommit, loadDiff, loadFileHistory, loadHeadMessage, loadMerge, loadSides } from "./reference/repo";
+import { loadAllFiles, loadBlame, loadCommit, loadDiff, loadFileHistory, loadHeadMessage, loadMerge, loadSides } from "./reference/repo";
 
 const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
@@ -50,7 +50,6 @@ async function writeTemp(content: string): Promise<string> {
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false"];
 let root = "";
 let example = "";
-let actionExample = "";
 let compared = 0;
 let failed = 0;
 const perName: Record<string, number> = {};
@@ -355,10 +354,9 @@ before(
       return;
     }
     root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-loaders-")));
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders"], { cwd: rustDir, stdio: "inherit" });
     const exe = process.platform === "win32" ? ".exe" : "";
     example = path.join(rustDir, "target", "debug", "examples", `loaders${exe}`);
-    actionExample = path.join(rustDir, "target", "debug", "examples", `action${exe}`);
   },
   { timeout: 600000 },
 );
@@ -398,68 +396,3 @@ for (const [name, build] of Object.entries(fixtures)) {
     });
   });
 }
-
-async function settle(fn: () => Promise<unknown>): Promise<unknown> {
-  try {
-    return { ok: await fn() };
-  } catch (e) {
-    return { err: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-function rustAction(cwd: string, name: string, args: unknown): unknown {
-  return JSON.parse(execFileSync(actionExample, [cwd, name, JSON.stringify(args)], { encoding: "utf8" }));
-}
-
-function repoState(dir: string): string {
-  return ["log --all --format=%H%x00%P%x00%s", "branch -a", "config --get remote.origin.url", "symbolic-ref HEAD"]
-    .map((cmd) => {
-      try {
-        return g(dir, ...cmd.split(" "));
-      } catch {
-        return "<fail>";
-      }
-    })
-    .join("\n--\n");
-}
-
-test("clone and init: rust equals ts", { skip: !enabled, timeout: 120000 }, async () => {
-  const src = init("clone-src");
-  commit(src, "a.txt", "a\n", "first");
-  g(src, "checkout", "-q", "-b", "topic");
-  commit(src, "b.txt", "b\n", "topic work");
-  g(src, "checkout", "-q", "main");
-  const cases: { name: string; ts: () => Promise<unknown>; rust: () => unknown; dirs: [string, string] }[] = [];
-  const ts = path.join(root, "clone-ts");
-  const rs = path.join(root, "clone-rs");
-  cases.push({ name: "clone", ts: () => cloneRepo(root, src, ts), rust: () => rustAction(root, "clone", { url: src, target: rs }), dirs: [ts, rs] });
-  cases.push({ name: "clone again", ts: () => cloneRepo(root, src, ts), rust: () => rustAction(root, "clone", { url: src, target: rs }), dirs: [ts, rs] });
-  const missing = path.join(root, "no-such-repo");
-  cases.push({
-    name: "clone missing",
-    ts: () => cloneRepo(root, missing, path.join(root, "missing-ts")),
-    rust: () => rustAction(root, "clone", { url: missing, target: path.join(root, "missing-ts") }),
-    dirs: [path.join(root, "missing-ts"), path.join(root, "missing-ts")],
-  });
-  const its = path.join(root, "init-ts");
-  const irs = path.join(root, "init-rs");
-  fs.mkdirSync(its);
-  fs.mkdirSync(irs);
-  cases.push({ name: "init", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
-  cases.push({ name: "init again", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
-  const mask = (value: unknown, dir: string) => {
-    let text = JSON.stringify(value);
-    for (const form of [dir, dir.split("\\").join("/")]) {
-      text = text.split(JSON.stringify(form).slice(1, -1)).join("<dir>");
-    }
-    return JSON.parse(text);
-  };
-  for (const c of cases) {
-    const expected = mask(await settle(c.ts), c.dirs[0]);
-    const actual = mask(c.rust(), c.dirs[1]);
-    assert.deepStrictEqual(actual, expected, c.name);
-    assert.equal(repoState(c.dirs[1]), repoState(c.dirs[0]), `${c.name} state`);
-    compared += 1;
-    failed += "err" in (expected as object) ? 1 : 0;
-  }
-});

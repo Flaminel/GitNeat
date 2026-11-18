@@ -2378,6 +2378,37 @@ a.sha {
   text-align: center;
 }
 
+.repo-modal {
+  width: 540px;
+}
+
+.path-row,
+.full-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.path-row input,
+.full-path input {
+  flex: 1;
+  min-width: 0;
+}
+
+.full-path-parent {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shallow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 22px;
+}
+
 .field-help {
   color: var(--text-dim);
   opacity: 0.8;

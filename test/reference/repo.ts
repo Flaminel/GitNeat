@@ -412,7 +412,3 @@ export async function loadHeadMessage(cwd: string): Promise<{ summary: string; d
   const [s, ...rest] = r.stdout.trim().split("\n");
   return { summary: s, description: rest.join("\n").trim() };
 }
-
-export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => git(parent, ["clone", "--", url, target]);
-
-export const initRepo = (dir: string): Promise<string> => git(dir, ["init"]);

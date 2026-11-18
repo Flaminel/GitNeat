@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::process::Stdio;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -55,6 +55,47 @@ pub async fn run_git(
     env: Option<HashMap<String, String>>,
     input: Option<String>,
 ) -> GitResult {
+    run_git_with(cwd, args, env, input, None).await
+}
+
+pub type Progress<'a> = &'a (dyn Fn(&str) + Sync);
+
+async fn read_stderr(
+    stream: Option<tokio::process::ChildStderr>,
+    progress: Option<Progress<'_>>,
+) -> Vec<u8> {
+    let mut all = Vec::new();
+    let Some(mut stream) = stream else {
+        return all;
+    };
+    let mut chunk = [0u8; 4096];
+    let mut line = Vec::new();
+    while let Ok(n) = stream.read(&mut chunk).await {
+        if n == 0 {
+            break;
+        }
+        all.extend_from_slice(&chunk[..n]);
+        for byte in &chunk[..n] {
+            if *byte == b'\r' || *byte == b'\n' {
+                if let (Some(report), false) = (progress, line.is_empty()) {
+                    report(&String::from_utf8_lossy(&line));
+                }
+                line.clear();
+            } else {
+                line.push(*byte);
+            }
+        }
+    }
+    all
+}
+
+pub async fn run_git_with(
+    cwd: &str,
+    args: &[String],
+    env: Option<HashMap<String, String>>,
+    input: Option<String>,
+    progress: Option<Progress<'_>>,
+) -> GitResult {
     let mut cmd = command("git");
     cmd.args(args)
         .current_dir(cwd)
@@ -95,7 +136,29 @@ pub async fn run_git(
             let _ = stdin.write_all(text.as_bytes()).await;
         });
     }
-    let result = match child.wait_with_output().await {
+    let waited = if progress.is_some() {
+        let mut stdout = child.stdout.take();
+        let read_out = async {
+            let mut buffer = Vec::new();
+            if let Some(stream) = stdout.as_mut() {
+                let _ = stream.read_to_end(&mut buffer).await;
+            }
+            buffer
+        };
+        let (out, err, status) = tokio::join!(
+            read_out,
+            read_stderr(child.stderr.take(), progress),
+            child.wait()
+        );
+        status.map(|status| std::process::Output {
+            status,
+            stdout: out,
+            stderr: err,
+        })
+    } else {
+        child.wait_with_output().await
+    };
+    let result = match waited {
         Ok(out) => {
             let code = out.status.code().unwrap_or(1);
             let mut stderr = String::from_utf8_lossy(&out.stderr).into_owned();

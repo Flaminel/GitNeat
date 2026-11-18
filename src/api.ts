@@ -23,6 +23,25 @@ export interface AskpassReply {
   remember: boolean;
 }
 
+export interface RepoTemplates {
+  home: string;
+  lfs: boolean;
+  gitignore: string[];
+  licenses: { key: string; title: string }[];
+}
+
+export interface ShallowOptions {
+  branch: string;
+  depth: string;
+  since: string;
+  flags: string;
+}
+
+export interface CloneProgress {
+  target: string;
+  percent: number;
+}
+
 export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
@@ -44,6 +63,10 @@ export interface GitNeatApi {
   hasCommitHook(cwd: string): Promise<boolean>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
+  repoTemplates(): Promise<RepoTemplates>;
+  cloneRepo(parent: string, url: string, target: string, shallow: ShallowOptions | null): Promise<string>;
+  initRepo(parent: string, name: string, branch: string, gitignore: string, license: string, lfs: boolean): Promise<string>;
+  onCloneProgress(fn: (progress: CloneProgress) => void): () => void;
   missingPaths(paths: string[]): Promise<string[]>;
   saveFile(name: string, content: string): Promise<boolean>;
   openPatch(): Promise<string | null>;

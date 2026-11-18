@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { AskpassRequest, GitNeatApi } from "./api";
+import type { AskpassRequest, CloneProgress, GitNeatApi } from "./api";
 
 function platform(): string {
   const agent = navigator.userAgent;
@@ -33,6 +33,13 @@ export function tauriApi(): GitNeatApi {
     hasCommitHook: (cwd) => invoke("has_commit_hook", { cwd }),
     openRepoDialog: () => invoke("open_repo_dialog"),
     pickDirectory: () => invoke("pick_directory"),
+    repoTemplates: () => invoke("repo_templates"),
+    cloneRepo: (parent, url, target, shallow) => invoke("clone_repo", { parent, url, target, shallow }),
+    initRepo: (parent, name, branch, gitignore, license, lfs) => invoke("init_repo", { parent, name, branch, gitignore, license, lfs }),
+    onCloneProgress: (fn) => {
+      const stop = listen<CloneProgress>("clone-progress", (e) => fn(e.payload));
+      return () => void stop.then((off) => off());
+    },
     missingPaths: (paths) => invoke("missing_paths", { paths }),
     saveFile: (defaultName, content) => invoke("save_file", { defaultName, content }),
   openPatch: () => invoke("open_patch"),

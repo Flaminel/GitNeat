@@ -1,5 +1,6 @@
 import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { gitneat, MenuSpec } from "./api";
+import { BAD_REF_NAME } from "./repoSetup";
 
 export interface Field {
   name: string;
@@ -197,7 +198,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(request.fields.map((f) => [f.name, f.value ?? (f.kind === "select" ? f.options?.[0] ?? "" : "")])),
   );
-  const invalid = request.fields.find((f) => f.ref && /^-|\s|\.\.|[~^:?*\[\\]/.test(values[f.name] ?? ""));
+  const invalid = request.fields.find((f) => f.ref && BAD_REF_NAME.test(values[f.name] ?? ""));
   const finish = (result: Record<string, string> | null) => {
     if (result && invalid) {
       return;

@@ -31,6 +31,8 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool, image sides, compare files, amend message and commit hook check loaders (D45, D47, D86, D91, D93) |
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
+| `rust/app/src/setup.rs` | Commands `repo_templates`, `clone_repo` (with the event `clone-progress`) and `init_repo` (D96) |
+| `rust/app/src/templates.rs`, `rust/app/templates/` | Embedded `.gitignore` and license templates for Init (D96). Generated list, plain text files. |
 | `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
 | `rust/app/src/actions/files.rs` | Create file, delete file and repository maintenance actions (D95) |
 | `rust/app/src/actions/tools.rs` | Open a file in the external diff or merge tool with `git difftool` and `git mergetool`, and the tool config check (D92) |
@@ -49,6 +51,9 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/App.tsx` | Tabs, saved state (with `layout`, D55), open repository. A tab without a path is a NEW tab (D51). |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
+| `src/components/RepoModal.tsx` | Clone and Init modal (D96) |
+| `src/repoSetup.ts` | Name, path and form checks for the Clone and Init modal |
+| `test/repo-setup.test.ts` | Tests for `src/repoSetup.ts` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/palette.ts` | Command palette logic: fuzzy score, frecency (D95), rank, item builders and availability rules |
 | `src/paletteCommands.ts` | Palette command list and the domain item loaders. `RepoView` registers the open repository with `setRepoApi`. |
@@ -86,6 +91,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Add a left panel section | `src/components/Sidebar.tsx` |
 | Add or change an app menu item or a zoom step (D83) | `rust/app/src/appmenu.rs`, then `runMenu` in `src/App.tsx` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
+| Change the Clone or Init modal, the shallow options or the init files (D96) | `src/components/RepoModal.tsx`, `rust/app/src/setup.rs`, `rust/app/templates/` |
 | Change the NEW tab page, its lists or its search | `src/components/NewTab.tsx`, `.new-tab` and `.recent` in `src/styles.css` |
 | Change favorites, aliases or the breadcrumb menu (D82) | `toggleFavorite` and `renameRepo` in `src/App.tsx`, the repository crumb in `src/components/Toolbar.tsx` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |

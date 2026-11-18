@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AskpassReply, AskpassRequest, gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
 import { repoName, Tab, Tabs } from "./components/Tabs";
-import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
 import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings } from "./RepoView";
 import { Palette } from "./components/Palette";
+import { RepoModal, RepoModalTab } from "./components/RepoModal";
 import { Domain, EMPTY_FRECENCY, parseFrecency } from "./palette";
 import { AppApi } from "./paletteCommands";
 import { Field, Layout, LayoutContext, legacyLayout, Ui, useUi } from "./ui";
@@ -75,6 +75,7 @@ export function App() {
   const [state, setState] = useState<State | null>(null);
   const loaded = useRef(false);
   const [palette, setPalette] = useState<Domain | null>(null);
+  const [repoModal, setRepoModal] = useState<RepoModalTab | null>(null);
 
   useEffect(() => {
     gitneat()
@@ -352,28 +353,8 @@ export function App() {
       return { ...s, tabs: [...s.tabs, tab], active: s.tabs.length, closed: rest };
     });
 
-  const clone = async () => {
-    const v = await ui.prompt("Clone a repository", [{ name: "url", label: "Repository URL", placeholder: "https://github.com/owner/repo.git" }], "Choose folder");
-    if (!v?.url.trim()) {
-      return;
-    }
-    const parent = await gitneat().pickDirectory();
-    if (!parent) {
-      return;
-    }
-    const name = v.url.trim().replace(/\/$/, "").split(/[/:]/).pop()?.replace(/\.git$/, "") || "repo";
-    const target = `${parent}/${name}`;
-    if (await ui.task(`Clone ${name}`, () => cloneRepo(parent, v.url.trim(), target))) {
-      openTab(target);
-    }
-  };
-
-  const init = async () => {
-    const dir = await gitneat().pickDirectory();
-    if (dir && (await ui.task("Init", () => initRepo(dir, state?.settings.defaultBranch ?? "")))) {
-      openTab(dir);
-    }
-  };
+  const clone = () => setRepoModal("clone");
+  const init = () => setRepoModal("init");
 
   const tabs = state?.tabs;
   useEffect(() => {
@@ -469,6 +450,7 @@ export function App() {
             onClose={() => setPalette(null)}
           />
         )}
+        {repoModal && <RepoModal start={repoModal} defaultBranch={state.settings.defaultBranch} onClose={() => setRepoModal(null)} onOpen={openTab} />}
         <StatusBar zoom={zoom} />
       </div>
     </LayoutContext.Provider>

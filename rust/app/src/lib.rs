@@ -10,7 +10,9 @@ pub mod loaders;
 pub mod menu;
 pub mod menus;
 pub mod paths;
+pub mod setup;
 pub mod store;
+pub mod templates;
 pub mod watch;
 
 use tauri::webview::NewWindowResponse;
@@ -100,6 +102,9 @@ pub fn run() {
             commands::has_commit_hook,
             commands::open_repo_dialog,
             commands::pick_directory,
+            setup::repo_templates,
+            setup::clone_repo,
+            setup::init_repo,
             commands::missing_paths,
             commands::save_file,
             commands::open_patch,
