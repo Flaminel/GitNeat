@@ -3,7 +3,7 @@ import { gitneat } from "./api";
 import { Tab, Tabs, tabTitle } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
-import { RepoPrefs, RepoView } from "./RepoView";
+import { forgetRepos, RepoPrefs, RepoView } from "./RepoView";
 import { useUi } from "./ui";
 import pkg from "../package.json";
 
@@ -146,6 +146,13 @@ export function App() {
       openTab(dir);
     }
   };
+
+  const tabs = state?.tabs;
+  useEffect(() => {
+    if (tabs) {
+      forgetRepos(tabs.map((t) => t.path));
+    }
+  }, [tabs]);
 
   if (!state) {
     return null;

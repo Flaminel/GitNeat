@@ -28,21 +28,40 @@ interface Props {
 
 const COMMIT_LIMIT = 2000;
 
+interface Cached {
+  data: RepoData;
+  selected: string | null;
+  multi: string[];
+  undoStack: UndoEntry[];
+  redoStack: UndoEntry[];
+}
+
+const cache = new Map<string, Cached>();
+
+export function forgetRepos(open: string[]) {
+  for (const key of [...cache.keys()]) {
+    if (!open.includes(key)) {
+      cache.delete(key);
+    }
+  }
+}
+
 function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
 export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const ui = useUi();
-  const [data, setData] = useState<RepoData | null>(null);
+  const cached = cache.get(path);
+  const [data, setData] = useState<RepoData | null>(cached?.data ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [multi, setMulti] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string | null>(cached?.selected ?? null);
+  const [multi, setMulti] = useState<string[]>(cached?.multi ?? []);
   const [openFile, setOpenFile] = useState<OpenFile | null>(null);
   const [rebase, setRebase] = useState<{ base: string | null; entries: TodoEntry[] } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>(cached?.undoStack ?? []);
+  const [redoStack, setRedoStack] = useState<UndoEntry[]>(cached?.redoStack ?? []);
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
@@ -140,6 +159,12 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
       setSelected(data.head);
     }
   }, [data, selected]);
+
+  useEffect(() => {
+    if (data) {
+      cache.set(path, { data, selected, multi, undoStack, redoStack });
+    }
+  }, [path, data, selected, multi, undoStack, redoStack]);
 
   if (error && !data) {
     return <div className="repo-error">{error}</div>;
