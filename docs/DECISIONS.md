@@ -470,3 +470,13 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The author name and the committer name have the email as a tooltip. The committer block shows if the name or the email differs from the author. A "Co-authors:" row shows a 20 px avatar and the name of each co-author, with the email as a tooltip.
 - Reason: The Source bundle shows these three items (`docs/EVIDENCE.md` section 10). Task T16.
 - Limits: The tooltip is the native `title`. Source uses a 500 ms delay. The avatar shows initials, as in the rest of the panel. A trailer without an email shows the whole value as the name. No manual check in the app: the Tauri window was not started in this task.
+
+## D72. Missing context menu items
+
+- Decision: The stash menu has "Edit stash message" and Hide. The remote menu has Hide and Solo. The tag submenu "Push tag to remote" has "Push {tag} to all remotes". A local tag delete asks to delete the tag from the remotes. A worktree remove that git refuses asks for a Force Remove.
+- Reason: The Source menus have these items (`docs/EVIDENCE.md` sections 2.3, 2.4, 2.8 and 11). Task T17.
+- Rules: Stash Hide toggles `refs/stash`, the same key as "Hide all stashes". Remote Hide and Solo act on all refs of the remote. The labels read Show or Stop soloing if all refs of the remote are hidden or soloed. The menu omits both items if the remote has no refs.
+- Rules: `stashEdit` runs `git stash store -m` for the same commit, then drops the old entry. The `removeWorktree` action returns `needs-confirm:force-remove` when git asks for `--force`. After the confirm, the retry uses `--force --force`, so it also removes a locked worktree.
+- Limits: "Edit stash message" moves the stash to the top of the stash list, because git cannot change a message in place. The tag prompt does not check which remotes hold the tag. A remote without the tag shows a toast error.
+- Limits: "Compare commit against working directory" is not added. GitNeat has no compare view in the right panel. The task needs a new loader and a new detail mode. Follow-up task.
+- Limits: No manual check in the app: the Tauri window was not started in this task. The menu trees and handlers are covered by the comparison tests. The Rust actions were run on a temporary repository.

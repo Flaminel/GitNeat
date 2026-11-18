@@ -14,6 +14,13 @@ struct Ref {
 }
 
 #[derive(Deserialize)]
+struct StashEdit {
+    #[serde(rename = "ref")]
+    name: String,
+    message: String,
+}
+
+#[derive(Deserialize)]
 struct StashSave {
     message: Option<String>,
 }
@@ -79,6 +86,7 @@ pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
         "stashApply" => stash(cwd, "apply", args).await,
         "stashPop" => stash(cwd, "pop", args).await,
         "stashDrop" => stash(cwd, "drop", args).await,
+        "stashEdit" => stash_edit(cwd, args).await,
         "stageFile" => stage_file(cwd, args).await,
         "stageAll" => run(cwd, true, git(cwd, &["add", "-A"])).await,
         "unstageFile" => unstage(cwd, args).await,
@@ -103,6 +111,22 @@ async fn stash_save(cwd: &str, args: &Value) -> Res<Value> {
 async fn stash(cwd: &str, verb: &str, args: &Value) -> Res<Value> {
     let a: Ref = parse(args)?;
     run(cwd, true, git(cwd, &["stash", verb, &a.name])).await
+}
+
+async fn stash_edit(cwd: &str, args: &Value) -> Res<Value> {
+    let a: StashEdit = parse(args)?;
+    let index: usize = a
+        .name
+        .strip_prefix("stash@{")
+        .and_then(|rest| rest.strip_suffix('}'))
+        .and_then(|digits| digits.parse().ok())
+        .ok_or_else(|| format!("Not a stash reference: {}", a.name))?;
+    run(cwd, false, async {
+        let sha = git(cwd, &["rev-parse", &a.name]).await?;
+        git(cwd, &["stash", "store", "-m", &a.message, sha.trim()]).await?;
+        git(cwd, &["stash", "drop", &format!("stash@{{{}}}", index + 1)]).await
+    })
+    .await
 }
 
 async fn stage_file(cwd: &str, args: &Value) -> Res<Value> {

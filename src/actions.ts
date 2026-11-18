@@ -20,6 +20,7 @@ export interface Ctx {
   openRebase(base: string | null, entries: TodoEntry[]): void;
   toggleHidden(full: string): void;
   setHidden(fulls: string[], hide: boolean): void;
+  setSolo(fulls: string[], on: boolean): void;
   toggleSolo(full: string): void;
   hidden: string[];
   solo: string[];
@@ -291,13 +292,35 @@ export async function stashDrop(ctx: Ctx, ref: string): Promise<void> {
   }
 }
 
+export async function editStash(ctx: Ctx, ref: string): Promise<void> {
+  const current = ctx.data.stashes.find((s) => s.ref === ref)?.message ?? "";
+  const v = await ctx.ui.prompt("Edit stash message", [{ name: "message", label: "Message", value: current }], "Save");
+  if (v?.message.trim() && v.message !== current) {
+    await go(ctx, "Edit stash message", "stashEdit", { ref, message: v.message });
+  }
+}
+
 export const pushTag = (ctx: Ctx, tag: string, remote: string) => go(ctx, "Push tag", "pushTag", { tag, remote });
+
+export async function pushTagAll(ctx: Ctx, tag: string): Promise<void> {
+  for (const remote of ctx.data.remotes) {
+    await pushTag(ctx, tag, remote.name);
+  }
+}
 
 export async function deleteTag(ctx: Ctx, tag: string, remote?: string): Promise<void> {
   if (!(await ctx.ui.confirm("Delete tag", `Delete ${tag}${remote ? ` from ${remote}` : " locally"}?`, "Delete", true))) {
     return;
   }
-  await go(ctx, "Delete tag", "deleteTag", { tag, remote });
+  const ok = await go(ctx, "Delete tag", "deleteTag", { tag, remote });
+  if (ok && !remote && ctx.data.remotes.length) {
+    const message = `The tag was deleted locally. Would you also like to delete tags named "${tag}" from your remote repos?`;
+    if (await ctx.ui.confirm("Delete tag from remotes", message, "Delete", true)) {
+      for (const r of ctx.data.remotes) {
+        await go(ctx, "Delete tag", "deleteTag", { tag, remote: r.name });
+      }
+    }
+  }
 }
 
 export async function addRemote(ctx: Ctx): Promise<void> {
@@ -325,9 +348,17 @@ export async function removeRemote(ctx: Ctx, name: string): Promise<void> {
 
 export const fetchRemote = (ctx: Ctx, name: string) => go(ctx, `Fetch ${name}`, "fetchRemote", { name });
 
+const confirmForceRemove = (ctx: Ctx) =>
+  ctx.ui.confirm(
+    "Force remove worktree",
+    "Removing this worktree requires force, which is destructive and cannot be undone. Do you want to complete the removal?",
+    "Force Remove Worktree",
+    true,
+  );
+
 export async function removeWorktree(ctx: Ctx, path: string): Promise<void> {
   if (await ctx.ui.confirm("Delete worktree", `Delete the worktree at ${path}?`, "Delete", true)) {
-    await go(ctx, "Delete worktree", "removeWorktree", { path });
+    await runNative(ctx, "Delete worktree", () => forceable(ctx, "removeWorktree", { path }, "force-remove", () => confirmForceRemove(ctx)));
   }
 }
 

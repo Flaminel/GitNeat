@@ -287,14 +287,22 @@ export function wipMenu(ctx: Ctx): Promise<void> {
 }
 
 export function stashMenu(ctx: Ctx, ref: string, sha: string): Promise<void> {
-  return present(ctx.cwd, "stash", {}, () =>
+  return present(ctx.cwd, "stash", { hidden: ctx.hidden }, () =>
     groups(
       [
         { id: "stashApply", label: "Apply Stash", run: () => A.stashApply(ctx, ref) },
         { id: "stashPop", label: "Pop Stash", run: () => A.stashPop(ctx, ref) },
         { id: "stashDrop", label: "Delete Stash", run: () => A.stashDrop(ctx, ref) },
       ],
+      [{ id: "stashEdit", label: "Edit stash message", run: () => A.editStash(ctx, ref) }],
       [{ id: "copySha", label: "Copy commit sha", run: () => gitneat().copy(sha) }],
+      [
+        {
+          id: "toggleHidden",
+          label: ctx.hidden.includes("refs/stash") ? "Show" : "Hide",
+          run: () => ctx.setHidden(["refs/stash"], !ctx.hidden.includes("refs/stash")),
+        },
+      ],
     ),
   );
 }
@@ -308,7 +316,11 @@ export function tagMenu(ctx: Ctx, ref: Ref, panel = false): Promise<void> {
       remotes.length === 1
         ? [{ id: "pushTag:0", label: `Push ${ref.name} to ${remotes[0].name}`, run: () => A.pushTag(ctx, ref.name, remotes[0].name) }]
         : remotes.length > 1
-          ? [{ label: "Push tag to remote", submenu: remotes.map((r, i) => ({ id: `pushTag:${i}`, label: r.name, run: () => A.pushTag(ctx, ref.name, r.name) })) }]
+          ? [{ label: "Push tag to remote", submenu: [
+                ...remotes.map((r, i) => ({ id: `pushTag:${i}`, label: r.name, run: () => A.pushTag(ctx, ref.name, r.name) })),
+                { id: "pushTagAll", label: `Push ${ref.name} to all remotes`, run: () => A.pushTagAll(ctx, ref.name) },
+              ],
+            }]
           : [],
       [{ id: "checkoutCommit", label: `Checkout the commit at ${ref.name}`, run: () => A.checkoutCommit(ctx, ref.sha) }],
       [{ id: "createWorktreeCommit", label: "Create worktree from this commit", run: () => A.createWorktree(ctx, ref.sha) }],
@@ -333,7 +345,8 @@ export function tagMenu(ctx: Ctx, ref: Ref, panel = false): Promise<void> {
 
 export function remoteMenu(ctx: Ctx, name: string, url: string): Promise<void> {
   const web = remoteWebUrl(url);
-  return present(ctx.cwd, "remote", { name, url }, () =>
+  const own = ctx.data.refs.filter((r) => r.kind === "remote" && r.name.startsWith(`${name}/`)).map((r) => r.full);
+  return present(ctx.cwd, "remote", { ...env(ctx), name, url }, () =>
     groups(
       [{ id: "fetchRemote", label: `Fetch ${name}`, run: () => A.fetchRemote(ctx, name) }],
       [
@@ -344,6 +357,20 @@ export function remoteMenu(ctx: Ctx, name: string, url: string): Promise<void> {
         web && { id: "openRemoteWeb", label: `View ${name} on ${new URL(web).host}`, run: () => gitneat().openExternal(web) },
         { id: "copyRemoteUrl", label: "Copy remote URL", run: () => gitneat().copy(url) },
       ],
+      own.length > 0
+        ? [
+            {
+              id: "toggleHidden",
+              label: own.every((f) => ctx.hidden.includes(f)) ? "Show" : "Hide",
+              run: () => ctx.setHidden(own, !own.every((f) => ctx.hidden.includes(f))),
+            },
+            {
+              id: "solo",
+              label: own.every((f) => ctx.solo.includes(f)) ? "Stop soloing" : "Solo",
+              run: () => ctx.setSolo(own, !own.every((f) => ctx.solo.includes(f))),
+            },
+          ]
+        : [],
     ),
   );
 }

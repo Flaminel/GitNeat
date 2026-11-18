@@ -149,7 +149,9 @@ export function wipMenu(ctx: Ctx): Promise<void> {
 }
 
 export function stashMenu(ctx: Ctx, ref: string, sha: string): Promise<void> {
-  return present(ctx, "stash", {}, {
+  return present(ctx, "stash", { hidden: ctx.hidden }, {
+    stashEdit: () => A.editStash(ctx, ref),
+    toggleHidden: () => ctx.setHidden(["refs/stash"], !ctx.hidden.includes("refs/stash")),
     stashApply: () => A.stashApply(ctx, ref),
     stashPop: () => A.stashPop(ctx, ref),
     stashDrop: () => A.stashDrop(ctx, ref),
@@ -163,6 +165,7 @@ function tagMenu(ctx: Ctx, ref: Ref, panel: boolean): Promise<void> {
     ...commitHandlers(ctx, commitFor(ctx, ref.sha)),
     ...soloHandlers(ctx, [ref]),
     ...Object.fromEntries(remotes.map((r, i) => [`pushTag:${i}`, () => A.pushTag(ctx, ref.name, r.name)])),
+    pushTagAll: () => A.pushTagAll(ctx, ref.name),
     deleteTag: () => A.deleteTag(ctx, ref.name),
     ...Object.fromEntries(remotes.map((r, i) => [`deleteTagRemote:${i}`, () => A.deleteTag(ctx, ref.name, r.name)])),
     copyTagName: () => gitneat().copy(ref.name),
@@ -170,7 +173,10 @@ function tagMenu(ctx: Ctx, ref: Ref, panel: boolean): Promise<void> {
 }
 
 export function remoteMenu(ctx: Ctx, name: string, url: string): Promise<void> {
-  return present(ctx, "remote", { name, url }, {
+  const own = ctx.data.refs.filter((r) => r.kind === "remote" && r.name.startsWith(`${name}/`)).map((r) => r.full);
+  return present(ctx, "remote", { ...env(ctx), name, url }, {
+    toggleHidden: () => ctx.setHidden(own, !own.every((f) => ctx.hidden.includes(f))),
+    solo: () => ctx.setSolo(own, !own.every((f) => ctx.solo.includes(f))),
     fetchRemote: () => A.fetchRemote(ctx, name),
     editRemote: () => A.editRemote(ctx, name, url),
     removeRemote: () => A.removeRemote(ctx, name),

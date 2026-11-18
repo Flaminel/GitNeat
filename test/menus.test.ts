@@ -64,6 +64,8 @@ function makeCtx(refs: Ref[]): Ctx {
     openTab: () => undefined,
     openRebase: () => undefined,
     toggleHidden: () => undefined,
+    setHidden: () => undefined,
+    setSolo: () => undefined,
     toggleSolo: () => undefined,
     hidden: [],
     solo: [],

@@ -99,6 +99,13 @@ struct Path {
 }
 
 #[derive(Deserialize)]
+struct RemoveWorktree {
+    path: String,
+    #[serde(default)]
+    force: bool,
+}
+
+#[derive(Deserialize)]
 struct LockWorktree {
     path: String,
     lock: bool,
@@ -248,8 +255,19 @@ async fn delete_tag(cwd: &str, args: &Value) -> Res<Value> {
 }
 
 async fn remove_worktree(cwd: &str, args: &Value) -> Res<Value> {
-    let a: Path = parse(args)?;
-    run(cwd, true, git(cwd, &["worktree", "remove", &a.path])).await
+    let a: RemoveWorktree = parse(args)?;
+    run(cwd, true, async {
+        if a.force {
+            return git(cwd, &["worktree", "remove", "--force", "--force", &a.path]).await;
+        }
+        match git(cwd, &["worktree", "remove", &a.path]).await {
+            Err(error) if error.contains("--force") || error.contains("remove -f") => {
+                Err(needs_confirm("force-remove", &error))
+            }
+            other => other,
+        }
+    })
+    .await
 }
 
 async fn lock_worktree(cwd: &str, args: &Value) -> Res<Value> {

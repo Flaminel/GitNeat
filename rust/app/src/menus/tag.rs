@@ -16,6 +16,10 @@ pub(super) fn tag_menu(env: &Env, tag: &RefIn, panel: bool) -> Vec<MenuSpec> {
             many.iter()
                 .enumerate()
                 .map(|(i, r)| item(format!("pushTag:{i}"), r.name.clone()))
+                .chain(std::iter::once(item(
+                    "pushTagAll",
+                    format!("Push {} to all remotes", tag.name),
+                )))
                 .collect(),
         )],
     };

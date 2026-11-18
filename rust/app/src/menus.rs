@@ -113,8 +113,16 @@ struct RefArgs {
 
 #[derive(Deserialize)]
 struct RemoteArgs {
+    #[serde(flatten)]
+    env: Env,
     name: String,
     url: String,
+}
+
+#[derive(Deserialize)]
+struct StashArgs {
+    #[serde(default)]
+    hidden: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -254,14 +262,21 @@ fn wip_menu() -> Vec<MenuSpec> {
     ]
 }
 
-fn stash_menu() -> Vec<MenuSpec> {
+fn stash_menu(hidden: &[String]) -> Vec<MenuSpec> {
+    let toggle = if hidden.iter().any(|h| h == "refs/stash") {
+        "Show"
+    } else {
+        "Hide"
+    };
     groups(vec![
         vec![
             item("stashApply", "Apply Stash"),
             item("stashPop", "Pop Stash"),
             item("stashDrop", "Delete Stash"),
         ],
+        vec![item("stashEdit", "Edit stash message")],
         vec![item("copySha", "Copy commit sha")],
+        vec![item("toggleHidden", toggle)],
     ])
 }
 
@@ -274,8 +289,16 @@ fn host(web: &str) -> String {
         .to_ascii_lowercase()
 }
 
-fn remote_menu(name: &str, url: &str) -> Vec<MenuSpec> {
+fn remote_menu(env: &Env, name: &str, url: &str) -> Vec<MenuSpec> {
     let web = web_base(url);
+    let prefix = format!("{name}/");
+    let own: Vec<&RefIn> = env
+        .refs
+        .iter()
+        .filter(|r| r.kind == RefKind::Remote && r.name.starts_with(&prefix))
+        .collect();
+    let all_hidden = !own.is_empty() && own.iter().all(|r| env.hidden.contains(&r.full));
+    let all_solo = !own.is_empty() && own.iter().all(|r| env.solo.contains(&r.full));
     groups(vec![
         vec![item("fetchRemote", format!("Fetch {name}"))],
         vec![
@@ -286,6 +309,14 @@ fn remote_menu(name: &str, url: &str) -> Vec<MenuSpec> {
             web.map(|w| item("openRemoteWeb", format!("View {name} on {}", host(&w)))),
             Some(item("copyRemoteUrl", "Copy remote URL")),
         ]),
+        if own.is_empty() {
+            Vec::new()
+        } else {
+            vec![
+                item("toggleHidden", if all_hidden { "Show" } else { "Hide" }),
+                item("solo", if all_solo { "Stop soloing" } else { "Solo" }),
+            ]
+        },
     ])
 }
 
@@ -408,14 +439,17 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
             }
         }
         MenuKind::Wip => wip_menu(),
-        MenuKind::Stash => stash_menu(),
+        MenuKind::Stash => {
+            let a: StashArgs = actions::parse(args)?;
+            stash_menu(&a.hidden)
+        }
         MenuKind::Tag => {
             let a: RefArgs = actions::parse(args)?;
             tag::tag_menu(&a.env, &a.reference, a.panel)
         }
         MenuKind::Remote => {
             let a: RemoteArgs = actions::parse(args)?;
-            remote_menu(&a.name, &a.url)
+            remote_menu(&a.env, &a.name, &a.url)
         }
         MenuKind::Worktree => {
             let a: WorktreeArgs = actions::parse(args)?;

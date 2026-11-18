@@ -383,6 +383,12 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
     toggleHidden: (full) => {
       log.push(`toggleHidden ${full}`);
     },
+    setHidden: (fulls, hide) => {
+      log.push(`setHidden ${JSON.stringify([fulls, hide])}`);
+    },
+    setSolo: (fulls, on) => {
+      log.push(`setSolo ${JSON.stringify([fulls, on])}`);
+    },
     toggleSolo: (full) => {
       log.push(`toggleSolo ${full}`);
     },

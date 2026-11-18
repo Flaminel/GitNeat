@@ -238,6 +238,13 @@ Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offse
 - **Observed (detached HEAD warning, near WarningDetachedHeadState)**: the component renders if `getIsInDetachedHeadState && !getIsRebasing && getIsWIPNodeSelected`. It is a centered flex row with an orange `exclamation-triangle` icon and the text `StagingPanel-WarningDetachedHeadState`. A tooltip (delay 250 ms, bottom) shows `StagingPanel-DetachedHeadStateExplanation`="If you checkout another branch or commit, you might lose any commits created in a detached HEAD state".
 - **Observed (other)**: `StagingPanel-WarningDetachedHeadState`="You are in a detached HEAD state". "Co-authors:" row with 20 px avatars. The author name has an email tooltip (delay 500 ms).
 
+### 2.8 Menu strings found for T17 (Observed)
+- `ContextMenu-AmendStashMessage`="Edit stash message". `AmendStashMessageTip`="Click to amend your stash message".
+- `ContextMenu-PushXToAllRemotes`="Push {0} to all remotes".
+- `ConfirmationMessage-WouldYouLikeToDeleteTagFromAllRemotes`="The tag was deleted locally. Would you also like to delete tags named \"{0}\" from your remote repos?"
+- `PromptForRemoveWorktree-RemoveWorktreeRequiresForce`="Removing this worktree requires force, which is destructive and cannot be undone. Do you want to complete the removal?" The button is `ForceRemoveWorktreeButtonLabel`="Force Remove Worktree". The error is `Error-RemoveWorktreeFailed`="Failed to remove worktree".
+- `ContextMenu-CompareAgainstWorkingCopy`="Compare commit against working directory".
+
 ## 11. Graph and left panel
 
 - **Observed (columns)**: seven columns, S `GraphHeader-BranchTag`, `CommitGraph`, `CommitMessage`, `CommitAuthor`, `CommitDateTime`, `CommitSha`, `Changes`. "Column settings" (`GraphHeader-EditColumns`, R 6745338) shows and hides each column. `UIPreferences-CompactGraphColumnLayout` and `ShowCommitDescInGraphOpt-Always/OnHover/Never` exist.

@@ -160,6 +160,11 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
             hidden: hide ? [...prefs.hidden, ...fulls.filter((f) => !prefs.hidden.includes(f))] : prefs.hidden.filter((f) => !fulls.includes(f)),
             solo: prefs.solo,
           }),
+        setSolo: (fulls, on) =>
+          setPrefs({
+            hidden: prefs.hidden,
+            solo: on ? [...prefs.solo, ...fulls.filter((f) => !prefs.solo.includes(f))] : prefs.solo.filter((f) => !fulls.includes(f)),
+          }),
         toggleSolo: (full) => setPrefs({ hidden: prefs.hidden, solo: toggle(prefs.solo, full) }),
         hidden: prefs.hidden,
         solo: prefs.solo,
