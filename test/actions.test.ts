@@ -211,14 +211,24 @@ S("checkoutRef", branches, (ctx) => A.checkoutRef(ctx, "side"));
 S("checkoutRef-error", (d) => {
   conflict(d);
   write(d.repo, "a.txt", "dirty\n");
-}, (ctx) => A.checkoutRef(ctx, "side"), { expect: /overwritten/ });
+}, (ctx) => A.checkoutRef(ctx, "side"), { expect: /conflict prevents checkout/ });
 S("checkoutCommit", branches, (ctx) => A.checkoutCommit(ctx, sha(ctx, "first")));
+S("checkoutCommit-autostash", dirty, (ctx) => A.checkoutCommit(ctx, sha(ctx, "first")));
 S("checkoutCommit-error", base, (ctx) => A.checkoutCommit(ctx, "nope"), { expect: /toast error/ });
 S("checkoutRemote-new", (d) => {
   remote(d);
   g(d.repo, "branch", "-D", "topic");
 }, (ctx) => A.checkoutRemote(ctx, "origin/topic"));
 S("checkoutRemote-existing", remote, (ctx) => A.checkoutRemote(ctx, "origin/topic"));
+S("checkoutRemote-behind", (d) => {
+  behind(d);
+  g(d.repo, "checkout", "-q", "-b", "other");
+}, (ctx) => A.checkoutRemote(ctx, "origin/main"));
+S("checkoutRemote-behind-autostash", (d) => {
+  behind(d);
+  g(d.repo, "checkout", "-q", "-b", "other");
+  write(d.repo, "a.txt", "dirty\n");
+}, (ctx) => A.checkoutRemote(ctx, "origin/main"));
 S("createBranch", branches, (ctx) => A.createBranch(ctx, "main~1"), { prompt: { name: " feature/x " } });
 S("createBranch-exists", branches, (ctx) => A.createBranch(ctx, "main"), { prompt: { name: "side" }, expect: /already exists/ });
 S("createWorktree-new", base, (ctx) => A.createWorktree(ctx, sha(ctx, "first")), { prompt: { name: "wt-b" } });

@@ -109,21 +109,55 @@ export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
   return { ancestor: true, isHead: head === sha, children: Number(count), hasMerges: Number(merges) > 0, descendant: head === sha };
 }
 
-export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]));
+const LOCAL_CHANGES = "Your local changes to the following files would be overwritten by checkout";
+
+const checkoutError = (error: unknown): never => {
+  const text = error instanceof Error ? error.message : String(error);
+  const count = text.includes(LOCAL_CHANGES) ? text.split("\n").filter((l) => l.startsWith("\t")).length : 0;
+  if (count === 0) {
+    throw error;
+  }
+  const lead = count === 1 ? "1 conflict prevents checkout." : `${count} conflicts prevent checkout.`;
+  throw new GitError(`${lead}\nCommit, stash, or discard your changes first.`);
+};
+
+async function autoStash(ctx: Ctx, target: string): Promise<void> {
+  if (!(await g(ctx, ["status", "--porcelain"])).trim()) {
+    return;
+  }
+  await g(ctx, ["stash", "push", "--include-untracked", "-m", `Auto stash before checking out "${target}"`]);
+}
+
+export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]).catch(checkoutError));
 
 export const checkoutCommit = (ctx: Ctx, sha: string) =>
-  run(ctx, `Checkout ${short(sha)}`, () => g(ctx, ["switch", "--detach", sha]));
+  run(ctx, `Checkout ${short(sha)}`, async () => {
+    await autoStash(ctx, "HEAD");
+    await g(ctx, ["switch", "--detach", sha]);
+  });
+
+async function behindUpstream(ctx: Ctx, local: string, remote: string): Promise<boolean> {
+  const tracks = await g(ctx, ["rev-parse", "--abbrev-ref", `${local}@{upstream}`]).catch(() => "");
+  const [a, b] = await Promise.all([g(ctx, ["rev-parse", local]), g(ctx, ["rev-parse", remote])]);
+  if (tracks.trim() !== remote || a === b) {
+    return false;
+  }
+  return g(ctx, ["merge-base", "--is-ancestor", local, remote]).then(() => true, () => false);
+}
 
 export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
   const local = remoteBranch.split("/").slice(1).join("/");
   const existing = ctx.data.refs.find((r) => r.kind === "local" && r.name === local);
-  if (existing) {
-    await checkoutRef(ctx, local);
-    return;
-  }
-  await run(ctx, `Checkout ${remoteBranch}`, () =>
-    g(ctx, ["switch", "-c", local, "--track", remoteBranch]),
-  );
+  await run(ctx, `Checkout ${remoteBranch}`, async () => {
+    if (!existing) {
+      await g(ctx, ["switch", "-c", local, "--track", remoteBranch]);
+    } else if (await behindUpstream(ctx, local, remoteBranch)) {
+      await autoStash(ctx, remoteBranch);
+      await g(ctx, ["switch", "-C", local, remoteBranch]).catch(checkoutError);
+    } else {
+      await g(ctx, ["switch", local]).catch(checkoutError);
+    }
+  });
 }
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {

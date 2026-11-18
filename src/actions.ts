@@ -163,15 +163,11 @@ export const cloneRepo = (parent: string, url: string, target: string): Promise<
 
 export const initRepo = (dir: string): Promise<string> => act<string>(dir, "init", {});
 
-export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
+export const checkoutRemote = (ctx: Ctx, remoteBranch: string) => {
   const local = remoteBranch.split("/").slice(1).join("/");
-  const existing = ctx.data.refs.find((r) => r.kind === "local" && r.name === local);
-  if (existing) {
-    await checkoutRef(ctx, local);
-    return;
-  }
-  await go(ctx, `Checkout ${remoteBranch}`, "checkoutRemote", { remoteBranch, localExists: false });
-}
+  const localExists = ctx.data.refs.some((r) => r.kind === "local" && r.name === local);
+  return go(ctx, `Checkout ${remoteBranch}`, "checkoutRemote", { remoteBranch, localExists }).then(() => undefined);
+};
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {
   const v = await ctx.ui.prompt("Create branch", [{ name: "name", label: "Branch name", ref: true, placeholder: "feature/my-branch" }], "Create branch");

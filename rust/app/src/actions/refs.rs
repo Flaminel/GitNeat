@@ -131,14 +131,67 @@ pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
     })
 }
 
+const LOCAL_CHANGES: &str =
+    "Your local changes to the following files would be overwritten by checkout";
+
+fn checkout_error(error: String) -> String {
+    if !error.contains(LOCAL_CHANGES) {
+        return error;
+    }
+    let count = error.lines().filter(|l| l.starts_with('\t')).count();
+    match count {
+        0 => error,
+        1 => "1 conflict prevents checkout.\nCommit, stash, or discard your changes first.".into(),
+        n => format!(
+            "{n} conflicts prevent checkout.\nCommit, stash, or discard your changes first."
+        ),
+    }
+}
+
+async fn auto_stash(cwd: &str, target: &str) -> Res<()> {
+    if git(cwd, &["status", "--porcelain"])
+        .await?
+        .trim()
+        .is_empty()
+    {
+        return Ok(());
+    }
+    let message = format!("Auto stash before checking out \"{target}\"");
+    git(
+        cwd,
+        &["stash", "push", "--include-untracked", "-m", &message],
+    )
+    .await?;
+    Ok(())
+}
+
 async fn checkout_ref(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
-    run(cwd, true, git(cwd, &["switch", &a.name])).await
+    run(cwd, true, async {
+        git(cwd, &["switch", &a.name]).await.map_err(checkout_error)
+    })
+    .await
 }
 
 async fn checkout_commit(cwd: &str, args: &Value) -> Res<Value> {
     let a: Sha = parse(args)?;
-    run(cwd, true, git(cwd, &["switch", "--detach", &a.sha])).await
+    run(cwd, true, async {
+        auto_stash(cwd, "HEAD").await?;
+        git(cwd, &["switch", "--detach", &a.sha]).await
+    })
+    .await
+}
+
+async fn behind_upstream(cwd: &str, local: &str, remote: &str) -> bool {
+    let upstream = format!("{local}@{{upstream}}");
+    let tracks = git(cwd, &["rev-parse", "--abbrev-ref", &upstream]).await;
+    let differs =
+        git(cwd, &["rev-parse", local]).await.ok() != git(cwd, &["rev-parse", remote]).await.ok();
+    differs
+        && tracks.is_ok_and(|t| t.trim() == remote)
+        && git(cwd, &["merge-base", "--is-ancestor", local, remote])
+            .await
+            .is_ok()
 }
 
 async fn checkout_remote(cwd: &str, args: &Value) -> Res<Value> {
@@ -149,14 +202,23 @@ async fn checkout_remote(cwd: &str, args: &Value) -> Res<Value> {
         .skip(1)
         .collect::<Vec<_>>()
         .join("/");
-    if a.local_exists {
-        return run(cwd, true, git(cwd, &["switch", &local])).await;
+    if !a.local_exists {
+        return run(
+            cwd,
+            true,
+            git(cwd, &["switch", "-c", &local, "--track", &a.remote_branch]),
+        )
+        .await;
     }
-    run(
-        cwd,
-        true,
-        git(cwd, &["switch", "-c", &local, "--track", &a.remote_branch]),
-    )
+    run(cwd, true, async {
+        if behind_upstream(cwd, &local, &a.remote_branch).await {
+            auto_stash(cwd, &a.remote_branch).await?;
+            return git(cwd, &["switch", "-C", &local, &a.remote_branch])
+                .await
+                .map_err(checkout_error);
+        }
+        git(cwd, &["switch", &local]).await.map_err(checkout_error)
+    })
     .await
 }
 

@@ -511,3 +511,16 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Limits: Source keeps the commit message box during a merge. GitNeat hides it, and "Commit and Merge" uses the default merge message (`commit --no-edit`).
 - Limits: Source reads the merge base name from the HEAD branch shorthand. GitNeat shows the branch name, or the short sha if HEAD is detached.
 - Limits: No visual check in the app. The Tauri window started, but `screencapture` returned a black image. The Rust test `operation_info_names_branches` covers a conflicted merge and rebase.
+
+## D76. Checkout with local changes
+
+- Decision: A failed checkout does not offer to stash. Source does the same (`docs/EVIDENCE.md` section 12). The task text asked for a prompt. The Source bundle has none.
+- Decision: The actions `checkoutRef` and `checkoutRemote` change the git error "Your local changes ... would be overwritten by checkout" to "1 conflict prevents checkout." or "{n} conflicts prevent checkout." with the line "Commit, stash, or discard your changes first." The toast title stays "Checkout Failed".
+- Decision: `checkoutCommit` stashes first if the working tree has changes (`git stash push --include-untracked`). The message is `Auto stash before checking out "HEAD"`.
+- Decision: `checkoutRemote` always runs in Rust. If the local branch exists, tracks the remote branch and is behind it, the action stashes with `Auto stash before checking out "{remote branch}"`, then runs `git switch -C {local} {remote}`. Otherwise it runs `git switch {local}`.
+- Reason: Source `autoStash` and `calculateCheckoutDecision`. Task T21.
+- Limits: Source asks "new branch or reset local" if the local branch diverged or has another upstream. GitNeat only switches to the local branch.
+- Limits: The conflict count comes from the tab-indented lines of the git error. Untracked file conflicts keep the git text, as in Source.
+- Limits: Undo does not restore the auto stash. See D13.
+- Limits: No manual check in the app. The comparison tests `checkoutCommit-autostash`, `checkoutRemote-behind` and `checkoutRemote-behind-autostash` cover the actions.
+
