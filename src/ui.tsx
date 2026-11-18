@@ -377,3 +377,5 @@ export function Splitter(props: {
   };
   return <div className={`splitter${props.vertical ? " row-resize" : ""} ${props.className ?? ""}`} onMouseDown={start} />;
 }
+
+export const cap = (n: number) => (n > 99 ? "99+" : String(n));

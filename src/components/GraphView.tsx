@@ -1,6 +1,6 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Commit, GraphRow, Ref, Segment } from "../repo";
-import { showMenu, Splitter, useStored, useStoredWidth } from "../ui";
+import { cap, showMenu, Splitter, useStored, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
@@ -148,6 +148,15 @@ interface Pill {
   current: boolean;
 }
 
+const REF_ZONE_MAX_REFS = 100;
+
+function upstreamTitle(behind: number, ahead: number, upstream: string): string {
+  if (behind > 0 && ahead > 0) {
+    return `${cap(behind)} commit(s) behind and ${cap(ahead)} commit(s) ahead of ${upstream}`;
+  }
+  return behind > 0 ? `${cap(behind)} commit(s) behind ${upstream}` : `${cap(ahead)} commit(s) ahead of ${upstream}`;
+}
+
 function pillsFor(refs: Ref[]): Pill[] {
   const pills: Pill[] = [];
   const locals = refs.filter((r) => r.kind === "local");
@@ -202,9 +211,58 @@ const RowView = memo(function RowView(props: {
   const isWip = commit.sha === WIP;
   const isMerge = commit.parents.length > 1;
   const first = pills[0];
+  const [zoneHover, setZoneHover] = useState(false);
+  const expanded = zoneHover && pills.length > 1;
+  const renderPill = (p: Pill) => {
+    const ref = p.ref;
+    const behind = p.local && ref.upstream ? ref.behind ?? 0 : 0;
+    const ahead = p.local && ref.upstream ? ref.ahead ?? 0 : 0;
+    return (
+      <span
+        key={p.key}
+        className={`pill${p.current ? " current" : ""}`}
+        title={expanded ? undefined : pills.map((x) => x.label).join("\n")}
+        onContextMenu={(e) => {
+          e.stopPropagation();
+          props.onSelect(commit.sha);
+          props.onRefMenu(ref, e);
+        }}
+        onDoubleClick={() => props.onRefOpen(ref)}
+        draggable={!p.tag}
+        onDragStart={(e) => e.dataTransfer.setData("text/gitneat-ref", ref.full)}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("text/gitneat-ref")) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        onDrop={(e) => {
+          const source = e.dataTransfer.getData("text/gitneat-ref");
+          if (source) {
+            e.stopPropagation();
+            if (source !== ref.full) {
+              props.onRefDrop(source, ref);
+            }
+          }
+        }}
+      >
+        {p.current && Icon.check}
+        <span className="pill-label">{p.label}</span>
+        {p.local && Icon.local}
+        {p.remote && Icon.remote}
+        {p.tag && Icon.tag}
+        {(behind > 0 || ahead > 0) && (
+          <span className="pill-upstream" title={upstreamTitle(behind, ahead, ref.upstream ?? "")}>
+            {behind > 0 && <span>{cap(behind)}↓</span>}
+            {ahead > 0 && <span>{cap(ahead)}↑</span>}
+          </span>
+        )}
+      </span>
+    );
+  };
   return (
     <div
-      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${commit.stash ? " stash" : ""}${props.isHead ? " head" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
+      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${commit.stash ? " stash" : ""}${props.isHead ? " head" : ""}${expanded ? " refs-open" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
       style={{ top: props.index * ROW_HEIGHT, ["--row-color" as string]: color,
         ["--row-bg25" as string]: `var(${lane}-bg25)`,
         ["--row-bg45" as string]: `var(${lane}-bg45)`,
@@ -234,28 +292,21 @@ const RowView = memo(function RowView(props: {
       }}
     >
       {cols.ref && (
-      <div className="cell refs" style={{ width: props.refsWidth }}>
+      <div
+        className="cell refs"
+        style={{ width: props.refsWidth }}
+        onMouseEnter={() => setZoneHover(true)}
+        onMouseLeave={() => setZoneHover(false)}
+      >
         {first && (
           <>
-            <span
-              className={`pill${first.current ? " current" : ""}`}
-              title={pills.map((p) => p.label).join("\n")}
-              onContextMenu={(e) => {
-                e.stopPropagation();
-                props.onSelect(commit.sha);
-                props.onRefMenu(first.ref, e);
-              }}
-              onDoubleClick={() => props.onRefOpen(first.ref)}
-              draggable={!first.tag}
-              onDragStart={(e) => e.dataTransfer.setData("text/gitneat-ref", first.ref.full)}
-            >
-              {first.current && Icon.check}
-              <span className="pill-label">{first.label}</span>
-              {first.local && Icon.local}
-              {first.remote && Icon.remote}
-              {first.tag && Icon.tag}
-            </span>
-            {pills.length > 1 && <span className="pill more">+{pills.length - 1}</span>}
+            {!expanded && (
+              <>
+                {renderPill(first)}
+                {pills.length > 1 && <span className="pill more">+{pills.length - 1}</span>}
+              </>
+            )}
+            {expanded && <div className="ref-overlay">{pills.slice(0, REF_ZONE_MAX_REFS).map(renderPill)}</div>}
             <span className="pill-line" />
           </>
         )}

@@ -844,6 +844,48 @@ body.resizing-row * {
 .cell.refs {
   padding-left: 8px;
   gap: 4px;
+  position: relative;
+}
+
+.row.refs-open {
+  z-index: 6;
+}
+
+.row.refs-open .cell.refs {
+  overflow: visible;
+}
+
+.ref-overlay {
+  position: absolute;
+  left: 4px;
+  top: calc(50% - 15px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--bg-deep);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.pill-upstream {
+  display: inline-flex;
+  gap: 4px;
+  padding: 0 5px;
+  height: 16px;
+  align-items: center;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--row-bg45);
+}
+
+.pill:hover .pill-upstream,
+.pill.current .pill-upstream,
+.row.selected .pill-upstream {
+  background: var(--row-bg25);
 }
 
 .cell.graph svg {

@@ -5,7 +5,7 @@ import { Ctx } from "../actions";
 import * as M from "../menus";
 import { boundedYs, limitsFor, resizableHandles, sectionHeights } from "../leftPanel";
 import { Ref, samePath } from "../repo";
-import { showMenu, Splitter } from "../ui";
+import { cap, showMenu, Splitter } from "../ui";
 import { Icon } from "./icons";
 
 interface Props {
@@ -72,7 +72,6 @@ function Section(props: {
   );
 }
 
-const cap = (n: number) => (n > 99 ? "99+" : String(n));
 
 const STASH_REF = "refs/stash";
 
