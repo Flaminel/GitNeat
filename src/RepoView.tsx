@@ -76,6 +76,7 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
   const loadSeq = useRef(0);
   const [shown, setShown] = useState(selected);
   const held = useRef(false);
+  const copied = useRef(false);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
@@ -99,16 +100,17 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
   }, [load]);
 
   useEffect(() => {
-    if (!data || prefs.openSections) {
+    if (!data || copied.current) {
       return;
     }
+    copied.current = true;
     const self = data.worktrees.find((w) => samePath(w.path, path));
     const main = data.worktrees.find((w) => w.main);
     const sections = self && !self.main && main ? mainSections(main.path) : undefined;
     if (sections) {
       setPrefs({ openSections: sections });
     }
-  }, [data, path, prefs.openSections, mainSections, setPrefs]);
+  }, [data, path, mainSections, setPrefs]);
 
   useEffect(() => {
     void gitneat().watch(path);

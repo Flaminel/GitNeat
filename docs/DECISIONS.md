@@ -429,5 +429,5 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: `RepoPrefs` in `src/RepoView.tsx` has the optional fields `closed` and `openSections`. `RepoView` passes them to `Sidebar` as props. The app store saves them with the other tab prefs. `setPrefs` in `src/App.tsx` merges a partial value into the saved prefs of the tab.
 - Reason: Source writes both lists to the settings file of the repository (see `docs/EVIDENCE.md` section 11). Task T12.
 - Rules: The defaults are no collapsed folder and the sections LOCAL and REMOTE open. `setPrefs` takes a `Partial<RepoPrefs>`, so the callers of `hidden` and `solo` keep their shape.
-- Rules: A tab of a linked worktree with no saved `openSections` copies the list from the main worktree tab. `RepoView` does this after the first load, through the `mainSections` prop.
-- Limits: Source calls its copy on each repository open (R 3892611). GitNeat copies once, when the worktree tab has no saved list. Source also copies the section heights, and GitNeat has no section heights. No manual check in the app.
+- Rules: A tab of a linked worktree copies `openSections` from the main worktree tab, and replaces its own list. The main tab must have a saved list. `RepoView` does this once for each mount, after the first load, through the `mainSections` prop.
+- Limits: Source also copies the section heights, and GitNeat has no section heights (task T38). No manual check in the app.
