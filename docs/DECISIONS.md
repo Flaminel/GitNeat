@@ -388,3 +388,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source uses `selectPrevious(e.shiftKey)`, `selectNext(e.shiftKey)`, `selectHead` and loads the detail on key up (see `docs/EVIDENCE.md` section 11). Task T07 of the parity plan (D50).
 - Rules: The graph keys do nothing while the focus is in an input, a textarea, a select or a Monaco editor. The graph keys do nothing with Cmd, Ctrl or Alt. Shift+H does nothing. `H` does nothing without a HEAD commit. The range skips the WIP row and the stash rows (see the `select` callback).
 - Limits: The graph scrolls to the anchor of the range, not to the cursor. A long Shift range can move the cursor out of view. No manual check in the app: the screen was locked during T07.
+
+## D61. Summary character counter
+
+- Decision: `SummaryCounter` in `src/components/DetailPanel.tsx` shows 72 minus the length of the summary at the right of the summary input. Below 0, the counter gets the class `is-exceeded` and the new `--orange` token (#de9b43) in `src/styles.css`.
+- Reason: Source shows the characters left before `commitMessageSoftLimit` (see `docs/EVIDENCE.md` section 10). Task T08 of the parity plan (D50).
+- Rules: The WIP commit form and the amend and reword form both show the counter. The counter counts code points. The tooltip is the Source text. The input keeps `maxLength` 200.
+- Limits: The counter uses `--text-faint` for the Source `--text-disabled` color. No manual check in the app: the screen was locked during T08.

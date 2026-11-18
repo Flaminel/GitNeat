@@ -14,6 +14,7 @@
   --accent: #4d88ff;
   --green: #5cb85c;
   --red: #d9413d;
+  --orange: #de9b43;
   --yellow: #ecb91c;
   --purple: #a77bf3;
   --avatar-bg: #3a3f4b;
@@ -1209,6 +1210,25 @@ a.sha {
   flex-direction: column;
   gap: 6px;
   padding: 10px;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summary-row .summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-chars-left {
+  color: var(--text-faint);
+}
+
+.summary-chars-left.is-exceeded {
+  color: var(--orange);
 }
 
 .commit-box-head {

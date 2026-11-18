@@ -95,6 +95,20 @@ function formatDate(seconds: number): string {
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} @ ${time}`;
 }
 
+const SUMMARY_SOFT_LIMIT = 72;
+
+function SummaryCounter({ value }: { value: string }) {
+  const left = SUMMARY_SOFT_LIMIT - [...value].length;
+  return (
+    <span
+      className={left < 0 ? "summary-chars-left is-exceeded" : "summary-chars-left"}
+      title={`Commit summaries no longer than ${SUMMARY_SOFT_LIMIT} characters will be fully displayed in most websites and CLI tools.`}
+    >
+      {left}
+    </span>
+  );
+}
+
 function Avatar({ name }: { name: string }) {
   const parts = name.trim().split(/\s+/);
   const text = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
@@ -181,13 +195,16 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
       </div>
       {editing ? (
         <div className="message-edit">
-          <input
-            className="summary"
-            autoFocus
-            maxLength={200}
-            value={editing.summary}
-            onChange={(e) => setEditing({ ...editing, summary: e.target.value })}
-          />
+          <div className="summary-row">
+            <input
+              className="summary"
+              autoFocus
+              maxLength={200}
+              value={editing.summary}
+              onChange={(e) => setEditing({ ...editing, summary: e.target.value })}
+            />
+            <SummaryCounter value={editing.summary} />
+          </div>
           <textarea
             className="description"
             placeholder="Description"
@@ -404,7 +421,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             <input type="checkbox" checked={amend} disabled={!ctx.data.head} onChange={(e) => setAmend(e.target.checked)} /> Amend
           </label>
         </div>
-        <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={commitKey} />
+        <div className="summary-row">
+          <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={commitKey} />
+          <SummaryCounter value={summary} />
+        </div>
         <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={commitKey} />
         <button
           className="commit-btn"
