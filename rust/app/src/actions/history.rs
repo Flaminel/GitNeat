@@ -116,8 +116,8 @@ async fn move_to(cwd: &str, from: &HeadState, to: &HeadState, soft: bool) -> Res
     let target = to.head.as_deref().unwrap_or_default();
     if from.branch != to.branch {
         match to.branch.as_deref() {
-            Some(branch) => git(cwd, &["switch", branch]).await,
-            None => git(cwd, &["switch", "--detach", target]).await,
+            Some(branch) => super::refs::switch(cwd, &[branch]).await,
+            None => super::refs::switch(cwd, &["--detach", target]).await,
         }
         .map_err(|e| conflict_error(e, "undo checkout"))?;
         return Ok(Value::Null);

@@ -98,7 +98,7 @@ async function runNative(ctx: Ctx, label: string, fn: () => Promise<Done>): Prom
   return ok;
 }
 
-const RECURSE = ["pull", "pullBranch", "fetchRemote"];
+const RECURSE = ["pull", "pullBranch", "fetchRemote", "reset"];
 
 const go = (ctx: Ctx, label: string, name: string, args: unknown) =>
   runNative(ctx, label, () => act(ctx.cwd, name, RECURSE.includes(name) ? { ...(args as object), recurse: ctx.autoUpdateSubmodules } : args));

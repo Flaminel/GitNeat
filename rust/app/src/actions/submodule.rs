@@ -251,9 +251,36 @@ async fn reset(cwd: &str, args: &Value) -> Res<Value> {
     if a.deleted {
         git(cwd, &["restore", "--", &a.path]).await?;
     } else {
+        let _ = raw(
+            cwd,
+            &[
+                "restore",
+                "--recurse-submodules",
+                "--worktree",
+                "--staged",
+                "--",
+                &a.path,
+            ],
+            None,
+            None,
+        )
+        .await;
         let inner = full.to_string_lossy().into_owned();
-        git(&inner, &["reset", "--hard"]).await?;
-        git(&inner, &["clean", "-fd"]).await?;
+        git(&inner, &["checkout", "--force", "HEAD"]).await?;
+        git(&inner, &["clean", "-ffd"]).await?;
+        let _ = raw(
+            &inner,
+            &[
+                "submodule",
+                "foreach",
+                "--recursive",
+                "--quiet",
+                "git clean -ffd || :",
+            ],
+            None,
+            None,
+        )
+        .await;
     }
     sync(cwd, &a.path).await?;
     Ok(json!({ "record": null }))
@@ -451,6 +478,63 @@ mod tests {
         assert!(inner_path("/repo", "libs/a").is_ok());
         assert!(safe_url("--upload-pack=x").is_err());
         assert!(safe_url("  ").is_err());
+    }
+
+    #[test]
+    fn maps_git_submodule_checkout_errors() {
+        use super::super::refs::submodule_error;
+        let one = "error: Cannot update submodule:\n\tlibs/a\nAborting\n".to_string();
+        assert_eq!(
+            submodule_error(one),
+            "Submodule 'libs/a' has changes that prevent checkout. Commit, stash, or discard your changes first"
+        );
+        let two = "error: Cannot update submodule:\n\ta\n\tb\n\nAborting".to_string();
+        assert_eq!(
+            submodule_error(two),
+            "2 submodules have changes that prevent checkout. Commit, stash, or discard your changes first in:\n'a'\n'b'"
+        );
+        let tree = "fatal: not a git repository: /r/.git/modules/lib/x".to_string();
+        assert!(
+            submodule_error(tree).starts_with(
+                "Submodule 'lib' seems to have been checked out also inside a worktree"
+            )
+        );
+        assert_eq!(submodule_error("other".into()), "other");
+    }
+
+    #[tokio::test]
+    async fn switch_moves_submodules_with_the_branch() {
+        allow_file_protocol();
+        let root = tempfile::tempdir().unwrap();
+        let lib = root.path().join("lib");
+        let main = root.path().join("main");
+        std::fs::create_dir_all(&lib).unwrap();
+        std::fs::create_dir_all(&main).unwrap();
+        sh(&lib, &["init", "-q", "-b", "main"]);
+        std::fs::write(lib.join("a.txt"), "one").unwrap();
+        sh(&lib, &["add", "."]);
+        sh(&lib, &["commit", "-q", "-m", "one"]);
+        sh(&main, &["init", "-q", "-b", "main"]);
+        sh(
+            &main,
+            &["submodule", "add", "-q", lib.to_str().unwrap(), "sub"],
+        );
+        sh(&main, &["commit", "-q", "-m", "add"]);
+        sh(&main, &["branch", "old"]);
+        std::fs::write(lib.join("a.txt"), "two").unwrap();
+        sh(&lib, &["commit", "-qam", "two"]);
+        sh(&main.join("sub"), &["pull", "-q", "origin", "main"]);
+        sh(&main, &["commit", "-qam", "bump"]);
+        let cwd = main.to_str().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(main.join("sub/a.txt")).unwrap(),
+            "two"
+        );
+        super::super::refs::switch(cwd, &["old"]).await.unwrap();
+        assert_eq!(
+            std::fs::read_to_string(main.join("sub/a.txt")).unwrap(),
+            "one"
+        );
     }
 
     #[tokio::test]

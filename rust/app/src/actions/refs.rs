@@ -59,6 +59,8 @@ impl ResetMode {
 struct Reset {
     mode: ResetMode,
     sha: String,
+    #[serde(default)]
+    recurse: bool,
 }
 
 #[derive(Deserialize)]
@@ -149,6 +151,55 @@ pub fn conflict_error(error: String, action: &str) -> String {
     }
 }
 
+const SUBMODULE_BLOCK: &str = "Cannot update submodule";
+const SUBMODULE_TAIL: &str = "Commit, stash, or discard your changes first";
+
+pub fn submodule_error(error: String) -> String {
+    if let Some(at) = error.find(SUBMODULE_BLOCK) {
+        let names: Vec<String> = error[at..]
+            .lines()
+            .skip(1)
+            .take_while(|l| l.starts_with(char::is_whitespace) && !l.trim().is_empty())
+            .map(|l| format!("'{}'", l.trim()))
+            .collect();
+        match names.len() {
+            0 => {}
+            1 => {
+                return format!(
+                    "Submodule {} has changes that prevent checkout. {SUBMODULE_TAIL}",
+                    names[0]
+                );
+            }
+            n => {
+                return format!(
+                    "{n} submodules have changes that prevent checkout. {SUBMODULE_TAIL} in:\n{}",
+                    names.join("\n")
+                );
+            }
+        }
+    }
+    if error.contains("not a git repository") && error.contains("git/modules/") {
+        let name = error
+            .split_once(".git/modules/")
+            .map(|(_, rest)| {
+                rest.split(|c: char| c == '/' || c == '\\' || c.is_whitespace())
+                    .next()
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
+        return format!(
+            "Submodule '{name}' seems to have been checked out also inside a worktree, which is not currently supported by git. See https://git-scm.com/docs/git-worktree#_bugs"
+        );
+    }
+    error
+}
+
+pub async fn switch(cwd: &str, rest: &[&str]) -> Res<String> {
+    let mut argv = vec!["switch", "--recurse-submodules"];
+    argv.extend_from_slice(rest);
+    git(cwd, &argv).await.map_err(submodule_error)
+}
+
 fn checkout_error(error: String) -> String {
     let tail = "\nCommit, stash, or discard your changes first.";
     let message = conflict_error(error.clone(), "checkout");
@@ -179,7 +230,7 @@ async fn auto_stash(cwd: &str, target: &str) -> Res<()> {
 async fn checkout_ref(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
     run(cwd, true, async {
-        git(cwd, &["switch", &a.name]).await.map_err(checkout_error)
+        switch(cwd, &[&a.name]).await.map_err(checkout_error)
     })
     .await
 }
@@ -188,14 +239,14 @@ async fn checkout_commit(cwd: &str, args: &Value) -> Res<Value> {
     let a: Sha = parse(args)?;
     run(cwd, true, async {
         auto_stash(cwd, "HEAD").await?;
-        git(cwd, &["switch", "--detach", &a.sha]).await
+        switch(cwd, &["--detach", &a.sha]).await
     })
     .await
 }
 
 async fn reset_local(cwd: &str, local: &str, remote: &str) -> Res<String> {
     auto_stash(cwd, remote).await?;
-    git(cwd, &["switch", "-C", local, remote])
+    switch(cwd, &["-C", local, remote])
         .await
         .map_err(checkout_error)
 }
@@ -220,24 +271,19 @@ async fn checkout_remote(cwd: &str, args: &Value) -> Res<Value> {
     let (_, local) = split_remote(&a.remote_branch);
     let remote = a.remote_branch.as_str();
     if !a.local_exists {
-        return run(
-            cwd,
-            true,
-            git(cwd, &["switch", "-c", local, "--track", remote]),
-        )
-        .await;
+        return run(cwd, true, switch(cwd, &["-c", local, "--track", remote])).await;
     }
     run(cwd, true, async {
         match a.mode.as_deref() {
             Some("reset") => return reset_local(cwd, local, remote).await,
             Some("create") => {
                 let name = a.new_name.as_deref().unwrap_or_default().trim();
-                return git(cwd, &["switch", "-c", name, "--track", remote]).await;
+                return switch(cwd, &["-c", name, "--track", remote]).await;
             }
             _ => {}
         }
         if !a.in_worktree && same_commit(cwd, local, remote).await {
-            return git(cwd, &["switch", local]).await.map_err(checkout_error);
+            return switch(cwd, &[local]).await.map_err(checkout_error);
         }
         if can_reset_local(cwd, local, remote).await {
             return reset_local(cwd, local, remote).await;
@@ -249,12 +295,7 @@ async fn checkout_remote(cwd: &str, args: &Value) -> Res<Value> {
 
 async fn create_branch(cwd: &str, args: &Value) -> Res<Value> {
     let a: CreateBranch = parse(args)?;
-    run(
-        cwd,
-        true,
-        git(cwd, &["switch", "-c", a.name.trim(), &a.from]),
-    )
-    .await
+    run(cwd, true, switch(cwd, &["-c", a.name.trim(), &a.from])).await
 }
 
 async fn create_worktree(cwd: &str, args: &Value) -> Res<Value> {
@@ -270,7 +311,12 @@ async fn create_worktree(cwd: &str, args: &Value) -> Res<Value> {
 
 async fn reset(cwd: &str, args: &Value) -> Res<Value> {
     let a: Reset = parse(args)?;
-    run(cwd, true, git(cwd, &["reset", a.mode.flag(), &a.sha])).await
+    let mut argv = vec!["reset", a.mode.flag()];
+    if a.recurse {
+        argv.push("--recurse-submodules");
+    }
+    argv.push(&a.sha);
+    run(cwd, true, git(cwd, &argv)).await
 }
 
 async fn create_tag(cwd: &str, args: &Value) -> Res<Value> {
