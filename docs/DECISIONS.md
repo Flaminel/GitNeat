@@ -393,5 +393,5 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: `SummaryCounter` in `src/components/DetailPanel.tsx` shows 72 minus the length of the summary at the right of the summary input. Below 0, the counter gets the class `is-exceeded` and the new `--orange` token (#de9b43) in `src/styles.css`.
 - Reason: Source shows the characters left before `commitMessageSoftLimit` (see `docs/EVIDENCE.md` section 10). Task T08 of the parity plan (D50).
-- Rules: The WIP commit form and the amend and reword form both show the counter. The counter counts code points. The tooltip is the Source text. The input keeps `maxLength` 200.
-- Limits: The counter uses `--text-faint` for the Source `--text-disabled` color. No manual check in the app: the screen was locked during T08.
+- Rules: The WIP commit form and the amend and reword form both show the counter. The counter counts code points. The tooltip is the Source text. The counter uses `--text-faint`, which has the value of the Source `--text-disabled` (0.4 alpha). The input keeps `maxLength` 200.
+- Limits: No manual check in the app: the screen was locked during T08.
