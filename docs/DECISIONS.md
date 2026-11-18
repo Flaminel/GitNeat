@@ -602,3 +602,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Task T26b. Source `autoPrune`, `init.defaultBranch` and `rememberTabs` (`docs/EVIDENCE.md` section 11).
 - Rules: The dialog uses the Source English labels and help texts, with "Initial Commits in Graph" for `maxCommits`. The default branch input uses the git name check of the prompt dialog (no space, no leading dash, none of `~^:?*[\` and no `..`). An empty value or "main" saves as empty, as in Source.
 - Limits: GitNeat does not write `init.defaultBranch` to the global git config, which Source does by default when `keepGitConfigInSyncWithProfile` is on. A write would change `git init` in the terminal of the user without a clear sign. GitNeat passes `-b` for its own init only. Source checks the name with `Reference.isValidName`. GitNeat uses the prompt rule, and git has the last word. "Show All Commits in Graph" is not built. No manual check in the app: the Tauri window was not started in this task.
+
+## D86. Commit options: push after committing and skip hooks
+
+- Decision: The `commit` action takes `noVerify`. If it is true, the action adds `--no-verify` to `git commit`. The command `has_commit_hook` returns true if the hooks folder holds `pre-commit` or `commit-msg`. The command reads the folder with `git rev-parse --git-path hooks`, so `core.hooksPath` applies.
+- Decision: The commit box in `DetailPanel.tsx` has a "Commit options" toggle. It shows "Push after committing" and, only if a hook exists, "Skip Git hooks". The button label adds " and Push" and " (Skip Hooks)".
+- Decision: `commit` in `src/actions.ts` pushes the current branch with `push` after a successful commit. A failed commit does not push.
+- Reason: Task T27. Source `CommitDetailPanel-CommitOptions` (`docs/EVIDENCE.md` section 10).
+- Limits: Only `pre-commit` and `commit-msg` count as hooks, because `--no-verify` skips only these two. The options reset to off on each app start. Source may keep them in the profile, and the evidence does not show it. The push uses the normal push flow, so its prompts and force warnings apply. No manual check in the app: the Tauri window was not started in this task.

@@ -422,6 +422,15 @@ pub async fn load_head_message(cwd: &str) -> HeadMessage {
     }
 }
 
+pub async fn has_commit_hook(cwd: &str) -> bool {
+    let r = raw(cwd, &["rev-parse", "--git-path", "hooks"], None, None).await;
+    let dir = js_trim(&r.stdout);
+    let base = std::path::Path::new(cwd).join(dir);
+    ["pre-commit", "commit-msg"]
+        .iter()
+        .any(|name| base.join(name).is_file())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

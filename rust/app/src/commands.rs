@@ -134,6 +134,11 @@ pub async fn load_head_message(cwd: String) -> HeadMessage {
     loaders::load_head_message(&cwd).await
 }
 
+#[tauri::command]
+pub async fn has_commit_hook(cwd: String) -> bool {
+    loaders::has_commit_hook(&cwd).await
+}
+
 async fn pick_folder(window: &Window, create: bool) -> Option<PathBuf> {
     let (tx, rx) = oneshot::channel();
     window

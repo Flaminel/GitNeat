@@ -4,7 +4,7 @@ import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
 import { showMenu, Splitter, useStoredWidth } from "../ui";
-import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
+import { CommitDetail, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
 
@@ -336,6 +336,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const [description, setDescription] = useState("");
   const [amend, setAmend] = useState(false);
   const [tree, setTree] = useState(false);
+  const [pushAfter, setPushAfter] = useState(false);
+  const [skipHooks, setSkipHooks] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [hook, setHook] = useState(false);
   const status = ctx.data.status;
   const conflicted = status.filter((e) => statusCode(e, false) === "U");
   const unstaged = status.filter((e) => (e.work !== " " || e.index === "?") && statusCode(e, false) !== "U");
@@ -364,15 +368,26 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   }, [amend, summary, ctx.cwd, ctx.data.head]);
 
+  useEffect(() => {
+    let live = true;
+    void hasCommitHook(ctx.cwd).then((found) => live && setHook(found));
+    return () => {
+      live = false;
+    };
+  }, [ctx.cwd, ctx.data.head]);
+
+  const skip = hook && skipHooks;
   const doCommit = async () => {
     const message = description.trim() ? `${summary.trim()}\n\n${description.trim()}` : summary.trim();
-    if (await A.commit(ctx, message, amend)) {
+    if (await A.commit(ctx, message, amend, { push: pushAfter, noVerify: skip })) {
       setSummary("");
       setDescription("");
       setAmend(false);
     }
   };
 
+  const baseLabel = !staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`;
+  const commitLabel = staged.length || amend ? `${baseLabel}${pushAfter ? " and Push" : ""}${skip ? " (Skip Hooks)" : ""}` : baseLabel;
   const canCommit = !!summary.trim() && (staged.length > 0 || amend);
   const commitKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
@@ -520,8 +535,23 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             disabled={!canCommit}
             onClick={doCommit}
           >
-            {!staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+            {commitLabel}
           </button>
+          <button className="commit-options-toggle" onClick={() => setOptionsOpen(!optionsOpen)}>
+            Commit options {optionsOpen ? "▾" : "▸"}
+          </button>
+          {optionsOpen && (
+            <div className="commit-options">
+              <label className="check">
+                <input type="checkbox" checked={pushAfter} onChange={(e) => setPushAfter(e.target.checked)} /> Push after committing
+              </label>
+              {hook && (
+                <label className="check">
+                  <input type="checkbox" checked={skipHooks} onChange={(e) => setSkipHooks(e.target.checked)} /> Skip Git hooks
+                </label>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -25,6 +25,7 @@ export interface GitNeatApi {
   loadMerge(cwd: string, path: string, operation: Operation): Promise<MergeLoad>;
   loadOperation(cwd: string, operation: Operation): Promise<OperationInfo>;
   loadHeadMessage(cwd: string): Promise<HeadMessage>;
+  hasCommitHook(cwd: string): Promise<boolean>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
   missingPaths(paths: string[]): Promise<string[]>;

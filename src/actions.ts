@@ -682,8 +682,14 @@ export async function applyPatch(ctx: Ctx, patch: string, action: "stage" | "uns
   await go(ctx, label, "applyPatch", { patch, action });
 }
 
-export function commit(ctx: Ctx, message: string, amend: boolean) {
-  return go(ctx, "Commit", "commit", { message, amend });
+export async function commit(ctx: Ctx, message: string, amend: boolean, options: { push?: boolean; noVerify?: boolean } = {}) {
+  if (!(await go(ctx, "Commit", "commit", { message, amend, noVerify: !!options.noVerify }))) {
+    return false;
+  }
+  if (options.push) {
+    await push(ctx);
+  }
+  return true;
 }
 
 export function continueOperation(ctx: Ctx, op: Operation) {

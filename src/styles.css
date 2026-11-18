@@ -1346,6 +1346,21 @@ a.sha {
   resize: vertical;
 }
 
+.commit-options-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  text-align: left;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.commit-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .commit-btn {
   background: #2c5a34;
   border-color: #2c5a34;

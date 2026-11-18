@@ -209,6 +209,7 @@ export interface HeadMessage {
   description: string;
 }
 
+export const hasCommitHook = (cwd: string): Promise<boolean> => gitneat().hasCommitHook(cwd);
 export const loadHeadMessage = (cwd: string): Promise<HeadMessage> => gitneat().loadHeadMessage(cwd);
 
 export interface OperationInfo {

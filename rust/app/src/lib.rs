@@ -82,6 +82,7 @@ pub fn run() {
             commands::load_merge,
             commands::load_operation,
             commands::load_head_message,
+            commands::has_commit_hook,
             commands::open_repo_dialog,
             commands::pick_directory,
             commands::missing_paths,

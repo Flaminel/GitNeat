@@ -32,9 +32,12 @@ struct Merge {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Commit {
     message: String,
     amend: bool,
+    #[serde(default)]
+    no_verify: bool,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -251,6 +254,9 @@ async fn commit(cwd: &str, args: &Value) -> Res<Value> {
     let mut list = vec!["commit"];
     if a.amend {
         list.push("--amend");
+    }
+    if a.no_verify {
+        list.push("--no-verify");
     }
     list.extend(["-m", &a.message]);
     run(cwd, true, git(cwd, &list)).await
