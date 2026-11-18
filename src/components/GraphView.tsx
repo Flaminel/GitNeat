@@ -1,4 +1,5 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Commit, GraphRow, Ref, Segment } from "../repo";
 import { cap, showMenu, Splitter, useStored, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
@@ -152,9 +153,11 @@ const REF_ZONE_MAX_REFS = 100;
 
 function upstreamTitle(behind: number, ahead: number, upstream: string): string {
   if (behind > 0 && ahead > 0) {
-    return `${cap(behind)} commit(s) behind and ${cap(ahead)} commit(s) ahead of ${upstream}`;
+    return `${cap(behind)} commit(s) behind and ${cap(ahead)} commit(s) ahead of ${upstream}\n Double-click to pull changes`;
   }
-  return behind > 0 ? `${cap(behind)} commit(s) behind ${upstream}` : `${cap(ahead)} commit(s) ahead of ${upstream}`;
+  return behind > 0
+    ? `${cap(behind)} commit(s) behind ${upstream}\n Double-click to pull changes`
+    : `${cap(ahead)} commit(s) ahead of ${upstream}\n Double-click to push changes`;
 }
 
 function pillsFor(refs: Ref[]): Pill[] {
@@ -211,8 +214,14 @@ const RowView = memo(function RowView(props: {
   const isWip = commit.sha === WIP;
   const isMerge = commit.parents.length > 1;
   const first = pills[0];
-  const [zoneHover, setZoneHover] = useState(false);
-  const expanded = zoneHover && pills.length > 1;
+  const [zoneRect, setZoneRect] = useState<DOMRect | null>(null);
+  const menuOpen = useRef(false);
+  const expanded = zoneRect !== null && pills.length > 1;
+  const leaveZone = () => {
+    if (!menuOpen.current) {
+      setZoneRect(null);
+    }
+  };
   const renderPill = (p: Pill) => {
     const ref = p.ref;
     const behind = p.local && ref.upstream ? ref.behind ?? 0 : 0;
@@ -224,6 +233,10 @@ const RowView = memo(function RowView(props: {
         title={expanded ? undefined : pills.map((x) => x.label).join("\n")}
         onContextMenu={(e) => {
           e.stopPropagation();
+          menuOpen.current = true;
+          setTimeout(() => {
+            menuOpen.current = false;
+          }, 250);
           props.onSelect(commit.sha);
           props.onRefMenu(ref, e);
         }}
@@ -262,7 +275,7 @@ const RowView = memo(function RowView(props: {
   };
   return (
     <div
-      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${commit.stash ? " stash" : ""}${props.isHead ? " head" : ""}${expanded ? " refs-open" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
+      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${commit.stash ? " stash" : ""}${props.isHead ? " head" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
       style={{ top: props.index * ROW_HEIGHT, ["--row-color" as string]: color,
         ["--row-bg25" as string]: `var(${lane}-bg25)`,
         ["--row-bg45" as string]: `var(${lane}-bg45)`,
@@ -295,8 +308,9 @@ const RowView = memo(function RowView(props: {
       <div
         className="cell refs"
         style={{ width: props.refsWidth }}
-        onMouseEnter={() => setZoneHover(true)}
-        onMouseLeave={() => setZoneHover(false)}
+        onMouseEnter={(e) => setZoneRect(e.currentTarget.getBoundingClientRect())}
+        onMouseLeave={leaveZone}
+        onWheel={leaveZone}
       >
         {first && (
           <>
@@ -306,7 +320,18 @@ const RowView = memo(function RowView(props: {
                 {pills.length > 1 && <span className="pill more">+{pills.length - 1}</span>}
               </>
             )}
-            {expanded && <div className="ref-overlay">{pills.slice(0, REF_ZONE_MAX_REFS).map(renderPill)}</div>}
+            {expanded &&
+              createPortal(
+                <div
+                  className="ref-overlay"
+                  style={{ left: zoneRect.left + 4, top: zoneRect.top + ROW_HEIGHT / 2 - 15, ["--row-bg25" as string]: `var(${lane}-bg25)`, ["--row-bg45" as string]: `var(${lane}-bg45)`, ["--row-bg50" as string]: `var(${lane}-bg50)` }}
+                  onMouseLeave={leaveZone}
+                  onWheel={leaveZone}
+                >
+                  {pills.slice(0, REF_ZONE_MAX_REFS).map(renderPill)}
+                </div>,
+                document.body,
+              )}
             <span className="pill-line" />
           </>
         )}

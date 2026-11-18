@@ -688,8 +688,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D94. All ref pills on a graph row
 
-- Decision: A graph row with several refs shows the first pill and "+N" as before. If the pointer is over the ref cell, the cell shows an overlay list with one pill for each ref group, up to 100. The first pill stays at the row position. The row rises above the next rows while the overlay is open.
+- Decision: A graph row with several refs shows the first pill and "+N" as before. If the pointer is over the ref cell, an overlay list shows one pill for each ref group, up to 100. The overlay is a fixed element on the document body, so the scroll area does not clip it. The first pill stays at the row position. A mouse wheel on the cell or the overlay closes it.
 - Decision: Each pill has its own context menu, double click, drag and drop target. A drop on a pill acts on that ref. The tooltip of the collapsed pill lists all labels.
-- Decision: A local branch pill with an upstream shows the behind count and then the ahead count, each capped at "99+". The tooltip is "{0} commit(s) behind and {1} commit(s) ahead of {2}", or the behind or ahead only form.
+- Decision: While a ref context menu opens, a mouse leave does not close the overlay for 250 ms, as Source does with `isRefContextMenuShown`.
+- Decision: A local branch pill with an upstream shows the behind count and then the ahead count, each capped at "99+". The tooltip is the Source text, for example "{0} commit(s) behind {1}" and the line "Double-click to pull changes" (push if only ahead).
 - Reason: Task T33. Source `RefZone`, `overflow-count`, `onRefZoneHovered` and `getUpstreamIndicatorIconsAndTooltipsForRef` (`docs/EVIDENCE.md` section 11).
-- Limits: The tooltip leaves out the Source second line "Double-click to pull changes", because the Source double click only checks out the branch. The overlay sits inside the graph scroll area, so the last rows can clip it. Source uses a popover that leaves the area. The overlay keeps a mouse leave rule only: it does not stay open while a context menu is open. The Tauri window was not started: the type check and the tests pass.
+- Limits: The double click on a pill checks out the branch, as in Source (`onDoubleClickGraphRef` ignores the indicator). So the tooltip text "Double-click to pull changes" does not match the action. This follows Source. The Tauri window was not started: the type check and the tests pass.
