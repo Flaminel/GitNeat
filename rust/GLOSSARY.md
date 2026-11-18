@@ -14,3 +14,6 @@ Each term has one name in TypeScript and one name in Rust. Use these names in ev
 | Git result | Exit code, stdout and stderr of one `git` run | `GitResult` in `src/api.ts` | `git::GitResult` |
 | Menu spec | One context menu item from the UI | `MenuSpec` in `src/api.ts` | `menu::MenuSpec` |
 | Open repository | A folder with an active watcher. File commands work only inside it. | `insideOpenRepo` in `electron/main.ts` | `paths::inside` with `watch::Watchers` |
+| Graph row | The lane, color and line segments of one commit row | `GraphRow` in `src/repo.ts` | `graph::port::GraphRow` |
+| Diff source | The two sides of a diff: a commit, the index or the working tree | `DiffSource` in `src/repo.ts` | `loaders::DiffSource` (enum) |
+| Parsed diff | The file header and the hunks of one file diff | `ParsedDiff` in `src/diff.ts` | `diff::port::ParsedDiff` |

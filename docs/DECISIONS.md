@@ -271,3 +271,17 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The full build takes too long to run on each push to a pull request.
 - Rules: Only the owner, members and collaborators of the repository can start a build. The build checks out the head of the pull request. The `plan` job adds a rocket reaction to the comment. The workflow has read access to the contents by default.
 - Limits: GitHub runs `issue_comment` workflows from the file on the default branch. The comment trigger works only after this workflow is on `main`. The build does not show as a check on the pull request. Open the Actions tab to see it.
+
+## D45. The loaders and the graph layout run in Rust
+
+- Decision: The Tauri commands `load_commit`, `load_all_files`, `load_diff`, `load_sides`, `load_blame` and `load_file_history` in `rust/app/src/loaders.rs` replace the TS loaders in `src/repo.ts`. `load_repo` computes the graph rows with `graph::port::layout` and returns them in `RepoData.rows`.
+- Reason: These loaders were the last git logic in TS. One IPC call per loader replaces one IPC call per `git` run.
+- Rules: Each loader runs the same `git` arguments as the TS version, through `actions::git` or `actions::raw`. So the blocked option check and the error text stay the same. `load_diff` returns the parsed diff from `diff::port::ParsedDiff`, not the diff text. If the status is not empty, the rows include the `WIP` row first, with `HEAD` as its parent, as `src/RepoView.tsx` did. `load_sides` reads the working file only inside an open repository, as `read_file` does.
+- Proof: `test/loaders.test.ts` compares 2425 calls with the TS loaders in `test/reference/repo.ts` on 8 fixtures. `test/load-repo.test.ts` compares the rows with `layoutGraph` in `test/reference/graph.ts`.
+- Limits: `read_blame` returns an error for a porcelain line before the first header line. The TS version gave a different result there. `git blame --porcelain` does not produce such a line.
+
+## D46. The merge tool and the patch builders stay in TS
+
+- Decision: `src/merge.ts` and the patch builders in `src/diff.ts` (`hunkPatch`, `linesPatch`, `linesInRange`) stay in TS. The Rust ports in `rust/merge` and `rust/diff` stay as tested libraries.
+- Reason: The merge tool and the line selection call these functions on each click. An IPC call per click is slower than the TS call. They run no `git` command.
+- Limits: The TS and the Rust versions of these functions can drift. The recorded cases in `rust/merge` and `rust/diff` cover only the Rust side.

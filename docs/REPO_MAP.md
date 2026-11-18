@@ -25,18 +25,18 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
-| `rust/app/src/load.rs` | `load_repo`: backend choice and the `git` CLI path |
+| `rust/app/src/load.rs` | `load_repo`: backend choice, the `git` CLI path and the graph rows |
+| `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame and file history loaders (D45) |
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
 | `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
 | `rust/app/examples/` | Command line entry points that the TS comparison tests run |
-| `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of `src/graph.ts`, `src/diff.ts`, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
-| `test/load-repo.test.ts`, `test/actions.test.ts`, `test/menus-rust.test.ts` | TS against Rust comparison tests. They run only with `GITNEAT_RUST_COMPARE=1`. |
+| `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of the lane layout, the diff parser, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
+| `test/load-repo.test.ts`, `test/loaders.test.ts`, `test/actions.test.ts`, `test/menus-rust.test.ts` | TS against Rust comparison tests. They run only with `GITNEAT_RUST_COMPARE=1`. |
 | `rust/app/tauri.conf.json` | Tauri build and bundle settings |
-| `src/repo.ts` | Repository types, `loadRepo` (calls Rust), and the loaders for commit detail, diffs, blame, file history and remote web URLs |
-| `src/graph.ts` | Lane layout for the commit graph |
+| `src/repo.ts` | Repository and graph row types, the loaders (each calls a Rust command) and remote web URLs |
 | `src/merge.ts` | Merge conflict parser, selections and Output builder |
-| `src/diff.ts` | Unified diff parser and patch builder for hunks and selected lines |
+| `src/diff.ts` | Diff types and the patch builder for hunks and selected lines (D46) |
 | `src/monaco.ts` | Monaco setup: worker, `gitneat` theme, language detection |
 | `src/actions.ts` | UI flow of each repository action (prompts, confirms, toasts, undo records). The git work runs in Rust through `action`. |
 | `src/menus.ts` | Context menus: asks Rust for the menu with `contextMenu`, then runs the handler for the chosen id |
@@ -46,8 +46,8 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
-| `test/reference/` | Frozen TS version of `loadRepo`, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
-| `test/graph.test.ts` | Lane layout tests |
+| `test/reference/` | Frozen TS version of the loaders, the lane layout, the diff parser, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
+| `test/graph.test.ts` | Lane layout tests for `test/reference/graph.ts` |
 | `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
@@ -64,8 +64,8 @@ GitNeat is a Tauri 2 app with two parts.
 | Add or reorder a context menu item | `rust/app/src/menus/`, then the handler for its id in `src/menus.ts` |
 | Change the branch menu groups (Checkout and worktree submenus, merge items) | `rust/app/src/menus/`, then `branchHandlers` in `src/menus.ts` for the ids |
 | Add a git operation | `src/actions.ts`, then call it from `src/menus.ts` or `src/components/Toolbar.tsx` |
-| Load more data from git | `src/repo.ts` (`loadRepo` and the `RepoData` type) |
-| Change graph lanes or colors | `src/graph.ts` for lanes, `src/styles.css` (`--lane-*`) for colors |
+| Load more data from git | `rust/app/src/load.rs`, `rust/app/src/load_gix.rs` and the `RepoData` type in `src/repo.ts` |
+| Change graph lanes or colors | `rust/graph/src/port.rs` for lanes, `src/styles.css` (`--lane-*`) for colors |
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |

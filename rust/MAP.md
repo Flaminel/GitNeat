@@ -26,6 +26,8 @@ The decisions are in `docs/DECISIONS.md`.
 | D42 | Context menus are built in Rust |
 | D43 | Cutover to Tauri |
 | D44 | PR builds start from a comment |
+| D45 | The loaders and the graph layout run in Rust |
+| D46 | The merge tool and the patch builders stay in TS |
 
 Domain terms and their Rust names are in `rust/GLOSSARY.md`.
 
@@ -44,6 +46,7 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | D | `src/actions.ts` | done | `action` command with 58 actions in `rust/app/src/actions/` (D41). 164 scenarios equal with TS. |
 | E | `src/menus.ts` | done | `context_menu` command builds 10 menu kinds in `rust/app/src/menus/`. `test/menus-rust.test.ts` compares the trees with TS. |
 | F | Cutover | done | Electron removed (D43). TS fallback paths moved to `test/reference/`. Unit crates are plain libraries with `cargo test` replays. |
+| G | loaders in `src/repo.ts`, `layoutGraph`, `parseDiff` | done | 6 loader commands in `rust/app/src/loaders.rs` (D45). `test/loaders.test.ts`: 2425 calls equal with TS on 8 fixtures. Rows in `RepoData`. `src/graph.ts` deleted. `src/merge.ts` and the patch builders stay in TS (D46). |
 
 ## Port rules
 
