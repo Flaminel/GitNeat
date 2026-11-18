@@ -277,6 +277,68 @@ fn short_name(text: &str) -> String {
     }
 }
 
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct OperationInfo {
+    pub from: String,
+    pub to: String,
+}
+
+async fn git_path_text(cwd: &str, rel: &str) -> Option<String> {
+    let r = raw(cwd, &["rev-parse", "--git-path", rel], None, None).await;
+    if r.code != 0 {
+        return None;
+    }
+    let path = std::path::Path::new(cwd).join(js_trim(&r.stdout));
+    let text = std::fs::read_to_string(path).ok()?;
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
+}
+
+async fn current_branch(cwd: &str) -> String {
+    let r = raw(cwd, &["symbolic-ref", "--short", "-q", "HEAD"], None, None).await;
+    let out = js_trim(&r.stdout);
+    if r.code == 0 && !out.is_empty() {
+        return out.to_string();
+    }
+    let r = raw(cwd, &["rev-parse", "--short", "HEAD"], None, None).await;
+    js_trim(&r.stdout).to_string()
+}
+
+pub async fn load_operation(cwd: &str, op: Option<Operation>) -> OperationInfo {
+    if let Some(Operation::Rebase) = op {
+        let mut head = None;
+        let mut onto = None;
+        for dir in ["rebase-merge", "rebase-apply"] {
+            head = head.or(git_path_text(cwd, &format!("{dir}/head-name")).await);
+            onto = onto.or(git_path_text(cwd, &format!("{dir}/onto")).await);
+        }
+        let from = match head {
+            Some(name) => name
+                .strip_prefix("refs/heads/")
+                .unwrap_or(&name)
+                .to_string(),
+            None => current_branch(cwd).await,
+        };
+        let to = match onto {
+            Some(sha) => {
+                let r = raw(cwd, &["name-rev", "--name-only", &sha], None, None).await;
+                let out = js_trim(&r.stdout);
+                if r.code == 0 && !out.is_empty() && out != "undefined" {
+                    short_name(out)
+                } else {
+                    sha.chars().take(7).collect()
+                }
+            }
+            None => "B".to_string(),
+        };
+        return OperationInfo { from, to };
+    }
+    OperationInfo {
+        from: b_label(cwd, op).await,
+        to: current_branch(cwd).await,
+    }
+}
+
 async fn b_label(cwd: &str, op: Option<Operation>) -> String {
     let Some(op) = op else {
         return "B".to_string();
@@ -390,5 +452,43 @@ mod tests {
         assert_eq!(all["end"], true);
         assert!(all["next"].is_null());
         assert!(!all["commits"].as_array().unwrap().is_empty());
+    }
+
+    fn sh(dir: &std::path::Path, args: &[&str]) {
+        let out = std::process::Command::new("git")
+            .args(["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false"])
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
+        let _ = out;
+    }
+
+    #[tokio::test]
+    async fn operation_info_names_branches() {
+        let dir = std::env::temp_dir().join(format!("gitneat-op-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        sh(&dir, &["init", "-q", "-b", "main"]);
+        std::fs::write(dir.join("f"), "a\n").unwrap();
+        sh(&dir, &["add", "."]);
+        sh(&dir, &["commit", "-q", "-m", "base"]);
+        sh(&dir, &["checkout", "-q", "-b", "side"]);
+        std::fs::write(dir.join("f"), "side\n").unwrap();
+        sh(&dir, &["commit", "-q", "-am", "side"]);
+        sh(&dir, &["checkout", "-q", "main"]);
+        std::fs::write(dir.join("f"), "main\n").unwrap();
+        sh(&dir, &["commit", "-q", "-am", "main"]);
+        let cwd = dir.to_str().unwrap();
+        sh(&dir, &["merge", "side"]);
+        let info = load_operation(cwd, Some(Operation::Merge)).await;
+        assert_eq!((info.from.as_str(), info.to.as_str()), ("side", "main"));
+        sh(&dir, &["merge", "--abort"]);
+        sh(&dir, &["checkout", "-q", "side"]);
+        sh(&dir, &["rebase", "main"]);
+        let info = load_operation(cwd, Some(Operation::Rebase)).await;
+        assert_eq!((info.from.as_str(), info.to.as_str()), ("side", "main"));
+        sh(&dir, &["rebase", "--abort"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -198,3 +198,10 @@ export interface HeadMessage {
 }
 
 export const loadHeadMessage = (cwd: string): Promise<HeadMessage> => gitneat().loadHeadMessage(cwd);
+
+export interface OperationInfo {
+  from: string;
+  to: string;
+}
+
+export const loadOperation = (cwd: string, operation: Operation): Promise<OperationInfo> => gitneat().loadOperation(cwd, operation);

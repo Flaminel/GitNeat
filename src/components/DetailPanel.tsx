@@ -337,7 +337,8 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const [amend, setAmend] = useState(false);
   const [tree, setTree] = useState(false);
   const status = ctx.data.status;
-  const unstaged = status.filter((e) => e.work !== " " || e.index === "?");
+  const conflicted = status.filter((e) => statusCode(e, false) === "U");
+  const unstaged = status.filter((e) => (e.work !== " " || e.index === "?") && statusCode(e, false) !== "U");
   const staged = status.filter((e) => e.index !== " " && e.index !== "?" && statusCode(e, true) !== "U");
 
   useEffect(() => {
@@ -391,6 +392,30 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
           You are in a detached HEAD state
         </div>
       )}
+      {conflicted.length > 0 && (
+        <div className="stage-section">
+          <div className="stage-head">
+            <span>Conflicted Files ({conflicted.length})</span>
+            <button className="stage-btn" onClick={() => A.markResolved(ctx, conflicted.map((e) => e.path))}>
+              Mark all resolved
+            </button>
+          </div>
+          <div className="files">
+            <FileList
+              files={conflicted.map((e) => ({ path: e.path, status: "U" }))}
+              tree={tree}
+              isOpen={isOpen(false)}
+              onOpen={(p) => open(p, false, false)}
+              onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: false })}
+              extra={(p) => (
+                <button className="file-action" onClick={(e) => { e.stopPropagation(); void A.markResolved(ctx, [p]); }}>
+                  Mark resolved
+                </button>
+              )}
+            />
+          </div>
+        </div>
+      )}
       <div className="stage-section">
         <div className="stage-head">
           <span>Unstaged Files ({unstaged.length})</span>
@@ -415,7 +440,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
       </div>
       <div className="stage-section">
         <div className="stage-head">
-          <span>Staged Files ({staged.length})</span>
+          <span>{ctx.data.operation ? "Resolved Files" : "Staged Files"} ({staged.length})</span>
           <button className="stage-btn unstage" disabled={!staged.length} onClick={() => A.unstageAll(ctx)}>
             Unstage all changes
           </button>

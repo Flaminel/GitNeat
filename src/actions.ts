@@ -617,6 +617,10 @@ export function continueOperation(ctx: Ctx, op: Operation) {
 
 export const abortOperation = (ctx: Ctx, op: Operation) => go(ctx, `Abort ${op}`, "abortOperation", { op });
 
+export const skipOperation = (ctx: Ctx) => go(ctx, "Skip commit", "skipOperation", {});
+
+export const markResolved = (ctx: Ctx, paths: string[]) => go(ctx, "Mark resolved", "markResolved", { paths });
+
 export const resolveFile = (ctx: Ctx, path: string, how: "ours" | "theirs" | "delete") => go(ctx, "Resolve", "resolveFile", { path, how });
 
 export const saveResolved = (ctx: Ctx, path: string, content: string) =>

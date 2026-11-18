@@ -1,5 +1,5 @@
 import type { ParsedDiff } from "./diff";
-import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, FileHistoryPage, HeadMessage, MergeLoad, Operation, RepoData } from "./repo";
+import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, FileHistoryPage, HeadMessage, MergeLoad, Operation, OperationInfo, RepoData } from "./repo";
 
 export interface MenuSpec {
   label?: string;
@@ -22,6 +22,7 @@ export interface GitNeatApi {
   loadFileHistory(cwd: string, file: string, limit: number): Promise<Commit[]>;
   loadFileHistoryPage(cwd: string, file: string, pages: number): Promise<FileHistoryPage>;
   loadMerge(cwd: string, path: string, operation: Operation): Promise<MergeLoad>;
+  loadOperation(cwd: string, operation: Operation): Promise<OperationInfo>;
   loadHeadMessage(cwd: string): Promise<HeadMessage>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;

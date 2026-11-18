@@ -97,6 +97,8 @@ pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
         "commit" => commit(cwd, args).await,
         "continueOperation" => continue_operation(cwd, args).await,
         "abortOperation" => abort_operation(cwd, args).await,
+        "skipOperation" => skip_operation(cwd).await,
+        "markResolved" => mark_resolved(cwd, args).await,
         _ => return None,
     })
 }
@@ -269,4 +271,21 @@ async fn continue_operation(cwd: &str, args: &Value) -> Res<Value> {
 async fn abort_operation(cwd: &str, args: &Value) -> Res<Value> {
     let a: Op = parse(args)?;
     run(cwd, true, git(cwd, &[a.op.word(), "--abort"])).await
+}
+
+async fn skip_operation(cwd: &str) -> Res<Value> {
+    let editor = env(&[("GIT_EDITOR", ":")]);
+    run(cwd, true, git_env(cwd, &["rebase", "--skip"], editor)).await
+}
+
+#[derive(Deserialize)]
+struct Paths {
+    paths: Vec<String>,
+}
+
+async fn mark_resolved(cwd: &str, args: &Value) -> Res<Value> {
+    let a: Paths = parse(args)?;
+    let mut list = vec!["add", "--"];
+    list.extend(a.paths.iter().map(String::as_str));
+    run(cwd, true, git(cwd, &list)).await
 }

@@ -2,7 +2,7 @@ use crate::actions;
 use crate::git;
 use crate::load::Operation;
 use crate::load::{self, RepoData};
-use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad};
+use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad, OperationInfo};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::menus::{self, MenuKind};
 use crate::paths;
@@ -109,6 +109,11 @@ pub async fn load_file_history(cwd: String, file: String, limit: Option<u32>) ->
 #[tauri::command]
 pub async fn load_merge(cwd: String, path: String, operation: Option<Operation>) -> Res<MergeLoad> {
     loaders::load_merge(&cwd, &path, operation).await
+}
+
+#[tauri::command]
+pub async fn load_operation(cwd: String, operation: Option<Operation>) -> OperationInfo {
+    loaders::load_operation(&cwd, operation).await
 }
 
 #[tauri::command]
