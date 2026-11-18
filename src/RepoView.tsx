@@ -339,7 +339,7 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
           <button className="primary" onClick={() => A.continueOperation(ctx, data.operation)}>
             Continue {data.operation}
           </button>
-          {data.operation === "rebase" && <button onClick={() => A.skipOperation(ctx)}>Skip</button>}
+          {data.operation === "rebase" && !data.status.some((e) => e.index !== " " && e.index !== "?" && e.index !== "U") && <button onClick={() => A.skipOperation(ctx)}>Skip Commit</button>}
           <button className="danger" onClick={() => A.abortOperation(ctx, data.operation)}>
             Abort {data.operation}
           </button>

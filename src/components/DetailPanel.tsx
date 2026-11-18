@@ -359,6 +359,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   };
 
+  const skipCommit = ctx.data.operation === "rebase" && !staged.length && !amend;
   const canCommit = !!summary.trim() && (staged.length > 0 || amend);
   const commitKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
@@ -407,11 +408,6 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
               isOpen={isOpen(false)}
               onOpen={(p) => open(p, false, false)}
               onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: false })}
-              extra={(p) => (
-                <button className="file-action" onClick={(e) => { e.stopPropagation(); void A.markResolved(ctx, [p]); }}>
-                  Mark resolved
-                </button>
-              )}
             />
           </div>
         </div>
@@ -474,10 +470,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
         <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={commitKey} />
         <button
           className="commit-btn"
-          disabled={!canCommit}
-          onClick={doCommit}
+          disabled={!skipCommit && !canCommit}
+          onClick={skipCommit ? () => A.skipOperation(ctx) : doCommit}
         >
-          {!staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+          {skipCommit ? "Skip Commit" : !staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
         </button>
       </div>
     </div>

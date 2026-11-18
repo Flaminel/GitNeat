@@ -504,9 +504,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: The Tauri command `load_operation` returns `{from, to}` for the running operation. `RepoView` calls it when the operation or HEAD changes. The banner reads "Merging {from} into {to}" or "Rebasing {from} onto {to}". A cherry-pick or a revert keeps "A {operation} is in progress."
 - Rules: For a merge, `from` is `name-rev` of `MERGE_HEAD` (the same label as the merge tool B pane) and `to` is the current branch. For a rebase, `from` is `head-name` and `to` is `name-rev` of `onto`, both read from `rebase-merge` or `rebase-apply`.
-- Decision: The banner has a Skip button during a rebase. It runs `rebase --skip` through the action `skipOperation`.
-- Decision: The WIP panel has a "Conflicted Files ({n})" section above Unstaged Files, with "Mark all resolved" and a "Mark resolved" row button. The action `markResolved` runs `git add -- {paths}`. Conflicted files leave the Unstaged section. During an operation, the Staged section reads "Resolved Files ({n})".
+- Decision: During a rebase with nothing staged, the commit button in the WIP panel reads "Skip Commit" and runs `rebase --skip` through the action `skipOperation`. The banner shows the same button under the same condition.
+- Decision: The WIP panel has a "Conflicted Files ({n})" section above Unstaged Files, with "Mark all resolved". The action `markResolved` runs `git add -- {paths}`. Conflicted files leave the Unstaged section. During an operation, the Staged section reads "Resolved Files ({n})".
 - Reason: Source has `ConflictsHeader-Merging`, `ConflictsHeader-Rebasing`, the sections "Conflicted Files" and "Resolved Files" and `Folder-MarkConflictedFilesAsResolved` (`docs/EVIDENCE.md` sections 10 and 12). Task T20.
-- Limits: Source shows "Skip Commit" only if nothing is staged in a rebase. GitNeat shows Skip for the whole rebase. The evidence has no rule for "Mark resolved" on a single row, so that button is a GitNeat addition. A deleted-by-one-side conflict also uses `git add`, which keeps the file.
+- Limits: The evidence does not say if the banner also holds Skip. GitNeat shows it there as the task asks. A deleted-by-one-side conflict also uses `git add`, which keeps the file.
 - Limits: No manual check in the app: the Tauri window was not started in this task. The Rust test `operation_info_names_branches` covers a conflicted merge and a conflicted rebase.
 
