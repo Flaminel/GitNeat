@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { gitneat } from "./api";
 import { Tab, Tabs, tabTitle } from "./components/Tabs";
-import { git, samePath } from "./repo";
+import { cloneRepo, initRepo } from "./actions";
+import { samePath } from "./repo";
 import { RepoPrefs, RepoView } from "./RepoView";
 import { useUi } from "./ui";
 import pkg from "../package.json";
@@ -134,14 +135,14 @@ export function App() {
     }
     const name = v.url.trim().replace(/\/$/, "").split(/[/:]/).pop()?.replace(/\.git$/, "") || "repo";
     const target = `${parent}/${name}`;
-    if (await ui.task(`Clone ${name}`, () => git(parent, ["clone", "--", v.url.trim(), target]))) {
+    if (await ui.task(`Clone ${name}`, () => cloneRepo(parent, v.url.trim(), target))) {
       openTab(target);
     }
   };
 
   const init = async () => {
     const dir = await gitneat().pickDirectory();
-    if (dir && (await ui.task("Init", () => git(dir, ["init"])))) {
+    if (dir && (await ui.task("Init", () => initRepo(dir)))) {
       openTab(dir);
     }
   };

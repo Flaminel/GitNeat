@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { buildOutput, parseMerge, sideLines } from "../src/merge";
+import { buildOutput, sideLines } from "../src/merge";
+import { parseMerge } from "./reference/merge";
 
 function segments() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-merge-"));

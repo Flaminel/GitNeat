@@ -1,5 +1,5 @@
 import type { ParsedDiff } from "./diff";
-import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, RepoData } from "./repo";
+import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, HeadMessage, MergeLoad, Operation, RepoData } from "./repo";
 
 export interface GitResult {
   code: number;
@@ -27,6 +27,8 @@ export interface GitNeatApi {
   loadSides(cwd: string, source: DiffSource, file: string, orig?: string): Promise<DiffSides>;
   loadBlame(cwd: string, file: string, rev?: string): Promise<BlameLine[]>;
   loadFileHistory(cwd: string, file: string, limit: number): Promise<Commit[]>;
+  loadMerge(cwd: string, path: string, operation: Operation): Promise<MergeLoad>;
+  loadHeadMessage(cwd: string): Promise<HeadMessage>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;

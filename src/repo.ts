@@ -1,5 +1,6 @@
 import { gitneat } from "./api";
 import type { ParsedDiff } from "./diff";
+import type { Segment as MergeSegment } from "./merge";
 
 export interface Commit {
   sha: string;
@@ -106,14 +107,6 @@ export interface CommitDetail {
 
 export class GitError extends Error {}
 
-export async function git(cwd: string, args: string[], env?: Record<string, string>): Promise<string> {
-  const result = await gitneat().git(cwd, args, env);
-  if (result.code !== 0) {
-    throw new GitError((result.stderr || result.stdout).trim() || `git ${args[0]} failed`);
-  }
-  return result.stdout;
-}
-
 export function samePath(a: string, b: string): boolean {
   const norm = (p: string) => {
     const s = p.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -185,3 +178,14 @@ export interface BlameLine {
 export const loadBlame = (cwd: string, file: string, rev?: string): Promise<BlameLine[]> => gitneat().loadBlame(cwd, file, rev);
 
 export const loadFileHistory = (cwd: string, file: string, limit = 200): Promise<Commit[]> => gitneat().loadFileHistory(cwd, file, limit);
+
+export type MergeLoad = { kind: "text"; segments: MergeSegment[]; bName: string } | { kind: "binary" } | { kind: "delete"; missing: "a" | "b" };
+
+export const loadMerge = (cwd: string, path: string, operation: Operation): Promise<MergeLoad> => gitneat().loadMerge(cwd, path, operation);
+
+export interface HeadMessage {
+  summary: string;
+  description: string;
+}
+
+export const loadHeadMessage = (cwd: string): Promise<HeadMessage> => gitneat().loadHeadMessage(cwd);

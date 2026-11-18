@@ -105,6 +105,10 @@ export const checkoutRef = (ctx: Ctx, name: string) => go(ctx, `Checkout ${name}
 
 export const checkoutCommit = (ctx: Ctx, sha: string) => go(ctx, `Checkout ${short(sha)}`, "checkoutCommit", { sha });
 
+export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => act<string>(parent, "clone", { url, target });
+
+export const initRepo = (dir: string): Promise<string> => act<string>(dir, "init", {});
+
 export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
   const local = remoteBranch.split("/").slice(1).join("/");
   const existing = ctx.data.refs.find((r) => r.kind === "local" && r.name === local);

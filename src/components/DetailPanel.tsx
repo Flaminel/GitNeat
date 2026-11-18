@@ -3,7 +3,7 @@ import * as A from "../actions";
 import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
-import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, StatusEntry } from "../repo";
+import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
 
@@ -229,13 +229,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
 
   useEffect(() => {
     if (amend && !summary && ctx.data.head) {
-      gitneat()
-        .git(ctx.cwd, ["show", "-s", "--format=%B", "HEAD"])
-        .then((r) => {
-          const [s, ...rest] = r.stdout.trim().split("\n");
-          setSummary(s);
-          setDescription(rest.join("\n").trim());
-        });
+      loadHeadMessage(ctx.cwd).then((m) => {
+        setSummary(m.summary);
+        setDescription(m.description);
+      });
     }
   }, [amend, summary, ctx.cwd, ctx.data.head]);
 

@@ -23,6 +23,8 @@ export function tauriApi(): GitNeatApi {
     loadSides: (cwd, source, file, orig) => invoke("load_sides", { cwd, source, file, orig }),
     loadBlame: (cwd, file, rev) => invoke("load_blame", { cwd, file, rev }),
     loadFileHistory: (cwd, file, limit) => invoke("load_file_history", { cwd, file, limit }),
+    loadMerge: (cwd, path, operation) => invoke("load_merge", { cwd, path, operation }),
+    loadHeadMessage: (cwd) => invoke("load_head_message", { cwd }),
     openRepoDialog: () => invoke("open_repo_dialog"),
     pickDirectory: () => invoke("pick_directory"),
     saveFile: (defaultName, content) => invoke("save_file", { defaultName, content }),

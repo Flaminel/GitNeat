@@ -1,48 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
-import { gitneat } from "../api";
-import { allTaken, buildOutput, parseMerge, Segment, Selection, sideLines, sideTaken, takeAll, togglePick, toggleSide } from "../merge";
+import { allTaken, buildOutput, Segment, Selection, sideLines, sideTaken, takeAll, togglePick, toggleSide } from "../merge";
 import { languageFor, monaco } from "../monaco";
+import { loadMerge, MergeLoad } from "../repo";
 import { showMenu } from "../ui";
 import { StatusIcon } from "./DetailPanel";
 import { MONO } from "./DiffView";
 
-type Loaded =
-  | { kind: "text"; segments: Segment[]; bName: string }
-  | { kind: "binary" }
-  | { kind: "delete"; missing: "a" | "b" };
-
 type Conflict = Extract<Segment, { kind: "conflict" }>;
 
 const COLORS = { a: "merge-a", b: "merge-b" };
-
-async function bLabel(cwd: string, op: Ctx["data"]["operation"]): Promise<string> {
-  const heads = { merge: "MERGE_HEAD", "cherry-pick": "CHERRY_PICK_HEAD", revert: "REVERT_HEAD", rebase: "REBASE_HEAD" };
-  const ref = op ? heads[op] : null;
-  if (!ref) {
-    return "B";
-  }
-  const r = await gitneat().git(cwd, op === "merge" ? ["name-rev", "--name-only", ref] : ["rev-parse", "--short", ref]);
-  return r.code === 0 && r.stdout.trim() ? r.stdout.trim().replace(/^remotes\//, "").replace(/[~^].*$/, "") : "B";
-}
-
-async function load(ctx: Ctx, path: string): Promise<Loaded> {
-  const show = (n: number) => gitneat().git(ctx.cwd, ["show", `:${n}:${path}`]);
-  const [base, a, b] = await Promise.all([show(1), show(2), show(3)]);
-  if (a.code !== 0 || b.code !== 0) {
-    return { kind: "delete", missing: a.code !== 0 ? "a" : "b" };
-  }
-  if (a.stdout.includes("\0") || b.stdout.includes("\0")) {
-    return { kind: "binary" };
-  }
-  const [ours, root, theirs] = await Promise.all([a.stdout, base.code === 0 ? base.stdout : "", b.stdout].map((t) => gitneat().writeTemp(t)));
-  const merged = await gitneat().git(ctx.cwd, ["merge-file", "-p", "--diff3", "-L", "A", "-L", "base", "-L", "B", ours, root, theirs]);
-  if (merged.code < 0 || merged.code > 127) {
-    throw new Error(merged.stderr.trim() || "git merge-file failed");
-  }
-  return { kind: "text", segments: parseMerge(merged.stdout), bName: await bLabel(ctx.cwd, ctx.data.operation) };
-}
 
 function Editors(props: { ctx: Ctx; path: string; segments: Segment[]; bName: string; onClose(): void }) {
   const { ctx, path, segments } = props;
@@ -297,14 +265,14 @@ function Editors(props: { ctx: Ctx; path: string; segments: Segment[]; bName: st
 
 export function MergeView(props: { ctx: Ctx; path: string; onClose(): void }) {
   const { ctx, path, onClose } = props;
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loaded, setLoaded] = useState<MergeLoad | null>(null);
   const [error, setError] = useState<string | null>(null);
   const slash = path.lastIndexOf("/");
 
   useEffect(() => {
     let live = true;
     setLoaded(null);
-    load(ctx, path).then(
+    loadMerge(ctx.cwd, path, ctx.data.operation).then(
       (l) => live && setLoaded(l),
       (e) => live && setError(e instanceof Error ? e.message : String(e)),
     );
