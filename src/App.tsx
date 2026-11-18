@@ -172,6 +172,27 @@ export function App() {
     }));
   };
 
+  const repoPreferences = async () => {
+    const path = state?.tabs[state.active]?.path;
+    if (!state || !path) {
+      return;
+    }
+    const current = state.prefs[path]?.commitDefaults;
+    const v = await ui.prompt(
+      "Repository Preferences",
+      [
+        { name: "push", label: "Push after each commit", kind: "checkbox", value: String(current?.push ?? false) },
+        { name: "skipHooks", label: "Skip git hooks by default when committing", kind: "checkbox", value: String(current?.skipHooks ?? false) },
+      ],
+      "Save",
+    );
+    if (!v) {
+      return;
+    }
+    const commitDefaults = { push: v.push === "true", skipHooks: v.skipHooks === "true" };
+    update((s) => ({ ...s, prefs: { ...s.prefs, [path]: { ...(s.prefs[path] ?? NO_PREFS), commitDefaults } } }));
+  };
+
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
 
   const closeTabs = (keep: (i: number) => boolean) =>
@@ -226,6 +247,7 @@ export function App() {
       tab: () => update((s) => ({ ...s, active: Math.min(Number(index) - 1, s.tabs.length - 1) })),
       favorite: () => state.favorites[Number(index) - 1] && openTab(state.favorites[Number(index) - 1]),
       preferences,
+      "repo-preferences": repoPreferences,
       "support-docs": () => gitneat().openExternal(SUPPORT_URL),
     };
     void actions[name]?.();

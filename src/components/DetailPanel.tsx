@@ -336,8 +336,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const [description, setDescription] = useState("");
   const [amend, setAmend] = useState(false);
   const [tree, setTree] = useState(false);
-  const [pushAfter, setPushAfter] = useState(false);
-  const [skipHooks, setSkipHooks] = useState(false);
+  const [pendingPush, setPendingPush] = useState<boolean | null>(null);
+  const [pendingSkip, setPendingSkip] = useState<boolean | null>(null);
+  const pushAfter = pendingPush ?? ctx.commitDefaults.push;
+  const skipHooks = pendingSkip ?? ctx.commitDefaults.skipHooks;
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [hook, setHook] = useState(false);
   const status = ctx.data.status;
@@ -543,11 +545,11 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
           {optionsOpen && (
             <div className="commit-options">
               <label className="check">
-                <input type="checkbox" checked={pushAfter} onChange={(e) => setPushAfter(e.target.checked)} /> Push after committing
+                <input type="checkbox" checked={pushAfter} onChange={(e) => setPendingPush(e.target.checked)} /> Push after committing
               </label>
               {hook && (
                 <label className="check">
-                  <input type="checkbox" checked={skipHooks} onChange={(e) => setSkipHooks(e.target.checked)} /> Skip Git hooks
+                  <input type="checkbox" checked={skipHooks} onChange={(e) => setPendingSkip(e.target.checked)} /> Skip Git hooks
                 </label>
               )}
             </div>

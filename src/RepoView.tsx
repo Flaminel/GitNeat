@@ -20,6 +20,12 @@ export interface RepoPrefs {
   closed?: string[];
   openSections?: string[];
   sectionYsByKey?: Record<string, number>;
+  commitDefaults?: CommitDefaults;
+}
+
+export interface CommitDefaults {
+  push: boolean;
+  skipHooks: boolean;
 }
 
 export interface Settings {
@@ -239,6 +245,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         hidden: prefs.hidden,
         solo: prefs.solo,
         prune: settings.autoPrune,
+        commitDefaults: prefs.commitDefaults ?? { push: false, skipHooks: false },
         layout,
         setLayout,
         record: (entry) => {

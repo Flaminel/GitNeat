@@ -26,6 +26,7 @@ export interface Ctx {
   solo: string[];
   record(entry: UndoEntry): void;
   prune: boolean;
+  commitDefaults: { push: boolean; skipHooks: boolean };
   layout: Layout;
   setLayout(key: string, value: number | boolean | string): void;
 }

@@ -60,6 +60,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &PredefinedMenuItem::about(app, Some(&format!("About {name}")), None)?,
             &sep(app)?,
             &item(app, "preferences", "Preferences...", Some("CmdOrCtrl+,"))?,
+            &item(app, "repo-preferences", "Repository Preferences...", None)?,
             &sep(app)?,
             &PredefinedMenuItem::services(app, None)?,
             &sep(app)?,
