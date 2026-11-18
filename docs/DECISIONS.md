@@ -348,3 +348,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The webview localStorage is lost after a webview data reset or a change of the app identifier. Source keeps panel sizes in the profile settings (see `docs/EVIDENCE.md` section 10). Task T38 of the parity plan (D50).
 - Rules: The keys are `left`, `right`, `refs`, `graph`, `message`, `left.collapsed`, `diff.mode`, `diff.ignoreWhitespace` and `diff.wordWrap`. The setter of the hook takes a `save` flag, true by default. While a drag runs, `Splitter` calls the setter with `save` false, so only the local state changes. On mouseup, `Splitter` calls the setter one time with `save` true, so a drag writes the file one time. Source also saves the size on resize end (see `docs/EVIDENCE.md` section 10). A click on a diff option writes the file at once. If the saved file has no `layout` key, `legacyLayout` copies the old `gitneat.width.*`, `gitneat.flag.*` and diff option values from localStorage. After that, GitNeat does not read localStorage. `layout` is a separate key from `prefs`, because `prefs` holds values for each repository and `layout` holds values for the app.
 - Limits: GitNeat does not delete the old localStorage keys. A value of the wrong type in the file falls back to the default.
+
+## D56. The state file is written to a temporary file and renamed
+
+- Decision: `set` in `rust/app/src/store.rs` writes `gitneat-state.json.tmp`, then renames it to `gitneat-state.json`.
+- Reason: Before this change, the write emptied the file and then wrote it again. A crash during the write lost the tabs, the recent list, the prefs and the layout.
+- Rules: A `tokio::sync::Mutex` lets only one write run at a time, so two `store_set` calls do not write the same temporary file together.
+- Limits: The rename does not call `fsync`. After a power loss, the operating system can keep the old file or an empty file.
