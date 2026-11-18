@@ -10,7 +10,7 @@ import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
-import { Commit, loadRepo, RepoData } from "./repo";
+import { Commit, loadRepo, RepoData, samePath } from "./repo";
 import { Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
@@ -24,6 +24,7 @@ interface Props {
   path: string;
   prefs: RepoPrefs;
   setPrefs(prefs: Partial<RepoPrefs>): void;
+  mainSections(mainPath: string): string[] | undefined;
   openTab(path: string): void;
   recent: string[];
 }
@@ -54,7 +55,7 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
+export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent }: Props) {
   const ui = useUi();
   const cached = cache.get(path);
   const [data, setData] = useState<RepoData | null>(cached?.data ?? null);
@@ -96,6 +97,18 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!data || prefs.openSections) {
+      return;
+    }
+    const self = data.worktrees.find((w) => samePath(w.path, path));
+    const main = data.worktrees.find((w) => w.main);
+    const sections = self && !self.main && main ? mainSections(main.path) : undefined;
+    if (sections) {
+      setPrefs({ openSections: sections });
+    }
+  }, [data, path, prefs.openSections, mainSections, setPrefs]);
 
   useEffect(() => {
     void gitneat().watch(path);
