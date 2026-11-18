@@ -67,6 +67,8 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const loadSeq = useRef(0);
+  const [shown, setShown] = useState(selected);
+  const held = useRef(false);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
@@ -195,6 +197,33 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   });
 
   useEffect(() => {
+    if (!held.current) {
+      setShown(selected);
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    const arrow = (e: KeyboardEvent) => e.key === "ArrowUp" || e.key === "ArrowDown";
+    const onDown = (e: KeyboardEvent) => {
+      if (arrow(e) && e.repeat) {
+        held.current = true;
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (arrow(e) && held.current) {
+        held.current = false;
+        setShown(selected);
+      }
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, [selected]);
+
+  useEffect(() => {
     if (selected === WIP && data && data.status.length === 0) {
       setSelected(data.head);
     }
@@ -317,7 +346,7 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
           <>
             <Splitter value={rightWidth} set={setRightWidth} min={260} max={900} invert />
             <div className="pane" style={{ width: rightWidth }}>
-              <DetailPanel ctx={ctx} sha={selected} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />
+              <DetailPanel ctx={ctx} sha={shown ?? selected} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />
             </div>
           </>
         )}

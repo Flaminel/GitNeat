@@ -381,3 +381,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source uses these shortcuts (see `docs/EVIDENCE.md` section 9). Task T06 of the parity plan (D50).
 - Rules: On Windows and Linux, Ctrl replaces Cmd. A repository shortcut does nothing while the focus is in an input, a textarea, a select or a Monaco editor. Alt with the shortcut does nothing. Cmd+B does nothing without a HEAD commit. Cmd+Shift+S and Cmd+Shift+U do nothing when no file is in the matching list. Cmd+Shift+M selects the WIP row and focuses the commit summary. It does nothing when the work tree has no changes.
 - Limits: Cmd+Z in an input stays the text undo of the browser. Cmd+Shift+M does not work from inside an input. No manual check in the app: the screen was locked during T06.
+
+## D60. Graph keyboard navigation
+
+- Decision: In the graph, Shift+Up and Shift+Down extend the selection by one row. `H` selects the HEAD commit. The handler in `src/components/GraphView.tsx` keeps a cursor at the moving end of the range and calls the select callback of `src/RepoView.tsx` with the `range` mode. The detail panel shows a second value, `shown`. `shown` follows the selection at once, except while the user holds an arrow key. When the key repeats, `shown` stops. On key up, `shown` takes the current selection.
+- Reason: Source uses `selectPrevious(e.shiftKey)`, `selectNext(e.shiftKey)`, `selectHead` and loads the detail on key up (see `docs/EVIDENCE.md` section 11). Task T07 of the parity plan (D50).
+- Rules: The graph keys do nothing while the focus is in an input, a textarea, a select or a Monaco editor. The graph keys do nothing with Cmd, Ctrl or Alt. Shift+H does nothing. `H` does nothing without a HEAD commit. The range skips the WIP row and the stash rows (see the `select` callback).
+- Limits: The graph scrolls to the anchor of the range, not to the cursor. A long Shift range can move the cursor out of view. No manual check in the app: the screen was locked during T07.

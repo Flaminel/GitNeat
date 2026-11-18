@@ -264,6 +264,7 @@ const RowView = memo(function RowView(props: {
 
 export function GraphView(props: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  const cursor = useRef<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(800);
   const [refsWidth, setRefsWidth] = useStoredWidth("refs", 220);
@@ -316,14 +317,26 @@ export function GraphView(props: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!["ArrowUp", "ArrowDown"].includes(e.key) || (e.target as HTMLElement).closest("input, textarea")) {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, select, .monaco-editor")) {
         return;
       }
-      const i = props.commits.findIndex((c) => c.sha === props.selected);
+      if (e.code === "KeyH" && !e.shiftKey) {
+        if (props.head) {
+          e.preventDefault();
+          props.onSelect(props.head);
+        }
+        return;
+      }
+      if (!["ArrowUp", "ArrowDown"].includes(e.key)) {
+        return;
+      }
+      const extend = e.shiftKey && props.multi.length > 1 && cursor.current !== null && props.multi.includes(cursor.current);
+      const i = props.commits.findIndex((c) => c.sha === (extend ? cursor.current : props.selected));
       const next = props.commits[Math.max(0, Math.min(props.commits.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
       if (next) {
         e.preventDefault();
-        props.onSelect(next.sha);
+        cursor.current = next.sha;
+        props.onSelect(next.sha, e.shiftKey ? "range" : undefined);
       }
     };
     window.addEventListener("keydown", onKey);
