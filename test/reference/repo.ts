@@ -251,8 +251,8 @@ function parseRemotes(out: string): Remote[] {
 }
 
 export async function loadCommit(cwd: string, sha: string): Promise<CommitDetail> {
-  const meta = await git(cwd, ["show", "-s", `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%cn${FS}%ct${FS}%B`, sha]);
-  const [full, parents, author, email, at, committer, ct, message] = meta.split(FS);
+  const meta = await git(cwd, ["show", "-s", `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%cn${FS}%ct${FS}%B${FS}%ce${FS}%(trailers:key=Co-authored-by,valueonly,unfold)`, sha]);
+  const [full, parents, author, email, at, committer, ct, message, committerEmail = "", trailers = ""] = meta.split(FS);
   const parentList = parents ? parents.split(" ") : [];
   const diffArgs = parentList.length
     ? ["diff-tree", "-r", "-M", "--name-status", "-z", parentList[0], full]
@@ -267,6 +267,8 @@ export async function loadCommit(cwd: string, sha: string): Promise<CommitDetail
     committer,
     commitTime: Number(ct),
     message: message.trim(),
+    committerEmail: committerEmail.trim(),
+    coAuthors: trailers.split("\n").map((l) => l.trim()).filter(Boolean),
     files,
   };
 }

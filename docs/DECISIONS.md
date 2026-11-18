@@ -463,3 +463,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The Source bundle shows one hover button for each WIP row, and a second button only for submodules. `File-Reset` "Discard changes" is a context menu item. The task text said Discard shows on hover. The bundle does not. Task T15 follows the bundle (`docs/EVIDENCE.md` section 10).
 - Rules: The warning shows if HEAD has a commit, no branch is checked out and no rebase runs. The WIP view is the only place that renders it.
 - Limits: No manual check in the app: the Tauri window was not started in this task. Source sets the warning style with CSS classes whose values are not in the evidence. GitNeat uses a centered row with an orange icon.
+
+## D71. Author block email tooltip, committer rule and co-authors
+
+- Decision: `load_commit` reads the committer email (`%ce`) and the `Co-authored-by` trailers (`%(trailers:key=Co-authored-by,valueonly,unfold)`). `CommitDetail` gets `committerEmail` and `coAuthors` (raw `Name <email>` values). The frozen reference in `test/reference/repo.ts` has the same fields.
+- Rules: The author name and the committer name have the email as a tooltip. The committer block shows if the name or the email differs from the author. A "Co-authors:" row shows a 20 px avatar and the name of each co-author, with the email as a tooltip.
+- Reason: The Source bundle shows these three items (`docs/EVIDENCE.md` section 10). Task T16.
+- Limits: The tooltip is the native `title`. Source uses a 500 ms delay. The avatar shows initials, as in the rest of the panel. A trailer without an email shows the whole value as the name. No manual check in the app: the Tauri window was not started in this task.

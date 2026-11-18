@@ -124,6 +124,8 @@ pub struct CommitDetail {
     #[serde(serialize_with = "ser_num")]
     pub commit_time: f64,
     pub message: String,
+    pub committer_email: String,
+    pub co_authors: Vec<String>,
     pub files: Vec<FileChange>,
 }
 
@@ -459,6 +461,17 @@ pub fn read_commit(meta: &str) -> Result<CommitDetail, String> {
         committer: f.get(5).map(|s| s.to_string()),
         commit_time: f.get(6).map_or(f64::NAN, |t| js_number(t)),
         message: js_trim(message).to_string(),
+        committer_email: f.get(8).map(|s| s.trim().to_string()).unwrap_or_default(),
+        co_authors: f
+            .get(9)
+            .map(|s| {
+                s.lines()
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .map(String::from)
+                    .collect()
+            })
+            .unwrap_or_default(),
         files: Vec::new(),
     })
 }
@@ -820,6 +833,11 @@ mod tests {
         assert_eq!(d.parents, vec!["p1", "p2"]);
         assert_eq!((d.author_time, d.commit_time), (17.0, 18.0));
         assert_eq!(d.message, "body");
+        assert_eq!(d.committer_email, "");
+        assert!(d.co_authors.is_empty());
+        let t = read_commit("abc\x1f\x1fAn\x1fe@x\x1f17\x1fCn\x1f18\x1fbody\x1fc@x\x1fA <a@x>\nB <b@x>\n\n").unwrap();
+        assert_eq!(t.committer_email, "c@x");
+        assert_eq!(t.co_authors, vec!["A <a@x>", "B <b@x>"]);
         assert!(read_commit("abc\x1f").is_err());
     }
 

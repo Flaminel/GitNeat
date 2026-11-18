@@ -103,6 +103,8 @@ export interface CommitDetail {
   committer: string;
   commitTime: number;
   message: string;
+  committerEmail: string;
+  coAuthors: string[];
   files: FileChange[];
 }
 

@@ -241,7 +241,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
       <div className="author">
         <Avatar name={detail.author} />
         <div>
-          <div className="author-name">{detail.author}</div>
+          <div className="author-name" title={detail.email || undefined}>{detail.author}</div>
           <div className="author-date">authored {formatDate(detail.authorTime)}</div>
         </div>
         <div className="parents">
@@ -262,13 +262,28 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           ))}
         </div>
       </div>
-      {detail.committer !== detail.author && (
+      {(detail.committer !== detail.author || detail.committerEmail !== detail.email) && (
         <div className="author">
           <Avatar name={detail.committer} />
           <div>
-            <div className="author-name">{detail.committer}</div>
+            <div className="author-name" title={detail.committerEmail || undefined}>{detail.committer}</div>
             <div className="author-date">committed {formatDate(detail.commitTime)}</div>
           </div>
+        </div>
+      )}
+      {detail.coAuthors.length > 0 && (
+        <div className="co-authors">
+          <span>Co-authors:</span>
+          {detail.coAuthors.map((c) => {
+            const match = /^(.*?)\s*<([^>]*)>$/.exec(c);
+            const name = match ? match[1] || match[2] : c;
+            return (
+              <span key={c} className="co-author" title={match?.[2] || undefined}>
+                <Avatar name={name} />
+                {name}
+              </span>
+            );
+          })}
         </div>
       )}
       <div className="file-summary">
