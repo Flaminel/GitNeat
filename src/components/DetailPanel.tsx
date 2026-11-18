@@ -3,7 +3,7 @@ import * as A from "../actions";
 import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
-import { showMenu } from "../ui";
+import { showMenu, Splitter, useStoredWidth } from "../ui";
 import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
@@ -110,6 +110,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [desc, setDesc] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<{ summary: string; description: string } | null>(null);
+  const [messageHeight, setMessageHeight] = useStoredWidth("message", 130);
 
   useEffect(() => {
     if (!copied) {
@@ -203,18 +204,22 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           <button onClick={() => setEditing(null)}>{isHead ? "Cancel Amend" : "Cancel Reword"}</button>
         </div>
       ) : (
-        <div
-          className={`message-box${depth !== null ? " editable-message" : ""}`}
-          title={depth === null ? undefined : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
-          onClick={() => {
-            if (depth !== null) {
-              setEditing({ summary: subject, description: body.join("\n").trim() });
-            }
-          }}
-        >
-          <div className="subject">{subject}</div>
-          {body.join("\n").trim() && <pre className="body">{body.join("\n").trim()}</pre>}
-        </div>
+        <>
+          <div
+            style={{ height: messageHeight }}
+            className={`message-box${depth !== null ? " editable-message" : ""}`}
+            title={depth === null ? undefined : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
+            onClick={() => {
+              if (depth !== null) {
+                setEditing({ summary: subject, description: body.join("\n").trim() });
+              }
+            }}
+          >
+            <div className="subject">{subject}</div>
+            {body.join("\n").trim() && <pre className="body">{body.join("\n").trim()}</pre>}
+          </div>
+          <Splitter vertical value={messageHeight} set={setMessageHeight} min={60} max={600} />
+        </>
       )}
       <div className="author">
         <Avatar name={detail.author} />

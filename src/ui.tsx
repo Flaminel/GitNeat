@@ -265,23 +265,33 @@ export function useStoredFlag(key: string, initial: boolean): [boolean, (b: bool
   return [value, set];
 }
 
-export function Splitter(props: { value: number; set(n: number): void; min: number; max: number; invert?: boolean; className?: string }) {
+export function Splitter(props: {
+  value: number;
+  set(n: number): void;
+  min: number;
+  max: number;
+  invert?: boolean;
+  vertical?: boolean;
+  className?: string;
+}) {
   const start = (e: React.MouseEvent) => {
     e.preventDefault();
-    const x0 = e.clientX;
+    const pos = (ev: MouseEvent | React.MouseEvent) => (props.vertical ? ev.clientY : ev.clientX);
+    const x0 = pos(e);
     const w0 = props.value;
+    const mode = props.vertical ? "resizing-row" : "resizing";
     const move = (ev: MouseEvent) => {
-      const dx = (ev.clientX - x0) * (props.invert ? -1 : 1);
+      const dx = (pos(ev) - x0) * (props.invert ? -1 : 1);
       props.set(Math.max(props.min, Math.min(props.max, w0 + dx)));
     };
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
-      document.body.classList.remove("resizing");
+      document.body.classList.remove(mode);
     };
-    document.body.classList.add("resizing");
+    document.body.classList.add(mode);
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
   };
-  return <div className={`splitter ${props.className ?? ""}`} onMouseDown={start} />;
+  return <div className={`splitter${props.vertical ? " row-resize" : ""} ${props.className ?? ""}`} onMouseDown={start} />;
 }

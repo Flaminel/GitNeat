@@ -404,6 +404,23 @@ body.resizing * {
   user-select: none !important;
 }
 
+.splitter.row-resize {
+  width: auto;
+  height: 4px;
+  margin: -12px 10px 8px;
+  cursor: row-resize;
+}
+
+body.resizing-row .splitter.row-resize {
+  background: var(--accent);
+}
+
+body.resizing-row,
+body.resizing-row * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
 .sidebar {
   width: 100%;
   display: flex;
@@ -881,7 +898,10 @@ a.sha {
 .message-box {
   margin: 10px;
   padding: 10px;
-  min-height: 130px;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
   background: var(--bg-deep);
   border: 1px solid var(--border);
   border-radius: 4px;
