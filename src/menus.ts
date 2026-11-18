@@ -1,9 +1,9 @@
 import * as A from "./actions";
 import { Ctx } from "./actions";
 import { gitneat } from "./api";
-import { Commit, commitWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Worktree } from "./repo";
+import { Commit, commitWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Submodule, Worktree } from "./repo";
 
-type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "file" | "drop" | "multi";
+type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "submodule" | "file" | "drop" | "multi";
 
 type Handlers = Record<string, () => unknown>;
 
@@ -194,6 +194,18 @@ export function worktreeMenu(ctx: Ctx, wt: Worktree): Promise<void> {
     pruneWorktrees: () => A.pruneWorktrees(ctx),
     copyPath: () => gitneat().copy(wt.path),
     showItem: () => gitneat().showItem(wt.path),
+  });
+}
+
+export function submoduleMenu(ctx: Ctx, sm: Submodule): Promise<void> {
+  return present(ctx, "submodule", { sm }, {
+    submoduleReset: () => A.resetSubmodule(ctx, sm),
+    submoduleCommit: () => A.commitSubmodule(ctx, sm),
+    submoduleInit: () => A.updateSubmodule(ctx, sm),
+    submoduleUpdate: () => A.updateSubmodule(ctx, sm),
+    submoduleEdit: () => A.editSubmodule(ctx, sm),
+    submoduleOpen: () => ctx.openTab(`${ctx.cwd}/${sm.path}`),
+    submoduleRemove: () => A.removeSubmodule(ctx, sm),
   });
 }
 

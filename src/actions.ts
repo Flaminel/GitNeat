@@ -1,5 +1,5 @@
 import { gitneat } from "./api";
-import { Commit, DiffSource, GitError, Operation, pullRequestUrl, Ref, RepoData, remoteWebUrl, samePath } from "./repo";
+import { Commit, DiffSource, GitError, Operation, pullRequestUrl, Ref, RepoData, remoteWebUrl, samePath, Submodule } from "./repo";
 import { Field, Layout, Ui } from "./ui";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
@@ -582,6 +582,55 @@ export async function removeWorktree(ctx: Ctx, path: string): Promise<void> {
 export const lockWorktree = (ctx: Ctx, path: string, lock: boolean) => go(ctx, lock ? "Lock worktree" : "Unlock worktree", "lockWorktree", { path, lock });
 
 export const pruneWorktrees = (ctx: Ctx) => go(ctx, "Prune worktrees", "pruneWorktrees", {});
+
+export const updateSubmodule = (ctx: Ctx, sm: Submodule) =>
+  go(ctx, sm.uninitialized ? `Initialize ${sm.name}` : `Update ${sm.name}`, "submoduleUpdate", { path: sm.path });
+
+export async function addSubmodule(ctx: Ctx): Promise<void> {
+  const v = await ctx.ui.prompt("Add Submodule", [
+    { name: "url", label: "Remote URL" },
+    { name: "path", label: "Name/Path", placeholder: "Defaults to the name of the repository" },
+  ], "Add Submodule");
+  const url = v?.url.trim() ?? "";
+  const path = v?.path.trim() || url.replace(/[\\/]+$/, "").split(/[\\/:]/).pop()?.replace(/\.git$/, "") || "";
+  if (!v || !url || !path) {
+    return;
+  }
+  if (await go(ctx, "Add Submodule", "submoduleAdd", { url, path })) {
+    ctx.ui.toast(path, "info", "Submodule Added");
+  }
+}
+
+export async function editSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
+  const v = await ctx.ui.prompt(`Edit ${sm.name}`, [{ name: "url", label: "Remote URL", value: sm.url }], "Edit this submodule");
+  if (v?.url.trim() && v.url.trim() !== sm.url) {
+    await go(ctx, "Edit submodule", "submoduleSetUrl", { path: sm.path, name: sm.name, url: v.url.trim() });
+  }
+}
+
+export async function resetSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
+  if (await ctx.ui.confirm("Discard Submodule Changes", "There might be uncommitted changes in submodules that will be lost and will not be undoable. Do you want to continue?", "Continue", true)) {
+    await go(ctx, "Discard submodule changes", "submoduleReset", { path: sm.path, deleted: sm.deleted });
+  }
+}
+
+export async function commitSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
+  if (
+    ctx.data.status.some((s) => s.index !== " " && s.index !== "?") &&
+    !(await ctx.ui.confirm("Commit Changes", "You already have staged changes, would you like to commit these too?", "Yes"))
+  ) {
+    return;
+  }
+  await go(ctx, "Commit submodule", "submoduleCommit", { path: sm.path, name: sm.name, new: sm.new, deleted: sm.deleted });
+}
+
+export async function removeSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
+  const choices = [...(sm.new ? [] : [{ label: "Delete & Commit", value: "commit", danger: true }]), { label: "Delete", value: "delete" }];
+  const answer = await ctx.ui.choose(`This is a destructive operation, are you sure you want to delete "${sm.name}"?`, choices);
+  if (answer) {
+    await go(ctx, "Delete submodule", "submoduleRemove", { path: sm.path, name: sm.name, commit: answer.choice === "commit" });
+  }
+}
 
 export async function savePatch(ctx: Ctx, sha: string): Promise<void> {
   await ctx.ui.task("Create patch", async () => {

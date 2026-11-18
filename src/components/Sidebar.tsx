@@ -4,7 +4,7 @@ import { gitneat } from "../api";
 import { Ctx } from "../actions";
 import * as M from "../menus";
 import { boundedYs, limitsFor, resizableHandles, sectionHeights } from "../leftPanel";
-import { Ref, samePath } from "../repo";
+import { Ref, samePath, Submodule } from "../repo";
 import { cap, showMenu, Splitter } from "../ui";
 import { Icon } from "./icons";
 
@@ -75,6 +75,31 @@ function Section(props: {
 
 const STASH_REF = "refs/stash";
 
+function submoduleStatus(sm: Submodule, base: string): string {
+  if (sm.new && sm.uninitialized) {
+    return "Your submodule has been added but needs to be initialized.";
+  }
+  if (sm.new) {
+    return "Your submodule has been added and initialized but not committed.";
+  }
+  if (sm.deleted) {
+    return "You have removed the submodule folder, but not the submodule in git.";
+  }
+  if (sm.uninitialized) {
+    return "Your submodule directory has not been initialized.";
+  }
+  if (sm.outOfSync && sm.dirty) {
+    return `This submodule has uncommitted changes and is out-of-sync with ${base}.`;
+  }
+  if (sm.outOfSync) {
+    return `This submodule is out-of-sync with ${base}.`;
+  }
+  if (sm.dirty) {
+    return "There are uncommitted changes in this submodule.";
+  }
+  return `This submodule is in-sync with your repository (${base}).`;
+}
+
 const SECTION_HEADER_HEIGHT = 30;
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
@@ -92,6 +117,7 @@ export function Sidebar({
   setSectionYs,
 }: Props) {
   const [filter, setFilter] = useState("");
+  const [submodules, setSubmodules] = useState<Submodule[]>([]);
   const closed = new Set(closedList);
   const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
   const [drag, setDrag] = useState<Record<string, number> | null>(null);
@@ -130,6 +156,17 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const data = ctx.data;
+
+  useEffect(() => {
+    let live = true;
+    gitneat()
+      .loadSubmodules(data.cwd)
+      .then((list) => live && setSubmodules(list))
+      .catch(() => live && setSubmodules([]));
+    return () => {
+      live = false;
+    };
+  }, [data]);
   const match = (name: string) => name.toLowerCase().includes(filter.toLowerCase());
   const locals = data.refs.filter((r) => r.kind === "local" && match(r.name));
   const remotes = data.refs.filter((r) => r.kind === "remote" && match(r.name));
@@ -220,7 +257,7 @@ export function Sidebar({
       { title: "WORKTREES", icon: Icon.worktree, count: data.worktrees.length },
       { title: "STASHES", icon: Icon.stash, count: data.stashes.length },
       { title: "TAGS", icon: Icon.tag, count: data.refs.filter((r) => r.kind === "tag").length },
-      { title: "SUBMODULES", icon: Icon.submodule, count: data.submodules.length },
+      { title: "SUBMODULES", icon: Icon.submodule, count: submodules.length },
     ];
     return (
       <aside className="sidebar rail">
@@ -359,11 +396,29 @@ export function Sidebar({
         <Section {...sectionProps("TAGS")} title="TAGS" icon={Icon.tag} count={tags.length} onMenu={groupMenu("tag", "tags")}>
           {renderTree(buildTree(tags), 0, "tags")}
         </Section>
-        <Section {...sectionProps("SUBMODULES")} title="SUBMODULES" icon={Icon.submodule} count={data.submodules.length}>
-          {data.submodules.map((path) => (
-            <div key={path} className="item" style={{ paddingLeft: 26 }} onDoubleClick={() => ctx.openTab(`${data.cwd}/${path}`)}>
+        <Section
+          {...sectionProps("SUBMODULES")}
+          title="SUBMODULES"
+          icon={Icon.submodule}
+          count={submodules.length}
+          actions={
+            <button className="icon-btn" title="Add a new submodule" onClick={() => A.addSubmodule(ctx)}>
+              {Icon.plus}
+            </button>
+          }
+        >
+          {submodules.map((sm) => (
+            <div
+              key={sm.path}
+              className="item"
+              style={{ paddingLeft: 26 }}
+              title={`${sm.name}\n${submoduleStatus(sm, data.name)}`}
+              onDoubleClick={() => !sm.uninitialized && !sm.deleted && ctx.openTab(`${data.cwd}/${sm.path}`)}
+              onContextMenu={() => M.submoduleMenu(ctx, sm)}
+            >
               <span className="item-icon">{Icon.submodule}</span>
-              <span className="item-name">{path}</span>
+              <span className="item-name">{sm.name}</span>
+              {(sm.new || sm.deleted || sm.uninitialized || sm.outOfSync || sm.dirty) && <span className="item-sub">{sm.deleted ? "deleted" : sm.new ? "new" : sm.uninitialized ? "not initialized" : sm.outOfSync ? "out of sync" : "modified"}</span>}
             </div>
           ))}
         </Section>

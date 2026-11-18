@@ -29,6 +29,7 @@ export function tauriApi(): GitNeatApi {
     loadFileHistoryPage: (cwd, file, pages) => invoke("load_file_history_page", { cwd, file, pages }),
     loadOperation: (cwd, operation) => invoke("load_operation", { cwd, operation }),
     loadMerge: (cwd, path, operation) => invoke("load_merge", { cwd, path, operation }),
+    loadSubmodules: (cwd) => invoke("load_submodules", { cwd }),
     loadHeadMessage: (cwd) => invoke("load_head_message", { cwd }),
     hasCommitHook: (cwd) => invoke("has_commit_hook", { cwd }),
     openRepoDialog: () => invoke("open_repo_dialog"),

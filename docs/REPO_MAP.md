@@ -35,6 +35,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/templates.rs`, `rust/app/templates/` | Embedded `.gitignore` and license templates for Init (D96). Generated list, plain text files. |
 | `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
 | `rust/app/src/actions/files.rs` | Create file, delete file and repository maintenance actions (D95) |
+| `rust/app/src/actions/submodule.rs` | Submodule loader (`load_submodules`) and the actions add, update, reset, commit, edit URL and delete (D97) |
 | `rust/app/src/actions/tools.rs` | Open a file in the external diff or merge tool with `git difftool` and `git mergetool`, and the tool config check (D92) |
 | `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
 | `rust/app/examples/` | Command line entry points that the TS comparison tests run |
@@ -98,6 +99,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
 | Change the Preferences dialog, auto-fetch or the commit settings (D84) | `preferences` in `src/App.tsx`, the auto-fetch effect and `loadMore` in `src/RepoView.tsx`, `src/commitLimit.ts` |
+| Change the submodule menu, status or actions (D97) | `submodule_menu` in `rust/app/src/menus.rs`, `rust/app/src/actions/submodule.rs`, the submodule functions in `src/actions.ts`, the SUBMODULES section in `src/components/Sidebar.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
 | Change the commit description in the graph | `describe` in `rust/repo/src/port.rs`, `descMenu` in `src/components/GraphView.tsx`, `.message-body` in `src/styles.css` (D58) |

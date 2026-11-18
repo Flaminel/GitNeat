@@ -43,6 +43,17 @@ export interface Worktree {
   prunable: boolean;
 }
 
+export interface Submodule {
+  name: string;
+  path: string;
+  url: string;
+  uninitialized: boolean;
+  deleted: boolean;
+  new: boolean;
+  outOfSync: boolean;
+  dirty: boolean;
+}
+
 export interface Remote {
   name: string;
   url: string;

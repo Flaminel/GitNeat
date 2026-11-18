@@ -17,6 +17,7 @@ pub enum MenuKind {
     Tag,
     Remote,
     Worktree,
+    Submodule,
     File,
     Drop,
     Multi,
@@ -138,6 +139,11 @@ struct RemoteArgs {
 struct StashArgs {
     #[serde(default)]
     hidden: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct SubmoduleArgs {
+    sm: actions::submodule::Submodule,
 }
 
 #[derive(Deserialize)]
@@ -371,6 +377,31 @@ fn worktree_menu(cwd: &str, platform: &str, wt: &WorktreeIn) -> Vec<MenuSpec> {
             item("copyPath", "Copy path"),
             item("showItem", reveal_label(platform)),
         ],
+    ])
+}
+
+fn submodule_menu(sm: &actions::submodule::Submodule) -> Vec<MenuSpec> {
+    let can = sm.available();
+    groups(vec![
+        flat(vec![
+            can.reset
+                .then(|| item("submoduleReset", "Discard Submodule Changes")),
+            can.commit
+                .then(|| item("submoduleCommit", "Commit Changes")),
+        ]),
+        flat(vec![
+            can.initialize
+                .then(|| item("submoduleInit", format!("Initialize {}", sm.name))),
+            (!sm.deleted).then(|| item("submoduleUpdate", format!("Update {}", sm.name))),
+        ]),
+        flat(vec![
+            (!sm.deleted).then(|| item("submoduleEdit", format!("Edit {}", sm.name))),
+            (!sm.deleted && !sm.uninitialized)
+                .then(|| item("submoduleOpen", "Open this submodule")),
+        ]),
+        flat(vec![
+            (!sm.deleted).then(|| item("submoduleRemove", "Delete this submodule")),
+        ]),
     ])
 }
 
@@ -619,6 +650,10 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
             let a: WorktreeArgs = actions::parse(args)?;
             worktree_menu(cwd, &a.platform, &a.wt)
         }
+        MenuKind::Submodule => {
+            let a: SubmoduleArgs = actions::parse(args)?;
+            submodule_menu(&a.sm)
+        }
         MenuKind::File => {
             let mut a: FileArgs = actions::parse(args)?;
             a.missing = a.history && !std::path::Path::new(cwd).join(&a.path).exists();
@@ -656,6 +691,55 @@ mod tests {
                 }
             })
             .collect()
+    }
+
+    #[test]
+    fn submodule_menu_follows_the_source_groups() {
+        use crate::actions::submodule::Submodule;
+        let base = Submodule {
+            name: "lib".into(),
+            path: "lib".into(),
+            ..Submodule::default()
+        };
+        let synced = Submodule {
+            out_of_sync: true,
+            ..base.clone()
+        };
+        assert_eq!(
+            labels(&tidy(submodule_menu(&synced))),
+            [
+                "Discard Submodule Changes",
+                "Commit Changes",
+                "-",
+                "Update lib",
+                "-",
+                "Edit lib",
+                "Open this submodule",
+                "-",
+                "Delete this submodule"
+            ]
+        );
+        let uninit = Submodule {
+            uninitialized: true,
+            ..base.clone()
+        };
+        assert_eq!(
+            labels(&tidy(submodule_menu(&uninit))),
+            [
+                "Initialize lib",
+                "Update lib",
+                "-",
+                "Edit lib",
+                "-",
+                "Delete this submodule"
+            ]
+        );
+        let gone = Submodule {
+            uninitialized: true,
+            deleted: true,
+            ..base
+        };
+        assert!(labels(&tidy(submodule_menu(&gone))).is_empty());
     }
 
     #[test]

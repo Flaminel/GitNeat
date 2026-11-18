@@ -158,6 +158,11 @@ pub async fn load_operation(cwd: String, operation: Option<Operation>) -> Operat
 }
 
 #[tauri::command]
+pub async fn load_submodules(cwd: String) -> Vec<crate::actions::submodule::Submodule> {
+    crate::actions::submodule::load(&cwd).await
+}
+
+#[tauri::command]
 pub async fn load_head_message(cwd: String) -> HeadMessage {
     loaders::load_head_message(&cwd).await
 }

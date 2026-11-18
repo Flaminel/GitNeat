@@ -5,6 +5,7 @@ mod index;
 mod rebase;
 mod refs;
 mod remote;
+pub mod submodule;
 pub mod tools;
 
 use crate::git::{self, GitResult};
@@ -129,6 +130,9 @@ pub async fn dispatch(cwd: &str, name: &str, args: Value) -> Res<Value> {
         return done;
     }
     if let Some(done) = tools::call(cwd, name, &args).await {
+        return done;
+    }
+    if let Some(done) = submodule::call(cwd, name, &args).await {
         return done;
     }
     Err(format!("Unknown action {name}"))
