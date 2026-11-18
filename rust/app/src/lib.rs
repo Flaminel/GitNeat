@@ -57,6 +57,7 @@ pub fn run() {
                 .inner_size(width, height)
                 .min_inner_size(900.0, 600.0)
                 .background_color(tauri::window::Color(0x1c, 0x1e, 0x23, 0xff))
+                .disable_drag_drop_handler()
                 .on_new_window(move |url, _| {
                     if matches!(url.scheme(), "http" | "https") {
                         let _ = opener.opener().open_url(url.as_str(), None::<&str>);

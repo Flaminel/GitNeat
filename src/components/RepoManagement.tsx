@@ -255,7 +255,7 @@ export function RepoManagement(props: Props) {
     void showMenu([
       { label: "Open repository", enabled: !broken, run: () => props.onOpenTabs([path]) },
       { label: "Open repository details", run: () => setDetails(path) },
-      { label: editorCaption(1, 1, props.editorName), enabled: !broken && !!props.editorName, run: () => openInEditor([path]) },
+      { label: editorCaption(1, 1, props.editorName), enabled: !broken, run: () => openInEditor([path]) },
       { label: "Fetch repository", enabled: !broken, run: () => void runBatch("fetch", [path]) },
       { label: "Pull repository", enabled: !broken, run: () => void runBatch("pull", [path], defaultPull()) },
       "-",
@@ -369,7 +369,7 @@ export function RepoManagement(props: Props) {
           <span className="rm-tools" onClick={(e) => e.stopPropagation()}>
             <button
               className="rm-icon"
-              disabled={!usable.length || !props.editorName}
+              disabled={!usable.length}
               title={editorCaption(usable.length, g.repos.length, props.editorName)}
               onClick={() => openInEditor(usable)}
             >
@@ -451,7 +451,7 @@ export function RepoManagement(props: Props) {
                   <button
                     className="rm-icon"
                     title={editorCaption(1, 1, props.editorName)}
-                    disabled={broken || !props.editorName}
+                    disabled={broken}
                     onClick={(e) => {
                       e.stopPropagation();
                       openInEditor([p]);
