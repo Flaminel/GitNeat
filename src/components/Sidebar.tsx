@@ -65,6 +65,8 @@ function Section(props: {
   );
 }
 
+const cap = (n: number) => (n > 99 ? "99+" : String(n));
+
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
 export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: Props) {
@@ -97,6 +99,17 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
   const visible = allBranches.filter((r) =>
     ctx.solo.length ? ctx.solo.includes(r.full) : !ctx.hidden.includes(r.full),
   ).length;
+
+  const isClosed = (id: string) => !filter && closed.has(id);
+
+  const hideGroup = (kind: Ref["kind"], hide: boolean) =>
+    ctx.setHidden(data.refs.filter((r) => r.kind === kind).map((r) => r.full), hide);
+
+  const groupMenu = (kind: Ref["kind"], noun: string) => () =>
+    showMenu([
+      { label: `Hide all ${noun}`, run: () => hideGroup(kind, true) },
+      { label: `Show all ${noun}`, run: () => hideGroup(kind, false) },
+    ]);
 
   const toggleFolder = (key: string) => {
     const next = new Set(closed);
@@ -133,8 +146,8 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
         <span className="item-name">{label}</span>
         {(!!ref.ahead || !!ref.behind) && (
           <span className="badge">
-            {!!ref.behind && `${ref.behind}↓`}
-            {!!ref.ahead && `${ref.ahead}↑`}
+            {!!ref.behind && <span title={`${cap(ref.behind)} behind`}>{cap(ref.behind)}↓</span>}
+            {!!ref.ahead && <span title={`${cap(ref.ahead)} ahead`}>{cap(ref.ahead)}↑</span>}
           </span>
         )}
       </div>
@@ -152,11 +165,11 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
         return (
           <div key={id}>
             <div className="item folder" style={{ paddingLeft: 26 + depth * 14 }} onClick={() => toggleFolder(id)}>
-              <span className={`chevron${closed.has(id) ? "" : " open"}`}>›</span>
+              <span className={`chevron${isClosed(id) ? "" : " open"}`}>›</span>
               <span className="item-icon">{Icon.folder}</span>
               <span className="item-name">{child.name}</span>
             </div>
-            {!closed.has(id) && renderTree(child, depth + 1, id)}
+            {!isClosed(id) && renderTree(child, depth + 1, id)}
           </div>
         );
       });
@@ -200,7 +213,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
           <button className="icon-btn" title="Collapse Panel" onClick={() => setCollapsed(true)}>
             {Icon.collapseLeft}
           </button>
-          {Icon.eye} Viewing <b>{visible}/{allBranches.length}</b>
+          {Icon.eye} {ctx.solo.length ? "Soloing" : "Viewing"} <b>{visible}/{allBranches.length}</b>
         </span>
         <button className="link" onClick={showAll}>
           Show All
@@ -213,7 +226,13 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        {Icon.search}
+        {filter ? (
+          <button className="icon-btn filter-clear" title="Clear" onClick={() => setFilter("")}>
+            ×
+          </button>
+        ) : (
+          Icon.search
+        )}
       </div>
       <div className="sections">
         <Section
@@ -223,8 +242,8 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
           count={`${locals.filter((r) => (ctx.solo.length ? ctx.solo.includes(r.full) : !ctx.hidden.includes(r.full))).length}/${locals.length}`}
           onMenu={() =>
             showMenu([
-              { label: "Hide all local branches", run: () => locals.forEach((r) => !ctx.hidden.includes(r.full) && ctx.toggleHidden(r.full)) },
-              { label: "Show all local branches", run: showAll },
+              { label: "Hide all local branches", run: () => hideGroup("local", true) },
+              { label: "Show all local branches", run: () => hideGroup("local", false) },
             ])
           }
         >
@@ -235,6 +254,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
           title="REMOTE"
           icon={Icon.remote}
           count={data.refs.filter((r) => r.kind === "remote").length}
+          onMenu={groupMenu("remote", "remotes")}
           actions={
             <button className="icon-btn" title="Add remote" onClick={() => A.addRemote(ctx)}>
               {Icon.plus}
@@ -247,11 +267,11 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
             return (
               <div key={remote.name}>
                 <div className="item folder" style={{ paddingLeft: 26 }} onClick={() => toggleFolder(id)} onContextMenu={() => M.remoteMenu(ctx, remote.name, remote.url)}>
-                  <span className={`chevron${closed.has(id) ? "" : " open"}`}>›</span>
+                  <span className={`chevron${isClosed(id) ? "" : " open"}`}>›</span>
                   <span className="item-icon">{Icon.remote}</span>
                   <span className="item-name">{remote.name}</span>
                 </div>
-                {!closed.has(id) && renderTree(buildTree(own, 1), 1, id)}
+                {!isClosed(id) && renderTree(buildTree(own, 1), 1, id)}
               </div>
             );
           })}
@@ -288,7 +308,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
             </div>
           ))}
         </Section>
-        <Section {...sectionProps("TAGS")} title="TAGS" icon={Icon.tag} count={tags.length}>
+        <Section {...sectionProps("TAGS")} title="TAGS" icon={Icon.tag} count={tags.length} onMenu={groupMenu("tag", "tags")}>
           {renderTree(buildTree(tags), 0, "tags")}
         </Section>
         <Section {...sectionProps("SUBMODULES")} title="SUBMODULES" icon={Icon.submodule} count={data.submodules.length}>

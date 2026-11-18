@@ -133,6 +133,11 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         openTab,
         openRebase: (base, entries) => setRebase({ base, entries }),
         toggleHidden: (full) => setPrefs({ hidden: toggle(prefs.hidden, full), solo: prefs.solo }),
+        setHidden: (fulls, hide) =>
+          setPrefs({
+            hidden: hide ? [...prefs.hidden, ...fulls.filter((f) => !prefs.hidden.includes(f))] : prefs.hidden.filter((f) => !fulls.includes(f)),
+            solo: prefs.solo,
+          }),
         toggleSolo: (full) => setPrefs({ hidden: prefs.hidden, solo: toggle(prefs.solo, full) }),
         hidden: prefs.hidden,
         solo: prefs.solo,
