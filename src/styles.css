@@ -1193,6 +1193,12 @@ a.sha {
   display: inline-block;
 }
 
+.detached-warning {
+  padding: 6px 10px;
+  color: var(--orange);
+  border-bottom: 1px solid var(--border);
+}
+
 .wip-detail .stage-section {
   display: flex;
   flex-direction: column;

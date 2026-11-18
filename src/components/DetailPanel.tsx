@@ -370,6 +370,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
           <button className={tree ? "on" : ""} onClick={() => setTree(true)}>⊞</button>
         </span>
       </div>
+      {!ctx.data.branch && ctx.data.head && <div className="detached-warning">You are in a detached HEAD state</div>}
       <div className="stage-section">
         <div className="stage-head">
           <span>Unstaged Files ({unstaged.length})</span>
@@ -385,9 +386,20 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             onOpen={(p) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?")}
             onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" })}
             extra={(p) => (
-              <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
-                Stage File
-              </button>
+              <>
+                <button
+                  className="file-action"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    A.discardFile(ctx, p, unstaged.find((x) => x.path === p)?.index === "?");
+                  }}
+                >
+                  Discard
+                </button>
+                <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
+                  Stage File
+                </button>
+              </>
             )}
           />
         </div>
