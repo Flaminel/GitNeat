@@ -46,9 +46,11 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
+| `src/commitLimit.ts` | Page size, load more rule and footer rule for the commit settings (D84) |
 | `src/leftPanel.ts` | Left panel section sizes: bounds, push rule and handle rules (D67) |
 | `src/styles.css` | Theme colors and all styles |
 | `test/reference/` | Frozen TS version of the loaders, the lane layout, the diff parser, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
+| `test/commit-limit.test.ts` | Tests for `src/commitLimit.ts` |
 | `test/left-panel.test.ts` | Tests for the section size rules in `src/leftPanel.ts` |
 | `test/graph.test.ts` | Lane layout tests for `test/reference/graph.ts` |
 | `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
@@ -80,6 +82,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |
+| Change the Preferences dialog, auto-fetch or the commit settings (D84) | `preferences` in `src/App.tsx`, the auto-fetch effect and `loadMore` in `src/RepoView.tsx`, `src/commitLimit.ts` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
 | Change the commit description in the graph | `describe` in `rust/repo/src/port.rs`, `descMenu` in `src/components/GraphView.tsx`, `.message-body` in `src/styles.css` (D58) |

@@ -159,6 +159,12 @@ export const checkoutRef = (ctx: Ctx, name: string) => go(ctx, `Checkout ${name}
 
 export const checkoutCommit = (ctx: Ctx, sha: string) => go(ctx, `Checkout ${short(sha)}`, "checkoutCommit", { sha });
 
+export const autoFetch = (cwd: string): Promise<boolean> =>
+  act(cwd, "pull", { mode: "fetch" }).then(
+    () => true,
+    () => false,
+  );
+
 export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => act<string>(parent, "clone", { url, target });
 
 export const initRepo = (dir: string): Promise<string> => act<string>(dir, "init", {});

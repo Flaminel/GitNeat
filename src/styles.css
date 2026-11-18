@@ -2218,3 +2218,9 @@ a.sha {
 .commit-btn.danger {
   margin-top: 6px;
 }
+
+.graph-footer {
+  padding: 10px 12px;
+  color: var(--text-dim);
+  text-align: center;
+}

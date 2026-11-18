@@ -11,6 +11,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
 import { Commit, Lanes, loadCommits, loadRepo, RepoData, samePath } from "./repo";
+import { canLoadMore, pageSize, showsFooter } from "./commitLimit";
 import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
@@ -21,8 +22,20 @@ export interface RepoPrefs {
   sectionYsByKey?: Record<string, number>;
 }
 
+export interface Settings {
+  autoFetch: number;
+  lazyLoad: boolean;
+  maxCommits: number;
+}
+
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000 };
+export const MAX_COMMITS_MIN = 500;
+export const AUTO_FETCH_MAX = 60;
+
 interface Props {
   path: string;
+  settings: Settings;
+  onPreferences(): void;
   prefs: RepoPrefs;
   setPrefs(prefs: Partial<RepoPrefs>): void;
   mainSections(mainPath: string): Partial<RepoPrefs> | undefined;
@@ -32,9 +45,6 @@ interface Props {
   aliases: Record<string, string>;
   onViewAll(): void;
 }
-
-const COMMIT_LIMIT = 2000;
-const COMMIT_STEP = 200;
 
 interface Cached {
   data: RepoData;
@@ -60,7 +70,7 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll }: Props) {
+export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll }: Props) {
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
   const cached = cache.get(path);
@@ -80,7 +90,7 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent,
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const loadSeq = useRef(0);
-  const limit = useRef(COMMIT_LIMIT);
+  const limit = useRef(settings.maxCommits);
   const loadingMore = useRef(false);
   const loadedSeq = useRef(-1);
   const lanes = useRef<Lanes>([]);
@@ -97,7 +107,7 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent,
       }
       loadedSeq.current = seq;
       lanes.current = next.lanes;
-      setHasMore(next.commits.filter((c) => !c.stash).length >= limit.current);
+      setHasMore(canLoadMore(settings.lazyLoad, next.commits.filter((c) => !c.stash).length, limit.current));
       setData(next);
       setMulti((list) => list.filter((sha) => next.commits.some((c) => c.sha === sha)));
       setSelected((s) => (s && s !== WIP && !next.commits.some((c) => c.sha === s) ? next.head : s));
@@ -107,33 +117,38 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent,
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [path, prefs.hidden, prefs.solo]);
+  }, [path, prefs.hidden, prefs.solo, settings.lazyLoad]);
 
   useEffect(() => {
+    limit.current = settings.maxCommits;
     void load();
-  }, [load]);
+  }, [load, settings.maxCommits]);
 
   const loadMore = useCallback(async () => {
     const seq = loadSeq.current;
     if (loadingMore.current || loadedSeq.current !== seq) {
       return;
     }
+    const step = pageSize(limit.current);
+    if (!step) {
+      return;
+    }
     loadingMore.current = true;
     try {
-      const page = await loadCommits(path, prefs.hidden, prefs.solo, limit.current, COMMIT_STEP, lanes.current);
+      const page = await loadCommits(path, prefs.hidden, prefs.solo, limit.current, step, lanes.current);
       if (seq !== loadSeq.current) {
         return;
       }
-      limit.current += COMMIT_STEP;
+      limit.current += step;
       lanes.current = page.lanes;
-      setHasMore(page.commits.filter((c) => !c.stash).length >= COMMIT_STEP);
+      setHasMore(canLoadMore(settings.lazyLoad, page.commits.filter((c) => !c.stash).length + limit.current - step, limit.current));
       setData((d) => d && { ...d, commits: [...d.commits, ...page.commits], rows: [...d.rows, ...page.rows], lanes: page.lanes });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       loadingMore.current = false;
     }
-  }, [path, prefs.hidden, prefs.solo]);
+  }, [path, prefs.hidden, prefs.solo, settings.lazyLoad]);
 
   useEffect(() => {
     if (!data || copied.current) {
@@ -160,6 +175,23 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent,
       void gitneat().unwatch(path);
     };
   }, [path, load]);
+
+  useEffect(() => {
+    if (settings.autoFetch <= 0) {
+      return;
+    }
+    let running = false;
+    const timer = setInterval(async () => {
+      if (running) {
+        return;
+      }
+      running = true;
+      await A.autoFetch(path);
+      running = false;
+      void load();
+    }, settings.autoFetch * 60000);
+    return () => clearInterval(timer);
+  }, [path, settings.autoFetch, load]);
 
   useEffect(() => {
     const onFocus = () => void load();
@@ -405,6 +437,8 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent,
               multi={multi}
               wipCount={data.status.length}
               hasMore={hasMore}
+              footerCount={showsFooter(settings.lazyLoad) ? data.commits.filter((c) => !c.stash).length : null}
+              onPreferences={onPreferences}
               onLoadMore={() => void loadMore()}
               onSelect={select}
               onCommitMenu={(c) =>

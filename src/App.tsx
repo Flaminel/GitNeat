@@ -4,7 +4,7 @@ import { NewTab } from "./components/NewTab";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
-import { forgetRepos, RepoPrefs, RepoView } from "./RepoView";
+import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings } from "./RepoView";
 import { Layout, LayoutContext, legacyLayout, useUi } from "./ui";
 import pkg from "../package.json";
 
@@ -17,9 +17,10 @@ interface State {
   closed: Tab[];
   prefs: Record<string, RepoPrefs>;
   layout: Layout;
+  settings: Settings;
 }
 
-const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {} };
+const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const NEW_TAB: Tab = {};
 const RECENT_LIMIT = 100;
@@ -51,6 +52,7 @@ export function App() {
       .then((saved) => {
         loaded.current = true;
         const s = { ...EMPTY, ...(saved as Partial<State>) };
+        s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
         for (const t of s.tabs as (Tab & { title?: string })[]) {
           if (t.path && t.title) {
             s.aliases = { ...s.aliases, [t.path]: t.title };
@@ -119,6 +121,36 @@ export function App() {
     });
   };
 
+  const preferences = async () => {
+    if (!state) {
+      return;
+    }
+    const { autoFetch, lazyLoad, maxCommits } = state.settings;
+    const v = await ui.prompt(
+      "Preferences",
+      [
+        { name: "autoFetch", label: `Auto-Fetch interval in minutes (0 to ${AUTO_FETCH_MAX}, 0 turns it off)`, value: String(autoFetch) },
+        { name: "lazyLoad", label: "Lazy Load Commits in Graph", kind: "checkbox", value: String(lazyLoad) },
+        { name: "maxCommits", label: `Maximum commits in graph (minimum ${MAX_COMMITS_MIN})`, value: String(maxCommits) },
+      ],
+      "Save",
+    );
+    if (!v) {
+      return;
+    }
+    const fetchMinutes = Number(v.autoFetch.trim());
+    const commitCount = Number(v.maxCommits.trim());
+    if (!Number.isInteger(fetchMinutes) || fetchMinutes < 0 || fetchMinutes > AUTO_FETCH_MAX) {
+      ui.toast(`The Auto-Fetch interval must be a whole number from 0 to ${AUTO_FETCH_MAX}.`, "error", "Preferences");
+      return;
+    }
+    if (!Number.isInteger(commitCount) || commitCount < MAX_COMMITS_MIN) {
+      ui.toast(`The maximum commit count must be a whole number of at least ${MAX_COMMITS_MIN}.`, "error", "Preferences");
+      return;
+    }
+    update((s) => ({ ...s, settings: { autoFetch: fetchMinutes, lazyLoad: v.lazyLoad === "true", maxCommits: commitCount } }));
+  };
+
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
 
   const closeTabs = (keep: (i: number) => boolean) =>
@@ -172,6 +204,7 @@ export function App() {
       "previous-tab": () => selectTab(-1),
       tab: () => update((s) => ({ ...s, active: Math.min(Number(index) - 1, s.tabs.length - 1) })),
       favorite: () => state.favorites[Number(index) - 1] && openTab(state.favorites[Number(index) - 1]),
+      preferences,
       "support-docs": () => gitneat().openExternal(SUPPORT_URL),
     };
     void actions[name]?.();
@@ -292,6 +325,8 @@ export function App() {
           <RepoView
             key={activePath}
             path={activePath}
+            settings={state.settings}
+            onPreferences={() => void preferences()}
             prefs={state.prefs[activePath] ?? NO_PREFS}
             setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: { ...(s.prefs[activePath] ?? NO_PREFS), ...prefs } } }))}
             mainSections={(main) => {

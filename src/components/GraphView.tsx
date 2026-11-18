@@ -63,6 +63,8 @@ interface Props {
   onRefDrop(source: string, target: Ref): void;
   wipCount: number;
   hasMore: boolean;
+  footerCount: number | null;
+  onPreferences(): void;
   onLoadMore(): void;
 }
 
@@ -611,6 +613,14 @@ export function GraphView(props: Props) {
             );
           })}
         </div>
+        {props.footerCount !== null && (
+          <div className="graph-footer">
+            Displaying {props.footerCount} commits. Adjust this setting in{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); props.onPreferences(); }}>
+              Preferences
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
