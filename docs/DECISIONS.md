@@ -285,3 +285,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: `src/merge.ts` and the patch builders in `src/diff.ts` (`hunkPatch`, `linesPatch`, `linesInRange`) stay in TS. The Rust ports in `rust/merge` and `rust/diff` stay as tested libraries.
 - Reason: The merge tool and the line selection call these functions on each click. An IPC call per click is slower than the TS call. They run no `git` command.
 - Limits: The TS and the Rust versions of these functions can drift. The recorded cases in `rust/merge` and `rust/diff` cover only the Rust side.
+
+## D47. The merge load, the amend message, clone and init run in Rust
+
+- Decision: The Tauri command `load_merge` replaces `load` and `bLabel` in `src/components/MergeView.tsx`. `load_head_message` replaces the `git show` call for amend in `src/components/DetailPanel.tsx`. The actions `clone` and `init` replace the `git` calls in `src/App.tsx`.
+- Reason: The user asked to move all git logic out of TS. After this change, no code in `src/` calls the `git` command.
+- Rules: `load_merge` parses the `git merge-file` output with `merge::port::Typed::parse_segments`, so `parseMerge` moves to `test/reference/merge.ts`. The selection and Output functions of D46 stay in TS. `src/App.tsx` still makes the folder name from the URL, because the task label shows it.
+- Proof: `test/loaders.test.ts` compares `load_merge` on text, binary and delete conflicts for each operation, and `load_head_message` on each fixture. It runs clone and init through both paths and compares the result and the repository state. The suite has 2905 comparisons on 14 fixtures.
+- Limits: The `git` command and `GitNeatApi.git` stay, because the TS reference in `test/reference/` calls them. Blame lines of uncommitted changes have the current time, so the test accepts a time difference up to the run time of the fixture for these lines only.

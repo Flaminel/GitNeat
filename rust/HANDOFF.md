@@ -9,7 +9,7 @@ Branch: `rust-rewrite`. Skill to load: `rust-anything`.
 - `test/reference/` holds the old TS logic. The comparison tests use it as the reference. The app does not load it.
 - `rust/graph`, `rust/diff`, `rust/merge` and `rust/repo` are plain libraries. `cargo test` replays their recorded cases.
 - The loaders in `src/repo.ts` call Rust commands (D45). `load_diff` returns the parsed diff. `load_repo` returns the graph rows. `src/merge.ts` and the patch builders in `src/diff.ts` stay in TS (D46).
-- TS still runs `git` through the `git` command in three places: clone and init in `src/App.tsx`, the conflict sides and `merge-file` in `src/components/MergeView.tsx`, and the amend message in `src/components/DetailPanel.tsx`.
+- The merge tool load, the amend message, clone and init run in Rust (D47). No code in `src/` calls the `git` command now. The comparison tests still use it through `test/reference/`.
 - Nothing is in progress or broken.
 
 ## Checks
