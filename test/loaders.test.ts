@@ -354,7 +354,7 @@ before(
     if (!enabled) {
       return;
     }
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-loaders-")));
+    root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-loaders-")));
     execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
     const exe = process.platform === "win32" ? ".exe" : "";
     example = path.join(rustDir, "target", "debug", "examples", `loaders${exe}`);
@@ -447,9 +447,16 @@ test("clone and init: rust equals ts", { skip: !enabled, timeout: 120000 }, asyn
   fs.mkdirSync(irs);
   cases.push({ name: "init", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
   cases.push({ name: "init again", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
+  const mask = (value: unknown, dir: string) => {
+    let text = JSON.stringify(value);
+    for (const form of [dir, dir.split("\\").join("/")]) {
+      text = text.split(JSON.stringify(form).slice(1, -1)).join("<dir>");
+    }
+    return JSON.parse(text);
+  };
   for (const c of cases) {
-    const expected = JSON.parse(JSON.stringify(await settle(c.ts)).split(JSON.stringify(c.dirs[0]).slice(1, -1)).join("<dir>"));
-    const actual = JSON.parse(JSON.stringify(c.rust()).split(JSON.stringify(c.dirs[1]).slice(1, -1)).join("<dir>"));
+    const expected = mask(await settle(c.ts), c.dirs[0]);
+    const actual = mask(c.rust(), c.dirs[1]);
     assert.deepStrictEqual(actual, expected, c.name);
     assert.equal(repoState(c.dirs[1]), repoState(c.dirs[0]), `${c.name} state`);
     compared += 1;
