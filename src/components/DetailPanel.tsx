@@ -3,6 +3,7 @@ import * as A from "../actions";
 import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
+import { showMenu } from "../ui";
 import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
@@ -107,6 +108,15 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [all, setAll] = useState<string[] | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [desc, setDesc] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const timer = setTimeout(() => setCopied(false), 1000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   useEffect(() => {
     let live = true;
@@ -141,7 +151,11 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   return (
     <div className="detail">
       <div className="detail-head">
-        commit: <b className="sha" onClick={() => gitneat().copy(detail.sha)} title="Copy commit sha">{detail.sha.slice(0, 6)}</b>
+        commit:{" "}
+        <b className="sha" onClick={() => gitneat().copy(detail.sha).then(() => setCopied(true))} title="Copy">
+          {detail.sha.slice(0, 6)}
+        </b>
+        {copied && <span className="copied">Copied!</span>}
       </div>
       <div className="message-box">
         <div className="subject">{subject}</div>
@@ -157,7 +171,14 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           {detail.parents.map((p) => (
             <div key={p}>
               parent:{" "}
-              <a className="sha" onClick={() => onSelectSha(p)}>
+              <a
+                className="sha"
+                onClick={() => onSelectSha(p)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  void showMenu([{ label: "Copy sha", run: () => gitneat().copy(p) }]);
+                }}
+              >
                 {p.slice(0, 6)}
               </a>
             </div>

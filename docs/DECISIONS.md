@@ -320,3 +320,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source 11.9 opens a NEW tab from "+" and Cmd+T, and opens a repository in that tab (see `docs/EVIDENCE.md` section 9). Task T01 of the parity plan (D50).
 - Rules: If the active tab is a NEW tab, `openTab` replaces it with the repository. If another tab has the repository open, `openTab` selects that tab and keeps the NEW tab. When the last tab closes, one NEW tab stays. On start, an empty tab list gets one NEW tab. Closed NEW tabs do not go to the reopen list. The search box shows when the Recent list has more than 10 entries. It matches the name or the path, without case. Escape clears it.
 - Limits: Cmd+O no longer opens the folder picker. The Favorite section is not shown until task T24 adds favorites. The Recent list holds 20 entries, and GitNeat does not show a missing folder as unreachable. The `.welcome` page is removed.
+
+## D52. A click on the commit sha shows "Copied!"
+
+- Decision: In `CommitInfo` in `src/components/DetailPanel.tsx`, a click on the short sha copies the full sha. After the copy, the text "Copied!" shows next to the sha for 1 s. A right click on a parent sha opens a menu with "Copy sha".
+- Reason: The copy had no feedback, so the click looked like it did nothing. Source changes the tooltip from "Copy" to "Copied!" (see `docs/EVIDENCE.md` section 10). Task T02 of the parity plan (D50).
+- Rules: "Copied!" shows only after the `clipboard` command returns without an error. The tooltip of the sha is "Copy".
+- Limits: GitNeat uses the native `title` tooltip, which cannot change while it shows. For this reason, the text shows next to the sha and not in the tooltip. It goes after 1 s, not when the mouse leaves.
