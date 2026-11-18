@@ -4,7 +4,7 @@ import { gitneat } from "../api";
 import { Ctx } from "../actions";
 import * as M from "../menus";
 import { Ref, samePath } from "../repo";
-import { showMenu } from "../ui";
+import { showMenu, Splitter } from "../ui";
 import { Icon } from "./icons";
 
 interface Props {
@@ -17,6 +17,8 @@ interface Props {
   setClosed(closed: string[]): void;
   openSections: string[];
   setOpenSections(sections: string[]): void;
+  sectionHeights: Record<string, number>;
+  setSectionHeights(heights: Record<string, number>): void;
 }
 
 interface TreeNode {
@@ -50,11 +52,16 @@ function Section(props: {
   actions?: ReactNode;
   open: boolean;
   grow: boolean;
+  height?: number;
+  split?: ReactNode;
   toggle(): void;
   onMenu?(e: MouseEvent): void;
 }) {
   return (
-    <div className={`section${props.open ? " open" : ""}${props.grow ? " grow" : ""}`}>
+    <div
+      className={`section${props.open ? " open" : ""}${props.grow ? " grow" : ""}`}
+      style={props.open && !props.grow ? { flexBasis: props.height } : undefined}
+    >
       <div className="section-head" onClick={props.toggle} onContextMenu={props.onMenu}>
         <span className={`chevron${props.open ? " open" : ""}`}>›</span>
         <span className="section-icon">{props.icon}</span>
@@ -65,6 +72,7 @@ function Section(props: {
         <span className="section-count">{props.count}</span>
       </div>
       {props.open && <div className="section-body">{props.children}</div>}
+      {props.open && props.split}
     </div>
   );
 }
@@ -72,6 +80,10 @@ function Section(props: {
 const cap = (n: number) => (n > 99 ? "99+" : String(n));
 
 const STASH_REF = "refs/stash";
+
+const SECTION_DEFAULT_HEIGHT = 132;
+const SECTION_MINIMUM_HEIGHT = 108;
+const SECTION_MAXIMUM_HEIGHT = 1200;
 
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
@@ -85,13 +97,37 @@ export function Sidebar({
   setClosed,
   openSections,
   setOpenSections,
+  sectionHeights,
+  setSectionHeights,
 }: Props) {
   const [filter, setFilter] = useState("");
   const closed = new Set(closedList);
   const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
+  const [drag, setDrag] = useState<Record<string, number>>({});
+  const heightOf = (title: string) => drag[title] ?? sectionHeights[title] ?? SECTION_DEFAULT_HEIGHT;
   const sectionProps = (title: string) => ({
     open: openSections.includes(title),
     grow: title === lastOpen,
+    height: heightOf(title),
+    split:
+      title === lastOpen ? undefined : (
+        <Splitter
+          vertical
+          className="section-split"
+          value={heightOf(title)}
+          min={SECTION_MINIMUM_HEIGHT}
+          max={SECTION_MAXIMUM_HEIGHT}
+          set={(n, save) => {
+            const height = Math.round(n);
+            if (save === false) {
+              setDrag({ [title]: height });
+            } else {
+              setDrag({});
+              setSectionHeights({ ...sectionHeights, [title]: height });
+            }
+          }}
+        />
+      ),
     toggle: () =>
       setOpenSections(openSections.includes(title) ? openSections.filter((x) => x !== title) : [...openSections, title]),
   });

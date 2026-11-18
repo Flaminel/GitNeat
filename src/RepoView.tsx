@@ -18,13 +18,14 @@ export interface RepoPrefs {
   solo: string[];
   closed?: string[];
   openSections?: string[];
+  sectionHeights?: Record<string, number>;
 }
 
 interface Props {
   path: string;
   prefs: RepoPrefs;
   setPrefs(prefs: Partial<RepoPrefs>): void;
-  mainSections(mainPath: string): string[] | undefined;
+  mainSections(mainPath: string): Partial<RepoPrefs> | undefined;
   openTab(path: string): void;
   recent: string[];
 }
@@ -106,9 +107,9 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
     copied.current = true;
     const self = data.worktrees.find((w) => samePath(w.path, path));
     const main = data.worktrees.find((w) => w.main);
-    const sections = self && !self.main && main ? mainSections(main.path) : undefined;
-    if (sections) {
-      setPrefs({ openSections: sections });
+    const copy = self && !self.main && main ? mainSections(main.path) : undefined;
+    if (copy) {
+      setPrefs(copy);
     }
   }, [data, path, mainSections, setPrefs]);
 
@@ -324,6 +325,8 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
             setClosed={(list) => setPrefs({ closed: list })}
             openSections={openSections}
             setOpenSections={(list) => setPrefs({ openSections: list })}
+            sectionHeights={prefs.sectionHeights ?? {}}
+            setSectionHeights={(heights) => setPrefs({ sectionHeights: heights })}
           />
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}

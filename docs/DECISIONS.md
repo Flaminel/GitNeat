@@ -430,4 +430,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source writes both lists to the settings file of the repository (see `docs/EVIDENCE.md` section 11). Task T12.
 - Rules: The defaults are no collapsed folder and the sections LOCAL and REMOTE open. `setPrefs` takes a `Partial<RepoPrefs>`, so the callers of `hidden` and `solo` keep their shape.
 - Rules: A tab of a linked worktree copies `openSections` from the main worktree tab, and replaces its own list. The main tab must have a saved list. `RepoView` does this once for each mount, after the first load, through the `mainSections` prop.
-- Limits: Source also copies the section heights, and GitNeat has no section heights (task T41). No manual check in the app.
+- Limits: Source also copies the section heights. D67 adds them. No manual check in the app.
+
+## D67. Resizable left panel sections with saved heights
+
+- Decision: `RepoPrefs` in `src/RepoView.tsx` has the optional field `sectionHeights`, a map from section name to pixels. `Sidebar` shows a row `Splitter` at the bottom of each open section except the last open section. The drag changes the height of the section above the handle. The app store saves the map with the other tab prefs.
+- Reason: Source saves a height for each section for each repository (see `docs/EVIDENCE.md` section 11). Task T41.
+- Rules: The default height is 132 and the minimum is 108, as in Source. The last open section fills the remaining space. A section with no saved height uses the default. The `mainSections` prop of `RepoView` returns `openSections` and `sectionHeights`. A linked worktree copies both from the main worktree once for each mount (D66).
+- Limits: The heights are pixels, and the Source unit is not known. The maximum is 1200. If the panel is smaller than the sum of the heights, the open sections shrink to the minimum and the panel does not scroll. The drag handle of Source was not read. No manual check in the app: the Tauri window was not started in this task.
