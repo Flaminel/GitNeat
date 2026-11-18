@@ -888,6 +888,22 @@ a.sha {
   user-select: text;
 }
 
+.editable-message:hover {
+  cursor: pointer;
+  border-color: var(--accent);
+}
+
+.message-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px;
+}
+
+.reword-note {
+  color: var(--text-dim);
+}
+
 .subject {
   font-size: 17px;
 }

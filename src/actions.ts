@@ -341,8 +341,8 @@ export async function savePatch(ctx: Ctx, sha: string): Promise<void> {
   });
 }
 
-export async function runTodo(ctx: Ctx, base: string | null, entries: TodoEntry[]): Promise<void> {
-  await go(ctx, "Rebase", "runTodo", { base, entries });
+export function runTodo(ctx: Ctx, base: string | null, entries: TodoEntry[]): Promise<boolean> {
+  return go(ctx, "Rebase", "runTodo", { base, entries });
 }
 
 export async function dropCommit(ctx: Ctx, sha: string): Promise<void> {
@@ -366,12 +366,33 @@ export async function editMessage(ctx: Ctx, sha: string, isHead: boolean): Promi
   if (!v?.message.trim() || v.message.trim() === current) {
     return;
   }
+  await saveMessage(ctx, sha, isHead, v.message);
+}
+
+export async function saveMessage(ctx: Ctx, sha: string, isHead: boolean, message: string): Promise<boolean> {
   if (isHead) {
-    await go(ctx, "Edit message", "amendMessage", { message: v.message });
-    return;
+    return go(ctx, "Edit message", "amendMessage", { message });
   }
-  const plan = await act<Plan>(ctx.cwd, "rewordPlan", { sha, message: v.message });
-  await runTodo(ctx, plan.base, plan.entries);
+  const plan = await act<Plan>(ctx.cwd, "rewordPlan", { sha, message });
+  return runTodo(ctx, plan.base, plan.entries);
+}
+
+export function rewordDepth(data: RepoData, sha: string): number | null {
+  if (data.operation || !data.head) {
+    return null;
+  }
+  const bySha = new Map(data.commits.map((c) => [c.sha, c]));
+  let depth = 0;
+  for (let c = bySha.get(data.head); c; c = bySha.get(c.parents[0])) {
+    if (c.sha === sha) {
+      return depth === 0 || c.parents.length <= 1 ? depth : null;
+    }
+    if (c.parents.length !== 1) {
+      return null;
+    }
+    depth++;
+  }
+  return null;
 }
 
 export function cherryPickMany(ctx: Ctx, newestFirst: Commit[]) {

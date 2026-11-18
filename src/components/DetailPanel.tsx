@@ -109,6 +109,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [desc, setDesc] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState<{ summary: string; description: string } | null>(null);
 
   useEffect(() => {
     if (!copied) {
@@ -123,6 +124,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
     setDetail(null);
     setAll(null);
     setLoadError(null);
+    setEditing(null);
     loadCommit(ctx.cwd, sha).then(
       (d) => live && setDetail(d),
       (e) => live && setLoadError(e instanceof Error ? e.message : String(e)),
@@ -147,6 +149,25 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const changed = new Map(detail.files.map((f) => [f.path, f]));
   const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
   const files = [...listed].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
+  const isHead = detail.sha === ctx.data.head;
+  const depth = A.rewordDepth(ctx.data, detail.sha);
+  const saveMessage = async () => {
+    if (!editing) {
+      return;
+    }
+    const message = editing.description.trim() ? `${editing.summary.trim()}\n\n${editing.description.trim()}` : editing.summary.trim();
+    if (message === detail.message.trim()) {
+      setEditing(null);
+      return;
+    }
+    try {
+      if (await A.saveMessage(ctx, detail.sha, isHead, message)) {
+        setEditing(null);
+      }
+    } catch (error) {
+      ctx.ui.toast(error instanceof Error ? error.message : String(error), "error");
+    }
+  };
 
   return (
     <div className="detail">
@@ -157,10 +178,44 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
         </b>
         {copied && <span className="copied">Copied!</span>}
       </div>
-      <div className="message-box">
-        <div className="subject">{subject}</div>
-        {body.join("\n").trim() && <pre className="body">{body.join("\n").trim()}</pre>}
-      </div>
+      {editing ? (
+        <div className="message-edit">
+          <input
+            className="summary"
+            autoFocus
+            maxLength={200}
+            value={editing.summary}
+            onChange={(e) => setEditing({ ...editing, summary: e.target.value })}
+          />
+          <textarea
+            className="description"
+            placeholder="Description"
+            rows={4}
+            value={editing.description}
+            onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+          />
+          {!isHead && depth !== null && (
+            <div className="reword-note">Rewording this commit message will cause {depth + 1} commits to be rebased.</div>
+          )}
+          <button className="commit-btn" disabled={!editing.summary.trim()} onClick={saveMessage}>
+            Update Message
+          </button>
+          <button onClick={() => setEditing(null)}>{isHead ? "Cancel Amend" : "Cancel Reword"}</button>
+        </div>
+      ) : (
+        <div
+          className={`message-box${depth !== null ? " editable-message" : ""}`}
+          title={depth === null ? undefined : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
+          onClick={() => {
+            if (depth !== null) {
+              setEditing({ summary: subject, description: body.join("\n").trim() });
+            }
+          }}
+        >
+          <div className="subject">{subject}</div>
+          {body.join("\n").trim() && <pre className="body">{body.join("\n").trim()}</pre>}
+        </div>
+      )}
       <div className="author">
         <Avatar name={detail.author} />
         <div>
