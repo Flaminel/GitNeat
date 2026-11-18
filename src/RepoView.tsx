@@ -327,6 +327,18 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   }, [selected]);
 
   useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (e.key !== "Escape" || multi.length < 2 || openFile || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.closest(".monaco-editor")) {
+        return;
+      }
+      setMulti([]);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [multi, openFile]);
+
+  useEffect(() => {
     const arrow = (e: KeyboardEvent) => e.key === "ArrowUp" || e.key === "ArrowDown";
     const onDown = (e: KeyboardEvent) => {
       if (arrow(e) && e.repeat) {
