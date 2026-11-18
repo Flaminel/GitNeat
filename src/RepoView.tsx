@@ -42,9 +42,11 @@ export interface Settings {
   toolbarLabels: boolean;
   syntaxHighlighting: boolean;
   autoUpdateSubmodules: boolean;
+  externalEditor: string;
+  externalEditorPath: string;
 }
 
-export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true, autoUpdateSubmodules: true };
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true, autoUpdateSubmodules: true, externalEditor: "", externalEditorPath: "" };
 export const MAX_COMMITS_MIN = 500;
 export const AUTO_FETCH_MAX = 60;
 

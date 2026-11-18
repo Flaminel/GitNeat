@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allRepos, countCaption, groupOrder, matchRepo, sortWorkspaces, Workspace } from "../src/repoManagement";
+import { allRepos, countCaption, editorCaption, groupOrder, moveGroup, matchRepo, sortWorkspaces, Workspace } from "../src/repoManagement";
 
 const ws = (id: string, name: string, syncPath?: string): Workspace => ({ id, name, description: "", repos: [], syncPath });
 
@@ -21,4 +21,19 @@ test("the action caption follows the selection count", () => {
   assert.equal(countCaption(3, 5, "one", "all", "{0} many"), "3 many");
   assert.equal(matchRepo("GitNeat", "neat"), true);
   assert.equal(matchRepo("GitNeat", "source"), false);
+});
+
+test("saved group order keeps known ids and adds missing ones", () => {
+  const list = [ws("b", "beta"), ws("a", "Alpha")];
+  assert.deepEqual(groupOrder(list, ["all", "gone", "b", "recent"]), ["open", "favorites", "all", "b", "recent", "a"]);
+  assert.deepEqual(groupOrder(list, ["a", "b"]), ["open", "favorites", "recent", "a", "b", "all"]);
+  assert.deepEqual(moveGroup(["x", "y", "z"], "x", "z"), ["y", "z", "x"]);
+  assert.deepEqual(moveGroup(["x", "y", "z"], "z", "x"), ["z", "x", "y"]);
+});
+
+test("the editor caption follows the selection count", () => {
+  assert.equal(editorCaption(3, 3, null), "Open in external editor");
+  assert.equal(editorCaption(1, 3, "Code"), "Open in Code");
+  assert.equal(editorCaption(3, 3, "Code"), "Open all in Code workspace");
+  assert.equal(editorCaption(2, 3, "Code"), "Open 2 in Code workspace");
 });

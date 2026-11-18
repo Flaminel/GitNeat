@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AskpassReply, AskpassRequest, gitneat } from "./api";
+import { AskpassReply, AskpassRequest, ExternalEditor, gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { samePath } from "./repo";
@@ -25,13 +25,17 @@ interface State {
   settings: Settings;
   workspaces: Workspace[];
   groups: Record<string, GroupPrefs>;
+  groupOrder: string[];
 }
 
-const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS, workspaces: [], groups: {} };
+const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS, workspaces: [], groups: {}, groupOrder: [] };
 const MANAGEMENT = -1;
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const AUTO_UPDATE_LABELS: Record<SubmoduleAutoUpdate, string> = { default: "Use global setting", enabled: "Enabled", disabled: "Disabled" };
 const NEW_TAB: Tab = {};
+const NO_EDITOR = "<None>";
+const CUSTOM_EDITOR = "<Custom>";
+const NO_EDITOR_MESSAGE = "There is no external editor configured in your settings";
 const RECENT_LIMIT = 100;
 const ZOOMS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
 const SUPPORT_URL = "https://github.com/Flaminel/GitNeat";
@@ -82,6 +86,7 @@ export function App() {
   const loaded = useRef(false);
   const [palette, setPalette] = useState<Domain | null>(null);
   const [repoModal, setRepoModal] = useState<RepoModalTab | null>(null);
+  const [editors, setEditors] = useState<ExternalEditor[]>([]);
 
   useEffect(() => {
     gitneat()
@@ -114,6 +119,21 @@ export function App() {
   }, [state]);
 
   const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? fn(s) : s)), []);
+
+  const loadedState = !!state;
+  useEffect(() => {
+    if (!loadedState) {
+      return;
+    }
+    void gitneat()
+      .externalEditors()
+      .then((found) => {
+        setEditors(found);
+        if (found.length === 1) {
+          update((s) => (s.settings.externalEditor ? s : { ...s, settings: { ...s.settings, externalEditor: found[0].id } }));
+        }
+      });
+  }, [loadedState, update]);
 
   const layout = state?.layout;
   const setLayout = useCallback(
@@ -166,7 +186,8 @@ export function App() {
     if (!state) {
       return;
     }
-    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting, autoUpdateSubmodules } = state.settings;
+    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting, autoUpdateSubmodules, externalEditor, externalEditorPath } = state.settings;
+    const editorLabel = (id: string) => (id === "custom" ? CUSTOM_EDITOR : editors.find((e) => e.id === id)?.label ?? NO_EDITOR);
     const v = await ui.prompt(
       "Preferences",
       [
@@ -180,6 +201,13 @@ export function App() {
           value: String(autoUpdateSubmodules),
         },
         { name: "defaultBranch", label: "Default Branch Name", help: "Sets the default branch name when initializing new repositories.", placeholder: "main", value: defaultBranch, ref: true },
+        { name: "externalEditor", label: "External Editor", kind: "select", options: [NO_EDITOR, ...editors.map((e) => e.label), CUSTOM_EDITOR], value: editorLabel(externalEditor) },
+        {
+          name: "externalEditorPath",
+          label: "Editor Executable",
+          help: `Path to the editor executable. Used when External Editor is ${CUSTOM_EDITOR}.`,
+          value: externalEditorPath,
+        },
         { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
         { name: "toolbarLabels", label: "Show toolbar icon labels", kind: "checkbox", value: String(toolbarLabels) },
         { name: "syntaxHighlighting", label: "Syntax Highlighting", kind: "checkbox", value: String(syntaxHighlighting) },
@@ -218,6 +246,8 @@ export function App() {
         toolbarLabels: v.toolbarLabels === "true",
         syntaxHighlighting: v.syntaxHighlighting === "true",
         autoUpdateSubmodules: v.autoUpdateSubmodules === "true",
+        externalEditor: v.externalEditor === CUSTOM_EDITOR ? "custom" : editors.find((e) => e.label === v.externalEditor)?.id ?? "",
+        externalEditorPath: v.externalEditorPath.trim(),
       },
     }));
   };
@@ -250,6 +280,32 @@ export function App() {
     const commitDefaults = { push: v.push === "true", skipHooks: v.skipHooks === "true" };
     const autoUpdateSubmodules = (Object.keys(AUTO_UPDATE_LABELS) as SubmoduleAutoUpdate[]).find((k) => AUTO_UPDATE_LABELS[k] === v.autoUpdateSubmodules) ?? "default";
     update((s) => ({ ...s, prefs: { ...s.prefs, [path]: { ...(s.prefs[path] ?? NO_PREFS), commitDefaults, autoUpdateSubmodules } } }));
+  };
+
+  const openInEditor = async (paths: string[]) => {
+    if (!state) {
+      return;
+    }
+    const { externalEditor, externalEditorPath } = state.settings;
+    if (paths.length > 10 && !(await ui.confirm("", `GitNeat will open ${paths.length} repositories in your external editor. Are you sure you want to continue?`))) {
+      return;
+    }
+    try {
+      if (!externalEditor) {
+        throw new Error(NO_EDITOR_MESSAGE);
+      }
+      await gitneat().openInEditor(externalEditor, externalEditorPath, paths);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes(NO_EDITOR_MESSAGE)) {
+        const answer = await ui.choose(NO_EDITOR_MESSAGE, [{ label: "View External Editor Settings", value: "settings" }]);
+        if (answer?.choice === "settings") {
+          void preferences();
+        }
+      } else {
+        ui.toast(message, "error");
+      }
+    }
   };
 
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
@@ -306,6 +362,7 @@ export function App() {
       "repo-management": openManagement,
       terminal: () => path && gitneat().openTerminal(path),
       "file-manager": () => path && gitneat().openPath(path),
+      "external-editor": () => path && openInEditor([path]),
       undo: () => pressKey("KeyZ"),
       redo: () => pressKey("KeyZ", true),
       "left-panel": () => pressKey("KeyJ"),
@@ -371,6 +428,8 @@ export function App() {
         id = "zoom-reset";
       } else if (key === "p" && !e.shiftKey) {
         id = "palette";
+      } else if (key === "e" && e.shiftKey) {
+        id = "external-editor";
       } else if (key === "o" && e.shiftKey) {
         e.preventDefault();
         setPalette("openRepo");
@@ -408,6 +467,8 @@ export function App() {
   }
 
   const activePath = state.tabs[state.active]?.path;
+  const { externalEditor, externalEditorPath } = state.settings;
+  const editorName = !externalEditor ? null : externalEditor === "custom" ? externalEditorPath.split(/[\\/]/).pop() || "Custom" : editors.find((e) => e.id === externalEditor)?.label ?? null;
   const paletteApp: AppApi = {
     newTab,
     clone,
@@ -418,6 +479,7 @@ export function App() {
     zoom: (step) => (step ? stepZoom(step) : update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } }))),
     toggleSetting: (key) => update((s) => ({ ...s, settings: { ...s.settings, [key]: !s.settings[key] } })),
     openRepo: openTab,
+    openInEditor: (path) => openInEditor([path]),
     recent: state.recent,
     favorites: state.favorites,
     aliases: state.aliases,
@@ -457,6 +519,10 @@ export function App() {
             aliases={state.aliases}
             workspaces={state.workspaces}
             groups={state.groups}
+            order={state.groupOrder}
+            onOrder={(ids) => update((s) => ({ ...s, groupOrder: ids }))}
+            editorName={editorName}
+            onOpenInEditor={openInEditor}
             prune={state.settings.autoPrune}
             recurse={state.settings.autoUpdateSubmodules}
             onOpenTabs={(paths) => paths.forEach(openTab)}

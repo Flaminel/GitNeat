@@ -1,5 +1,6 @@
 use crate::git;
 use crate::paths;
+use base64::Engine;
 use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -8,7 +9,6 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 use tokio::sync::oneshot;
 use tokio::task::JoinSet;
 
-const SCAN_DEPTH: usize = 5;
 const UNREACHABLE: &str = "Repo is unreachable and may have been deleted";
 
 #[derive(Serialize, Default, Debug, PartialEq)]
@@ -21,9 +21,29 @@ pub struct RepoSummary {
     pub behind: u32,
     pub remote: Option<String>,
     pub remote_url: Option<String>,
-    pub changes: Option<u32>,
-    pub conflicts: u32,
+    pub wip: Option<WipSummary>,
     pub error: Option<String>,
+}
+
+#[derive(Serialize, Default, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct WipSummary {
+    pub added: u32,
+    pub deleted: u32,
+    pub modified: u32,
+    pub renamed: u32,
+}
+
+impl WipSummary {
+    fn count(&mut self, code: char) {
+        match code {
+            'A' | 'C' => self.added += 1,
+            'D' => self.deleted += 1,
+            'M' | 'T' => self.modified += 1,
+            'R' => self.renamed += 1,
+            _ => {}
+        }
+    }
 }
 
 async fn git_out(cwd: &str, args: &[&str]) -> Option<String> {
@@ -38,7 +58,7 @@ async fn git_out(cwd: &str, args: &[&str]) -> Option<String> {
 
 pub fn parse_status(text: &str, wip: bool) -> RepoSummary {
     let mut s = RepoSummary::default();
-    let mut changes = 0;
+    let mut changes = WipSummary::default();
     for line in text.lines() {
         if let Some(head) = line.strip_prefix("# branch.head ") {
             if head != "(detached)" {
@@ -55,14 +75,17 @@ pub fn parse_status(text: &str, wip: bool) -> RepoSummary {
                 }
             }
         } else if line.starts_with("u ") {
-            s.conflicts += 1;
-            changes += 1;
-        } else if !line.starts_with('#') && !line.is_empty() {
-            changes += 1;
+            changes.modified += 1;
+        } else if line.starts_with("? ") {
+            changes.added += 1;
+        } else if line.starts_with("1 ") || line.starts_with("2 ") {
+            for code in line.chars().skip(2).take(2) {
+                changes.count(code);
+            }
         }
     }
     if wip {
-        s.changes = Some(changes);
+        s.wip = Some(changes);
     }
     s
 }
@@ -122,12 +145,9 @@ fn is_repo(dir: &Path) -> bool {
     dir.join(".git").exists()
 }
 
-fn scan(dir: &Path, depth: usize, out: &mut Vec<String>) {
+fn scan(dir: &Path, out: &mut Vec<String>) {
     if is_repo(dir) {
         out.push(paths::normalize(dir).to_string_lossy().into_owned());
-        return;
-    }
-    if depth == 0 {
         return;
     }
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -144,14 +164,14 @@ fn scan(dir: &Path, depth: usize, out: &mut Vec<String>) {
         .collect();
     children.sort();
     for child in children {
-        scan(&child, depth - 1, out);
+        scan(&child, out);
     }
 }
 
 pub fn find(dirs: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     for dir in dirs {
-        scan(Path::new(dir), SCAN_DEPTH, &mut out);
+        scan(Path::new(dir), &mut out);
     }
     out.sort();
     out.dedup();
@@ -219,6 +239,142 @@ pub async fn import_code_workspace(window: Window) -> Vec<String> {
     code_workspace_folders(&file, &text)
 }
 
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoReadme {
+    pub name: String,
+    pub html: String,
+}
+
+fn is_readme(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    match lower.strip_prefix("readme") {
+        Some("") => true,
+        Some(rest) => rest
+            .strip_prefix('.')
+            .is_some_and(|e| !e.is_empty() && e.chars().all(|c| c.is_ascii_alphanumeric())),
+        None => false,
+    }
+}
+
+fn pick_readme(names: &[String]) -> Option<String> {
+    let mut found: Vec<&String> = names.iter().filter(|n| is_readme(n)).collect();
+    found.sort();
+    found
+        .iter()
+        .find(|n| n.eq_ignore_ascii_case("readme.md"))
+        .or_else(|| found.iter().min_by_key(|n| n.len()))
+        .map(|n| n.to_string())
+}
+
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn render_readme(name: &str, text: &str) -> String {
+    let lower = name.to_lowercase();
+    if !lower.ends_with(".md") && !lower.ends_with(".markdown") {
+        return format!("<pre>{}</pre>", escape_html(text));
+    }
+    use pulldown_cmark::{Event, Options, Parser};
+    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
+    let events = Parser::new_ext(text, options).map(|e| match e {
+        Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
+        other => other,
+    });
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, events);
+    html
+}
+
+#[tauri::command]
+pub async fn repo_readme(path: String) -> Option<RepoReadme> {
+    let mut names = Vec::new();
+    let mut entries = tokio::fs::read_dir(&path).await.ok()?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if entry.file_type().await.map(|t| t.is_file()).unwrap_or(false) {
+            names.push(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    let name = pick_readme(&names)?;
+    let bytes = tokio::fs::read(Path::new(&path).join(&name)).await.ok()?;
+    let html = render_readme(&name, &String::from_utf8_lossy(&bytes));
+    Some(RepoReadme { name, html })
+}
+
+#[tauri::command]
+pub async fn create_readme(path: String) -> Result<(), String> {
+    let root = Path::new(&path);
+    let mut entries = tokio::fs::read_dir(root).await.map_err(|e| e.to_string())?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if is_readme(&entry.file_name().to_string_lossy()) {
+            return Ok(());
+        }
+    }
+    let folder = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    tokio::fs::write(root.join("README.md"), format!("# {folder}\n"))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+fn icons_dir() -> PathBuf {
+    crate::store::user_data().join("icons")
+}
+
+fn icon_name_ok(name: &str) -> bool {
+    !name.contains('/') && !name.contains('\\') && !name.contains("..")
+}
+
+#[tauri::command]
+pub async fn pick_icon(window: Window) -> Option<String> {
+    let (tx, rx) = oneshot::channel();
+    window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title("Select Workspace Icon")
+        .add_filter("Image File", &["png", "jpg", "jpeg"])
+        .pick_file(move |p| {
+            let _ = tx.send(p.and_then(|f| f.into_path().ok()));
+        });
+    let source = rx.await.ok().flatten()?;
+    let ext = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png")
+        .to_lowercase();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let name = format!("{stamp}.{ext}");
+    let dir = icons_dir();
+    tokio::fs::create_dir_all(&dir).await.ok()?;
+    tokio::fs::copy(&source, dir.join(&name)).await.ok()?;
+    Some(name)
+}
+
+#[tauri::command]
+pub async fn icon_data(name: String) -> Option<String> {
+    if !icon_name_ok(&name) {
+        return None;
+    }
+    let bytes = tokio::fs::read(icons_dir().join(&name)).await.ok()?;
+    let lower = name.to_lowercase();
+    let mime = if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "jpeg"
+    } else {
+        "png"
+    };
+    Some(format!(
+        "data:image/{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,11 +386,62 @@ mod tests {
         assert_eq!(s.branch.as_deref(), Some("main"));
         assert_eq!(s.upstream.as_deref(), Some("origin/main"));
         assert_eq!((s.ahead, s.behind), (2, 3));
-        assert_eq!(s.changes, Some(3));
-        assert_eq!(s.conflicts, 1);
+        assert_eq!(
+            s.wip,
+            Some(WipSummary {
+                added: 1,
+                deleted: 0,
+                modified: 2,
+                renamed: 0
+            })
+        );
         let detached = parse_status("# branch.head (detached)\n", false);
         assert_eq!(detached.branch, None);
-        assert_eq!(detached.changes, None);
+        assert_eq!(detached.wip, None);
+    }
+
+    #[test]
+    fn wip_counts_staged_and_unstaged_separately() {
+        let text = "1 MM N... 1 1 1 a b f1\n1 A. N... 1 1 1 a b f2\n1 .D N... 1 1 1 a b f3\n2 R. N... 1 1 1 a b R100 f4\tf5\n? u.txt\nu UU N... 1 2 3 4 a b c g\n";
+        let w = parse_status(text, true).wip.unwrap();
+        assert_eq!(
+            w,
+            WipSummary {
+                added: 2,
+                deleted: 1,
+                modified: 3,
+                renamed: 1
+            }
+        );
+    }
+
+    #[test]
+    fn readme_prefers_markdown_then_shortest() {
+        let pick = |names: &[&str]| {
+            pick_readme(&names.iter().map(|n| n.to_string()).collect::<Vec<_>>())
+        };
+        assert_eq!(pick(&["README.txt", "readme.md", "README"]).as_deref(), Some("readme.md"));
+        assert_eq!(pick(&["README.rst", "Readme.txt"]).as_deref(), Some("README.rst"));
+        assert_eq!(pick(&["README.md.bak", "readme-notes.md", "a.md"]), None);
+    }
+
+    #[test]
+    fn readme_html_escapes_raw_html() {
+        let html = render_readme("README.md", "# T\n\n<script>x</script>\n\n| a |\n|---|\n| 1 |\n\n- [x] t\n");
+        assert!(html.contains("<h1>"));
+        assert!(html.contains("<table>"));
+        assert!(html.contains("checkbox"));
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+        assert_eq!(render_readme("README", "<b>&"), "<pre>&lt;b&gt;&amp;</pre>");
+    }
+
+    #[test]
+    fn icon_names_with_separators_are_rejected() {
+        assert!(!icon_name_ok("../x.png"));
+        assert!(!icon_name_ok("a/b.png"));
+        assert!(!icon_name_ok("a\\b.png"));
+        assert!(icon_name_ok("123.png"));
     }
 
     #[test]

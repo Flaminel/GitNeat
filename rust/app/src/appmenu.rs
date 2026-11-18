@@ -94,6 +94,12 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                 "Open Repo Management",
                 Some("CmdOrCtrl+Alt+O"),
             )?,
+            &item(
+                app,
+                "external-editor",
+                "Open Repo in External Editor",
+                Some("CmdOrCtrl+Shift+E"),
+            )?,
             &sep(app)?,
             &item(app, "terminal", "Open External Terminal", Some("Alt+T"))?,
             &item(app, "file-manager", "Open in File Manager", Some("Alt+O"))?,

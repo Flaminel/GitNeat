@@ -3,6 +3,7 @@ pub mod actions;
 pub mod appmenu;
 pub mod askpass;
 pub mod commands;
+pub mod editors;
 pub mod git;
 pub mod load;
 pub mod load_gix;
@@ -112,6 +113,12 @@ pub fn run() {
             workspaces::find_repos,
             workspaces::pick_directories,
             workspaces::import_code_workspace,
+            workspaces::repo_readme,
+            workspaces::create_readme,
+            workspaces::pick_icon,
+            workspaces::icon_data,
+            editors::external_editors,
+            editors::open_in_editor,
             commands::save_file,
             commands::open_patch,
             commands::write_temp,

@@ -56,7 +56,8 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/components/RepoManagement.tsx` | Repo Management tab: groups, batch fetch and pull, workspace modal (D100) |
 | `src/repoManagement.ts` | Workspace and group types, group order, All repositories list and caption rule (D100) |
 | `test/repo-management.test.ts` | Tests for `src/repoManagement.ts` |
-| `rust/app/src/workspaces.rs` | Commands `repo_summaries`, `find_repos`, `pick_directories` and `import_code_workspace` (D100) |
+| `rust/app/src/workspaces.rs` | Commands `repo_summaries`, `find_repos`, `pick_directories`, `import_code_workspace`, `repo_readme`, `create_readme`, `pick_icon` and `icon_data` (D100) |
+| `rust/app/src/editors.rs` | External editor list, detection and launch: `external_editors`, `open_in_editor` (D100) |
 | `src/repoSetup.ts` | Name, path and form checks for the Clone and Init modal |
 | `test/repo-setup.test.ts` | Tests for `src/repoSetup.ts` |
 | `src/components/icons.tsx` | Inline SVG icons |
@@ -101,6 +102,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the Clone or Init modal, the shallow options or the init files (D96) | `src/components/RepoModal.tsx`, `rust/app/src/setup.rs`, `rust/app/templates/` |
 | Change the NEW tab page, its lists or its search | `src/components/NewTab.tsx`, `.new-tab` and `.recent` in `src/styles.css` |
 | Change the Repo Management tab, its groups or the workspaces (D100) | `src/components/RepoManagement.tsx`, `src/repoManagement.ts`, `rust/app/src/workspaces.rs`, `.rm-*` in `src/styles.css` |
+| Change the external editor list or the launch (D100) | `rust/app/src/editors.rs`, `openInEditor` and `preferences` in `src/App.tsx` |
 | Change favorites, aliases or the breadcrumb menu (D82) | `toggleFavorite` and `renameRepo` in `src/App.tsx`, the repository crumb in `src/components/Toolbar.tsx` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |

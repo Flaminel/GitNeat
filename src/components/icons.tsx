@@ -82,6 +82,8 @@ export const Icon = {
     </>,
     14,
   ),
+  list: svg(<path d="M5.5 4h8 M5.5 8h8 M5.5 12h8 M2.5 4h.01 M2.5 8h.01 M2.5 12h.01" />),
+  editor: svg(<path d="M6 4L2.5 8 6 12 M10 4l3.5 4-3.5 4" />),
   star: svg(<path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />, 13),
   repos: svg(<path d="M2 2.5h5v5H2z M9 2.5h5v5H9z M2 9.5h5v5H2z M9 9.5h5v5H9z" />, 14),
   more: svg(

@@ -4,6 +4,7 @@ export interface Workspace {
   description: string;
   repos: string[];
   syncPath?: string;
+  icon?: string;
 }
 
 export interface GroupPrefs {
@@ -35,8 +36,40 @@ export function sortWorkspaces(list: Workspace[]): Workspace[] {
   });
 }
 
-export function groupOrder(workspaces: Workspace[]): string[] {
-  return [OPEN, FAVORITES, RECENT, ...sortWorkspaces(workspaces).map((w) => w.id), ALL];
+export function groupOrder(workspaces: Workspace[], saved: string[] = []): string[] {
+  const sorted = sortWorkspaces(workspaces).map((w) => w.id);
+  const exists = new Set([OPEN, FAVORITES, RECENT, ALL, ...sorted]);
+  const out = saved.filter((id, i) => exists.has(id) && saved.indexOf(id) === i);
+  for (const id of [RECENT, FAVORITES, OPEN]) {
+    if (!out.includes(id)) {
+      out.unshift(id);
+    }
+  }
+  for (const id of sorted) {
+    if (!out.includes(id)) {
+      out.push(id);
+    }
+  }
+  if (!out.includes(ALL)) {
+    out.push(ALL);
+  }
+  return out;
+}
+
+export function moveGroup(ids: string[], from: string, to: string): string[] {
+  const out = ids.filter((id) => id !== from);
+  out.splice(ids.indexOf(to), 0, from);
+  return out;
+}
+
+export function editorCaption(count: number, total: number, name: string | null): string {
+  if (!name) {
+    return "Open in external editor";
+  }
+  if (count <= 1) {
+    return `Open in ${name}`;
+  }
+  return count === total ? `Open all in ${name} workspace` : `Open ${count} in ${name} workspace`;
 }
 
 export function allRepos(open: string[], favorites: string[], recent: string[], workspaces: string[][], failed: (path: string) => boolean): string[] {

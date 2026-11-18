@@ -50,9 +50,25 @@ export interface RepoSummary {
   behind: number;
   remote: string | null;
   remoteUrl: string | null;
-  changes: number | null;
-  conflicts: number;
+  wip: WipSummary | null;
   error: string | null;
+}
+
+export interface WipSummary {
+  added: number;
+  deleted: number;
+  modified: number;
+  renamed: number;
+}
+
+export interface ExternalEditor {
+  id: string;
+  label: string;
+}
+
+export interface RepoReadme {
+  name: string;
+  html: string;
 }
 
 export interface GitNeatApi {
@@ -86,6 +102,12 @@ export interface GitNeatApi {
   findRepos(dirs: string[]): Promise<string[]>;
   pickDirectories(): Promise<string[]>;
   importCodeWorkspace(): Promise<string[]>;
+  externalEditors(): Promise<ExternalEditor[]>;
+  openInEditor(editor: string, customPath: string, paths: string[]): Promise<void>;
+  repoReadme(path: string): Promise<RepoReadme | null>;
+  createReadme(path: string): Promise<void>;
+  pickIcon(): Promise<string | null>;
+  iconData(name: string): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;
   openPatch(): Promise<string | null>;
   writeTemp(content: string): Promise<string>;

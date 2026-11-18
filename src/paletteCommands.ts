@@ -32,6 +32,7 @@ export interface AppApi {
   zoom(step: number): void;
   toggleSetting(key: "toolbarLabels" | "syntaxHighlighting"): void;
   openRepo(path: string): void;
+  openInEditor(path: string): unknown;
   recent: string[];
   favorites: string[];
   aliases: Record<string, string>;
@@ -93,6 +94,7 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("initRepo", "Initialize a Repo", app.init, { hidden: "initialize" }),
     command("openInFileManager", "Open in File Manager", need((_, c) => gitneat().openPath(c.cwd)), { hidden: "folder explorer finder", flags: r }),
     command("openInTerminal", "Open in default terminal", need((_, c) => gitneat().openTerminal(c.cwd)), { hidden: "in-app terminal command line console", flags: r }),
+    command("openInExternalEditor", "Open in external editor", need((_, c) => app.openInEditor(c.cwd)), { hidden: "ide vscode code", flags: r }),
     command("closeRepo", "Close Tab", app.closeTab),
     command("settings", "Settings", app.preferences, { hidden: "preferences options" }),
     command("viewWorkingDirChanges", "View Working Directory Changes", need((p, c) => c.data.status.length && p.showWip()), { hidden: "changes wip workdir working", flags: r }),

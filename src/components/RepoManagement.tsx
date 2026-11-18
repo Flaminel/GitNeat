@@ -1,22 +1,25 @@
-import { FormEvent, useContext, useEffect, useMemo, useState } from "react";
-import { gitneat, RepoSummary } from "../api";
+import { FormEvent, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { gitneat, RepoReadme, RepoSummary } from "../api";
 import { PULL_OPTIONS, PullMode } from "../actions";
 import {
   ALL,
   allRepos,
   countCaption,
   DEFAULT_GROUPS,
+  editorCaption,
   FAVORITES,
   GroupPrefs,
   groupOrder,
   isDefaultGroup,
   matchRepo,
+  moveGroup,
   newWorkspaceId,
   OPEN,
   RECENT,
   Workspace,
 } from "../repoManagement";
-import { LayoutContext, MenuItem, showMenu, useUi } from "../ui";
+import { LayoutContext, MenuItem, showMenu, useStored, useUi } from "../ui";
+import { remoteWebUrl } from "../repo";
 import { Icon } from "./icons";
 import { repoLabel, repoName } from "./Tabs";
 
@@ -38,12 +41,17 @@ interface Props {
   onOpenDialog(): void;
   onClone(): void;
   onInit(): void;
+  order: string[];
+  onOrder(ids: string[]): void;
+  editorName: string | null;
+  onOpenInEditor(paths: string[]): void;
 }
 
 type Batch = "fetch" | "pull";
 
 const COLORS = Array.from({ length: 10 }, (_, i) => i);
 const WIP_KEY = "repoManagement.wip";
+const DETAILS_KEY = "repoManagement.detailsWidth";
 
 interface Group {
   id: string;
@@ -56,7 +64,7 @@ export function RepoManagement(props: Props) {
   const { open, favorites, recent, aliases, workspaces, groups } = props;
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
-  const wip = layout[WIP_KEY] === true;
+  const wip = layout[WIP_KEY] !== false;
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<Record<string, string[]>>({});
   const [synced, setSynced] = useState<Record<string, string[]>>({});
@@ -64,6 +72,10 @@ export function RepoManagement(props: Props) {
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState<Workspace | "new" | null>(null);
+  const [details, setDetails] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
+  const icons = useIcons(workspaces.map((w) => w.icon));
 
   const syncKey = workspaces.map((w) => `${w.id}=${w.syncPath ?? ""}`).join("\n");
   useEffect(() => {
@@ -98,7 +110,7 @@ export function RepoManagement(props: Props) {
   }, [key, wip, reload]);
 
   const byId = useMemo(() => Object.fromEntries(workspaces.map((w) => [w.id, w])), [workspaces]);
-  const allGroups: Group[] = groupOrder(workspaces).map((id) => {
+  const allGroups: Group[] = groupOrder(workspaces, props.order).map((id) => {
     if (id === OPEN) {
       return { id, name: DEFAULT_GROUPS[id], repos: open };
     }
@@ -235,6 +247,8 @@ export function RepoManagement(props: Props) {
     const w = g.workspace;
     void showMenu([
       { label: "Open repository", enabled: !broken, run: () => props.onOpenTabs([path]) },
+      { label: "Open repository details", run: () => setDetails(path) },
+      { label: editorCaption(1, 1, props.editorName), enabled: !broken && !!props.editorName, run: () => openInEditor([path]) },
       { label: "Fetch repository", enabled: !broken, run: () => void runBatch("fetch", [path]) },
       { label: "Pull repository", enabled: !broken, run: () => void runBatch("pull", [path], defaultPull()) },
       "-",
@@ -245,24 +259,51 @@ export function RepoManagement(props: Props) {
     ]);
   };
 
+  const openInEditor = (paths: string[]) => props.onOpenInEditor(paths.filter((p) => !failed(p)));
+
   const toggleCheck = (id: string, path: string, on: boolean) =>
     setChecked((c) => ({ ...c, [id]: on ? [...(c[id] ?? []), path] : (c[id] ?? []).filter((p) => p !== path) }));
 
-  const branchText = (s: RepoSummary | undefined) => {
+  const branchCell = (s: RepoSummary | undefined) => {
     if (!s) {
-      return "";
+      return null;
     }
     if (s.error) {
-      return s.error;
+      return (
+        <span className="rm-error" title={s.error}>
+          ⚠ {s.error}
+        </span>
+      );
     }
-    const parts = [s.branch ?? "(detached HEAD)"];
-    if (s.upstream) {
-      parts.push(`${s.upstream}${s.behind ? ` ↓${s.behind}` : ""}${s.ahead ? ` ↑${s.ahead}` : ""}`);
-    }
-    if (s.changes !== null) {
-      parts.push(s.changes ? `${s.changes} ${s.changes === 1 ? "change" : "changes"}${s.conflicts ? `, ${s.conflicts} conflicted` : ""}` : "No changes");
-    }
-    return parts.join(" · ");
+    const track = s.ahead && s.behind ? `You are ${s.ahead} commits ahead, and ${s.behind} commits behind` : s.ahead ? `You are ${s.ahead} commits ahead` : `You are ${s.behind} commits behind`;
+    const w = s.wip;
+    const badges = w
+      ? [
+          { n: w.added, cls: "add", sign: "+", word: "added" },
+          { n: w.modified, cls: "mod", sign: "~", word: "modified" },
+          { n: w.deleted, cls: "del", sign: "-", word: "deleted" },
+          { n: w.renamed, cls: "ren", sign: "→", word: "renamed" },
+        ].filter((b) => b.n > 0)
+      : [];
+    return (
+      <>
+        <span className="rm-pill" title={s.branch ?? "detached"}>
+          {s.branch ?? "detached"}
+        </span>
+        {(s.ahead > 0 || s.behind > 0) && (
+          <span className="rm-track" title={track}>
+            {s.ahead > 0 && <span className="rm-ahead">↑{s.ahead}</span>}
+            {s.behind > 0 && <span className="rm-behind">↓{s.behind}</span>}
+          </span>
+        )}
+        {badges.map((b) => (
+          <span key={b.cls} className={`rm-wip ${b.cls}`} title={`${b.n} ${b.word}`}>
+            {b.sign}
+            {b.n}
+          </span>
+        ))}
+      </>
+    );
   };
 
   const renderGroup = (g: Group) => {
@@ -279,9 +320,39 @@ export function RepoManagement(props: Props) {
     const fetchCaption = usable.length ? countCaption(usable.length, g.repos.length, "Fetch repository", "Fetch all repositories", "Fetch {0} repositories") : "No repositories to fetch";
     const pullCaption = usable.length ? countCaption(usable.length, g.repos.length, "Pull repository", "Pull all repositories", "Pull {0} repositories") : "No repositories to pull";
     return (
-      <section key={g.id} className="rm-group" style={color ? { borderLeftColor: color } : undefined}>
-        <header className="rm-group-header" onClick={() => !query && setGroup(g.id, { collapsed: !collapsed })}>
+      <section
+        key={g.id}
+        className={`rm-group${dropId === g.id && dragId !== g.id ? " drop" : ""}`}
+        style={color ? { borderLeftColor: color } : undefined}
+        onDragOver={(e) => {
+          if (dragId) {
+            e.preventDefault();
+            setDropId(g.id);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dragId && dragId !== g.id) {
+            props.onOrder(moveGroup(groupOrder(workspaces, props.order), dragId, g.id));
+          }
+          setDragId(null);
+          setDropId(null);
+        }}
+      >
+        <header
+          className="rm-group-header"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", g.id);
+            setDragId(g.id);
+          }}
+          onDragEnd={() => {
+            setDragId(null);
+            setDropId(null);
+          }}
+          onClick={() => !query && setGroup(g.id, { collapsed: !collapsed })}>
           <span className={`rm-caret${collapsed ? "" : " open"}`}>▸</span>
+          {g.workspace?.icon && icons[g.workspace.icon] && <img className="rm-ws-icon" src={icons[g.workspace.icon]} alt="" />}
           <span className="rm-group-title" style={color ? { color } : undefined}>
             {g.name}
           </span>
@@ -289,6 +360,14 @@ export function RepoManagement(props: Props) {
           {g.workspace?.syncPath && <span className="rm-sync" title={g.workspace.syncPath}>Local - synced</span>}
           <span className="rm-fill" />
           <span className="rm-tools" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="rm-icon"
+              disabled={!usable.length || !props.editorName}
+              title={editorCaption(usable.length, g.repos.length, props.editorName)}
+              onClick={() => openInEditor(usable)}
+            >
+              {Icon.editor}
+            </button>
             <button disabled={!usable.length || !!ui.busy} title={fetchCaption} onClick={() => void runBatch("fetch", usable)}>
               Fetch
             </button>
@@ -339,7 +418,7 @@ export function RepoManagement(props: Props) {
                   <span className="rm-remote" title={s?.remoteUrl ?? undefined}>
                     {s?.remote ? `${s.remote}${s.remoteUrl ? ` (${s.remoteUrl})` : ""}` : ""}
                   </span>
-                  <span className="rm-branch">{branchText(s)}</span>
+                  <span className="rm-branch">{branchCell(s)}</span>
                   {g.id === OPEN && (
                     <button
                       className="rm-icon"
@@ -352,6 +431,27 @@ export function RepoManagement(props: Props) {
                       ×
                     </button>
                   )}
+                  <button
+                    className="rm-icon"
+                    title="Open repository details"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDetails(p);
+                    }}
+                  >
+                    {Icon.list}
+                  </button>
+                  <button
+                    className="rm-icon"
+                    title={editorCaption(1, 1, props.editorName)}
+                    disabled={broken || !props.editorName}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openInEditor([p]);
+                    }}
+                  >
+                    {Icon.editor}
+                  </button>
                   <button
                     className="rm-icon"
                     title="More options"
@@ -436,6 +536,18 @@ export function RepoManagement(props: Props) {
       <div className="rm-groups">
         {shownGroups.length ? shownGroups : <div className="rm-empty">{query ? "No results found" : "All repository groups are hidden. Use the hidden groups button to un-hide groups."}</div>}
       </div>
+      {details && (
+        <DetailsPanel
+          path={details}
+          title={label(details)}
+          summary={summaries[details]}
+          onClose={() => setDetails(null)}
+          onOpen={(paths) => {
+            props.onOpenTabs(paths);
+            setDetails(null);
+          }}
+        />
+      )}
       {editing && (
         <WorkspaceModal
           workspace={editing === "new" ? null : editing}
@@ -457,6 +569,8 @@ function WorkspaceModal({ workspace, onClose, onSave }: { workspace: Workspace |
   const [sync, setSync] = useState(!!workspace?.syncPath);
   const [syncPath, setSyncPath] = useState(workspace?.syncPath ?? "");
   const [repos, setRepos] = useState<string[]>(workspace?.repos ?? []);
+  const [icon, setIcon] = useState(workspace?.icon);
+  const icons = useIcons([icon]);
   const browse = async (pick: () => Promise<string[]>) => {
     const dirs = await pick();
     if (!dirs.length) {
@@ -476,6 +590,7 @@ function WorkspaceModal({ workspace, onClose, onSave }: { workspace: Workspace |
       name: name.trim(),
       description: description.trim(),
       repos: sync ? [] : repos,
+      ...(icon ? { icon } : {}),
       ...(sync ? { syncPath: syncPath.trim() } : {}),
     });
   };
@@ -486,10 +601,15 @@ function WorkspaceModal({ workspace, onClose, onSave }: { workspace: Workspace |
         {!workspace && (
           <p className="modal-message">Local Workspaces give you quick access to repos you use the most on this machine, display statuses like current branch and commits ahead/behind, allow multi-repo Git actions, and more!</p>
         )}
-        <label className="field">
-          <span>Workspace Name *</span>
-          <input autoFocus value={name} placeholder="Name of the workspace" onChange={(e) => setName(e.target.value)} />
-        </label>
+        <div className="rm-name-row">
+          <button type="button" className="rm-icon-box" title="Select an icon" onClick={() => void gitneat().pickIcon().then((n) => n && setIcon(n))}>
+            {icon && icons[icon] ? <img src={icons[icon]} alt="" /> : "+ Icon"}
+          </button>
+          <label className="field">
+            <span>Workspace Name *</span>
+            <input autoFocus value={name} placeholder="Name of the workspace" onChange={(e) => setName(e.target.value)} />
+          </label>
+        </div>
         <label className="field">
           <span>Description</span>
           <input value={description} placeholder="Describe the purpose of the workspace" onChange={(e) => setDescription(e.target.value)} />
@@ -546,5 +666,119 @@ function WorkspaceModal({ workspace, onClose, onSave }: { workspace: Workspace |
         </div>
       </form>
     </div>
+  );
+}
+
+function useIcons(names: (string | undefined)[]): Record<string, string> {
+  const [icons, setIcons] = useState<Record<string, string>>({});
+  const key = [...new Set(names.filter((n): n is string => !!n))].sort().join("\n");
+  useEffect(() => {
+    for (const name of key ? key.split("\n") : []) {
+      void gitneat()
+        .iconData(name)
+        .then((data) => data && setIcons((c) => (c[name] === data ? c : { ...c, [name]: data })));
+    }
+  }, [key]);
+  return icons;
+}
+
+function DetailsPanel({ path, title, summary, onClose, onOpen }: { path: string; title: string; summary: RepoSummary | undefined; onClose(): void; onOpen(paths: string[]): void }) {
+  const [width, setWidth] = useStored(DETAILS_KEY, Math.max(600, Math.round(window.innerWidth / 2)), (v) => typeof v === "number" && v >= 300);
+  const [readme, setReadme] = useState<RepoReadme | null | undefined>(undefined);
+  const [reload, setReload] = useState(0);
+  const ref = useRef<HTMLElement>(null);
+  const url = summary?.remoteUrl ? remoteWebUrl(summary.remoteUrl) : null;
+
+  useEffect(() => {
+    let live = true;
+    setReadme(undefined);
+    void gitneat()
+      .repoReadme(path)
+      .then((r) => live && setReadme(r))
+      .catch(() => live && setReadme(null));
+    return () => {
+      live = false;
+    };
+  }, [path, reload]);
+
+  useEffect(() => {
+    const down = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", down);
+      document.removeEventListener("keydown", key);
+    };
+  }, [onClose]);
+
+  const clamp = (w: number) => Math.min(window.innerWidth, Math.max(600, w));
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    let latest = width;
+    const move = (m: MouseEvent) => {
+      latest = clamp(window.innerWidth - m.clientX);
+      setWidth(latest, false);
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      setWidth(latest);
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+
+  const create = async () => {
+    await gitneat().createReadme(path);
+    onOpen([path]);
+  };
+
+  return (
+    <aside ref={ref} className="rm-details" style={{ width: clamp(width) }}>
+      <div className="rm-details-edge" onMouseDown={startResize} />
+      <header>
+        <div className="rm-details-title">
+          <b>{title}</b>
+          <span>{path}</span>
+        </div>
+        <button className="rm-icon" title="Close" onClick={onClose}>
+          ×
+        </button>
+      </header>
+      <div className="rm-details-toolbar">
+        <button onClick={() => onOpen([path])}>Open repository</button>
+        {url && <button onClick={() => void gitneat().openExternal(url)}>Open in browser</button>}
+      </div>
+      <div className="rm-details-body">
+        {readme === undefined ? null : readme ? (
+          <div
+            className="rm-readme"
+            dangerouslySetInnerHTML={{ __html: readme.html }}
+            onClick={(e) => {
+              const a = (e.target as HTMLElement).closest("a");
+              if (a) {
+                e.preventDefault();
+                const href = a.getAttribute("href");
+                if (href && /^https?:/i.test(href)) {
+                  void gitneat().openExternal(href);
+                }
+              }
+            }}
+          />
+        ) : (
+          <div className="rm-no-readme">
+            <p>This repository doesn't have a README.md</p>
+            <button className="primary" onClick={() => void create().then(() => setReload((n) => n + 1))}>
+              Create README.md
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }
