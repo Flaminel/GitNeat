@@ -16,6 +16,12 @@ export const Icon = {
     </>,
     13,
   ),
+  gear: svg(
+    <>
+      <circle cx="8" cy="8" r="2" />
+      <path d="M8 1.5v2 M8 12.5v2 M1.5 8h2 M12.5 8h2 M3.4 3.4l1.4 1.4 M11.2 11.2l1.4 1.4 M3.4 12.6l1.4-1.4 M11.2 4.8l1.4-1.4" />
+    </>,
+  ),
   check: svg(<path d="M3 8.5l3 3 7-7" strokeWidth="2" />, 13),
   branch: svg(
     <>

@@ -15,6 +15,33 @@ export type SelectMode = "toggle" | "range";
 
 type DescMode = "always" | "hover" | "never";
 
+type ColumnKey = "ref" | "graph" | "message" | "author" | "date" | "sha";
+
+const COLUMNS: { key: ColumnKey; head: string; label: string }[] = [
+  { key: "ref", head: "BRANCH / TAG", label: "Branch / Tag" },
+  { key: "graph", head: "GRAPH", label: "Graph" },
+  { key: "message", head: "COMMIT MESSAGE", label: "Commit message" },
+  { key: "author", head: "AUTHOR", label: "Author" },
+  { key: "date", head: "COMMIT DATE / TIME", label: "Date / Time" },
+  { key: "sha", head: "SHA", label: "Sha" },
+];
+
+const AUTHOR_MIN = 32;
+const AUTHOR_MAX = 175;
+const DATE_MIN = 50;
+const DATE_MAX = 175;
+const SHA_MIN = 50;
+const SHA_MAX = 100;
+const SHA_LENGTH = 6;
+const REF_DEFAULT = 130;
+const REF_COMPACT = 32;
+const GRAPH_COMPACT = 150;
+const AUTHOR_DEFAULT = 130;
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
+
+type Columns = Record<ColumnKey, boolean>;
+
 const DESC_MODES: { value: DescMode; label: string }[] = [
   { value: "always", label: "Always" },
   { value: "hover", label: "On hover" },
@@ -146,6 +173,10 @@ const RowView = memo(function RowView(props: {
   pills: Pill[];
   graphWidth: number;
   refsWidth: number;
+  cols: Columns;
+  authorWidth: number;
+  dateWidth: number;
+  shaWidth: number;
   selected: boolean;
   inMulti: boolean;
   isHead: boolean;
@@ -158,7 +189,7 @@ const RowView = memo(function RowView(props: {
   onRefDrop(source: string, target: Ref): void;
   dim: boolean;
 }) {
-  const { commit, row, pills } = props;
+  const { commit, row, pills, cols } = props;
   const lane = `--lane-${row.color % LANE_COLORS}`;
   const color = `var(${lane})`;
   const cx = laneX(row.col);
@@ -173,7 +204,7 @@ const RowView = memo(function RowView(props: {
         ["--row-bg25" as string]: `var(${lane}-bg25)`,
         ["--row-bg45" as string]: `var(${lane}-bg45)`,
         ["--row-bg50" as string]: `var(${lane}-bg50)`,
-        ["--tint-x" as string]: `${props.refsWidth + cx}px` }}
+        ["--tint-x" as string]: `${(cols.ref ? props.refsWidth : 0) + cx}px` }}
       onMouseDown={(e) => {
         if (e.button === 0) {
           props.onSelect(commit.sha, e.metaKey || e.ctrlKey ? "toggle" : e.shiftKey ? "range" : undefined);
@@ -197,6 +228,7 @@ const RowView = memo(function RowView(props: {
         props.onCommitMenu(commit, e);
       }}
     >
+      {cols.ref && (
       <div className="cell refs" style={{ width: props.refsWidth }}>
         {first && (
           <>
@@ -223,6 +255,8 @@ const RowView = memo(function RowView(props: {
           </>
         )}
       </div>
+      )}
+      {cols.graph && (
       <div className="cell graph" style={{ width: props.graphWidth }}>
         <svg width={props.graphWidth} height={ROW_HEIGHT}>
           {first && <line x1={0} y1={cy} x2={cx} y2={cy} stroke={color} strokeWidth={props.isHead ? 2 : 1} strokeOpacity={props.isHead ? 1 : 0.25} />}
@@ -254,6 +288,8 @@ const RowView = memo(function RowView(props: {
           )}
         </svg>
       </div>
+      )}
+      {cols.message ? (
       <div className="cell message">
         {isWip ? (
           <span className="wip-label">
@@ -267,6 +303,31 @@ const RowView = memo(function RowView(props: {
         )}
         {props.dateLabel && <span className="date-pill">{props.dateLabel}</span>}
       </div>
+      ) : (
+        <div className="cell grow" />
+      )}
+      {cols.author && (
+        <div className="cell author" style={{ width: props.authorWidth }} title={isWip ? undefined : `${commit.author} <${commit.email}>`}>
+          {!isWip &&
+            (props.authorWidth <= AUTHOR_MIN ? (
+              <span className="author-avatar" style={{ background: authorColor(commit.email, commit.author) }}>
+                {initials(commit.author)}
+              </span>
+            ) : (
+              commit.author
+            ))}
+        </div>
+      )}
+      {cols.date && (
+        <div className="cell date" style={{ width: props.dateWidth }}>
+          {!isWip && dateFormat.format(commit.time * 1000)}
+        </div>
+      )}
+      {cols.sha && (
+        <div className="cell sha" style={{ width: props.shaWidth }}>
+          {!isWip && commit.sha.slice(0, SHA_LENGTH)}
+        </div>
+      )}
     </div>
   );
 });
@@ -278,14 +339,54 @@ export function GraphView(props: Props) {
   const [height, setHeight] = useState(800);
   const [refsWidth, setRefsWidth] = useStoredWidth("refs", 220);
   const [graphUser, setGraphUser] = useStoredWidth("graph", -1);
+  const [authorWidth, setAuthorWidth] = useStoredWidth("author", AUTHOR_DEFAULT);
+  const [dateWidth, setDateWidth] = useStoredWidth("date", 130);
+  const [shaWidth, setShaWidth] = useStoredWidth("sha", SHA_MAX);
+  const [showRef, setShowRef] = useStored<boolean>("col.ref", true);
+  const [showGraph, setShowGraph] = useStored<boolean>("col.graph", true);
+  const [showMessage, setShowMessage] = useStored<boolean>("col.message", true);
+  const [showAuthor, setShowAuthor] = useStored<boolean>("col.author", true);
+  const [showDate, setShowDate] = useStored<boolean>("col.date", true);
+  const [showSha, setShowSha] = useStored<boolean>("col.sha", true);
+  const cols = useMemo<Columns>(
+    () => ({ ref: showRef, graph: showGraph, message: showMessage, author: showAuthor, date: showDate, sha: showSha }),
+    [showRef, showGraph, showMessage, showAuthor, showDate, showSha],
+  );
+  const setters: Record<ColumnKey, (v: boolean) => void> = { ref: setShowRef, graph: setShowGraph, message: setShowMessage, author: setShowAuthor, date: setShowDate, sha: setShowSha };
   const [desc, setDesc] = useStored<DescMode>("graph.description", "always", (v) => DESC_MODES.some((m) => m.value === v));
-  const descMenu = () =>
-    showMenu([
+  const resetColumns = (compact: boolean) => {
+    setShowRef(true);
+    setShowGraph(true);
+    setShowMessage(true);
+    setShowAuthor(true);
+    setShowDate(!compact);
+    setShowSha(true);
+    setRefsWidth(compact ? REF_COMPACT : REF_DEFAULT);
+    setGraphUser(compact ? GRAPH_COMPACT : -1);
+    setAuthorWidth(compact ? AUTHOR_MIN : AUTHOR_DEFAULT);
+    setDateWidth(130);
+    setShaWidth(SHA_MAX);
+  };
+  const visibleCount = COLUMNS.filter((c) => cols[c.key]).length;
+  const columnsMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return showMenu([
+      ...COLUMNS.map((c) => ({
+        label: `${cols[c.key] ? "✓ " : ""}${c.label}`,
+        enabled: !(cols[c.key] && visibleCount === 1),
+        run: () => setters[c.key](!cols[c.key]),
+      })),
+      "-",
+      { label: "Reset columns to default layout", run: () => resetColumns(false) },
+      { label: "Reset columns to compact layout", run: () => resetColumns(true) },
+      "-",
       {
         label: "Show commit description in graph",
         submenu: DESC_MODES.map((m) => ({ label: `${m.value === desc ? "✓ " : ""}${m.label}`, run: () => setDesc(m.value) })),
       },
     ]);
+  };
 
   useEffect(() => {
     const el = scroller.current;
@@ -404,41 +505,70 @@ export function GraphView(props: Props) {
 
   return (
     <div className={`graph-view desc-${desc}`}>
-      <div className="graph-header" onContextMenu={descMenu}>
-        <div style={{ width: refsWidth }} className="col-head">
-          Branch / Tag
-          <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={60} max={600} />
-        </div>
-        <div style={{ width: graphWidth }} className="col-head" onDoubleClick={() => setGraphUser(-1)}>
-          Graph
-          <Splitter className="col-resize" value={graphWidth} set={setGraphUser} min={30} max={800} />
-        </div>
-        <div className="col-head">
-          Commit message
-          {query !== null && (
-            <span className="graph-search">
-              {Icon.search}
-              <input
-                id="graph-search"
-                placeholder="Search commits"
-                value={query}
-                spellCheck={false}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    jump(e.shiftKey ? -1 : 1);
-                  } else if (e.key === "Escape") {
-                    setQuery(null);
-                  }
-                }}
-              />
-              <span className="search-count">{matches === null ? "" : matchList.length === 0 ? "0 results" : `${matchIndex + 1} of ${matchList.length}`}</span>
-              <button className="icon-btn" onClick={() => setQuery(null)}>
-                ×
-              </button>
-            </span>
-          )}
-        </div>
+      <div className="graph-header" onContextMenu={columnsMenu}>
+        {cols.ref && (
+          <div style={{ width: refsWidth }} className="col-head">
+            BRANCH / TAG
+            <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={32} max={300} />
+          </div>
+        )}
+        {cols.graph && (
+          <div style={{ width: graphWidth }} className="col-head" onDoubleClick={() => setGraphUser(-1)}>
+            GRAPH
+            <Splitter className="col-resize" value={graphWidth} set={setGraphUser} min={56} max={800} />
+          </div>
+        )}
+        {cols.message ? (
+          <div className="col-head grow">
+            COMMIT MESSAGE
+            {query !== null && (
+              <span className="graph-search">
+                {Icon.search}
+                <input
+                  id="graph-search"
+                  placeholder="Search commits"
+                  value={query}
+                  spellCheck={false}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      jump(e.shiftKey ? -1 : 1);
+                    } else if (e.key === "Escape") {
+                      setQuery(null);
+                    }
+                  }}
+                />
+                <span className="search-count">{matches === null ? "" : matchList.length === 0 ? "0 results" : `${matchIndex + 1} of ${matchList.length}`}</span>
+                <button className="icon-btn" onClick={() => setQuery(null)}>
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="col-head grow" />
+        )}
+        {cols.author && (
+          <div style={{ width: authorWidth }} className="col-head">
+            {authorWidth > AUTHOR_MIN && "AUTHOR"}
+            <Splitter className="col-resize left" value={authorWidth} set={setAuthorWidth} min={AUTHOR_MIN} max={AUTHOR_MAX} invert />
+          </div>
+        )}
+        {cols.date && (
+          <div style={{ width: dateWidth }} className="col-head">
+            COMMIT DATE / TIME
+            <Splitter className="col-resize left" value={dateWidth} set={setDateWidth} min={DATE_MIN} max={DATE_MAX} invert />
+          </div>
+        )}
+        {cols.sha && (
+          <div style={{ width: shaWidth }} className="col-head">
+            SHA
+            <Splitter className="col-resize left" value={shaWidth} set={setShaWidth} min={SHA_MIN} max={SHA_MAX} invert />
+          </div>
+        )}
+        <button className="icon-btn columns-btn" title="Columns settings" onClick={columnsMenu}>
+          {Icon.gear}
+        </button>
       </div>
       <div className="graph-scroll" ref={scroller} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
         <div style={{ height: props.commits.length * ROW_HEIGHT, position: "relative" }}>
@@ -453,6 +583,10 @@ export function GraphView(props: Props) {
                 pills={commit.stash ? [] : pillsFor(refsBySha.get(commit.sha) ?? [])}
                 graphWidth={graphWidth}
                 refsWidth={refsWidth}
+                cols={cols}
+                authorWidth={authorWidth}
+                dateWidth={dateWidth}
+                shaWidth={shaWidth}
                 selected={commit.sha === props.selected}
                 inMulti={props.multi.includes(commit.sha)}
                 isHead={commit.sha === props.head}
