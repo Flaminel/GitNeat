@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { GitNeatApi } from "./api";
 
 function platform(): string {
@@ -49,6 +50,11 @@ export function tauriApi(): GitNeatApi {
       const stop = listen<string>("repo-changed", (e) => fn(e.payload));
       return () => void stop.then((off) => off());
     },
+    onAppMenu: (fn) => {
+      const stop = listen<string>("app-menu", (e) => fn(e.payload));
+      return () => void stop.then((off) => off());
+    },
+    setZoom: (factor) => getCurrentWebview().setZoom(factor),
   };
 }
 

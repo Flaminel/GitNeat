@@ -44,6 +44,8 @@ export interface GitNeatApi {
   watch(cwd: string): Promise<void>;
   unwatch(cwd: string): Promise<void>;
   onRepoChanged(fn: (cwd: string) => void): () => void;
+  onAppMenu(fn: (id: string) => void): () => void;
+  setZoom(factor: number): Promise<void>;
 }
 
 declare global {

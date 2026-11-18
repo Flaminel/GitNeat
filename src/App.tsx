@@ -23,19 +23,18 @@ const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: 
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const NEW_TAB: Tab = {};
 const RECENT_LIMIT = 100;
+const ZOOMS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+const SUPPORT_URL = "https://github.com/Flaminel/GitNeat";
 
-function StatusBar() {
-  const [base] = useState(() => window.devicePixelRatio);
-  const [zoom, setZoom] = useState(100);
-  useEffect(() => {
-    const onResize = () => setZoom(Math.round((window.devicePixelRatio / base) * 100));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [base]);
+function pressKey(code: string, shiftKey = false) {
+  document.body.dispatchEvent(new KeyboardEvent("keydown", { code, shiftKey, metaKey: true, ctrlKey: true, bubbles: true }));
+}
+
+function StatusBar({ zoom }: { zoom: number }) {
   return (
     <div className="statusbar">
       <span className="statusbar-fill" />
-      <span title="Zoom (Cmd/Ctrl + and Cmd/Ctrl -)">{zoom}%</span>
+      <span title="Zoom (Cmd/Ctrl + and Cmd/Ctrl -)">{Math.round(zoom * 100)}%</span>
       <span className="statusbar-version">{pkg.version}</span>
     </div>
   );
@@ -133,6 +132,55 @@ export function App() {
       return { ...s, tabs, active: Math.min(before, tabs.length - 1), closed: [...closed, ...s.closed].slice(0, 20) };
     });
 
+  const zoom = typeof state?.layout.zoom === "number" ? state.layout.zoom : 1;
+  useEffect(() => {
+    void gitneat().setZoom(zoom);
+  }, [zoom]);
+
+  const stepZoom = (step: number) =>
+    update((s) => {
+      const current = typeof s.layout.zoom === "number" ? s.layout.zoom : 1;
+      const index = Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(current) + step));
+      return { ...s, layout: { ...s.layout, zoom: ZOOMS[index] } };
+    });
+
+  const selectTab = (step: number) =>
+    update((s) => ({ ...s, active: (s.active + step + s.tabs.length) % Math.max(1, s.tabs.length) }));
+
+  const runMenu = (id: string) => {
+    if (!state) {
+      return;
+    }
+    const [name, index] = id.split(":");
+    const path = state.tabs[state.active]?.path;
+    const actions: Record<string, () => unknown> = {
+      "new-tab": newTab,
+      "close-tab": () => state.tabs.length && closeTabs((i) => i !== state.active),
+      "reopen-tab": reopen,
+      clone: clone,
+      init: init,
+      open: openDialog,
+      terminal: () => path && gitneat().openTerminal(path),
+      "file-manager": () => path && gitneat().openPath(path),
+      undo: () => pressKey("KeyZ"),
+      redo: () => pressKey("KeyZ", true),
+      "left-panel": () => pressKey("KeyJ"),
+      "zoom-in": () => stepZoom(1),
+      "zoom-out": () => stepZoom(-1),
+      "zoom-reset": () => update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } })),
+      "next-tab": () => selectTab(1),
+      "previous-tab": () => selectTab(-1),
+      tab: () => update((s) => ({ ...s, active: Math.min(Number(index) - 1, s.tabs.length - 1) })),
+      favorite: () => state.favorites[Number(index) - 1] && openTab(state.favorites[Number(index) - 1]),
+      "support-docs": () => gitneat().openExternal(SUPPORT_URL),
+    };
+    void actions[name]?.();
+  };
+
+  const menuHandler = useRef(runMenu);
+  menuHandler.current = runMenu;
+  useEffect(() => gitneat().onAppMenu((id) => menuHandler.current(id)), []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!state) {
@@ -140,24 +188,30 @@ export function App() {
       }
       if (e.ctrlKey && !e.metaKey && e.key === "Tab") {
         e.preventDefault();
-        update((s) => ({ ...s, active: (s.active + (e.shiftKey ? s.tabs.length - 1 : 1)) % Math.max(1, s.tabs.length) }));
+        selectTab(e.shiftKey ? -1 : 1);
         return;
       }
-      if (!(e.metaKey || e.ctrlKey)) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) {
         return;
       }
-      if (e.key === "t" && !e.shiftKey) {
+      const key = e.key.toLowerCase();
+      let id = "";
+      if (key === "t") {
+        id = e.shiftKey ? "reopen-tab" : "new-tab";
+      } else if (key === "w" && state.tabs.length) {
+        id = "close-tab";
+      } else if (/^[1-9]$/.test(key)) {
+        id = `tab:${key}`;
+      } else if (key === "=" || key === "+") {
+        id = "zoom-in";
+      } else if (key === "-") {
+        id = "zoom-out";
+      } else if (key === "0") {
+        id = "zoom-reset";
+      }
+      if (id) {
         e.preventDefault();
-        newTab();
-      } else if (e.key === "w" && state.tabs.length) {
-        e.preventDefault();
-        closeTabs((i) => i !== state.active);
-      } else if (e.key === "T" || (e.key === "t" && e.shiftKey)) {
-        e.preventDefault();
-        reopen();
-      } else if (/^[1-9]$/.test(e.key)) {
-        e.preventDefault();
-        update((s) => ({ ...s, active: Math.min(Number(e.key) - 1, s.tabs.length - 1) }));
+        runMenu(id);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -265,7 +319,7 @@ export function App() {
             onRemoveAllRecent={() => update((s) => ({ ...s, recent: [] }))}
           />
         )}
-        <StatusBar />
+        <StatusBar zoom={zoom} />
       </div>
     </LayoutContext.Provider>
   );

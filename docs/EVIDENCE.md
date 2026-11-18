@@ -223,6 +223,17 @@ Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offse
 - **Observed (detached HEAD, Pull)**: in detached HEAD (`getIsInDetachedHeadState`), the three pull rows are disabled with the tooltip "{label} is not available when in a detached HEAD state". "Fetch All" stays enabled. The main button is disabled only if the default is not Fetch All. The dropdown stays open-able.
 - **Observed (Push button, render bundle ~2329300-2329560)**: the tooltip is "Push to {0}" with the upstream shorthand when the branch has an upstream, else "Push". In detached HEAD, the tooltip is "Push is not available when in a detached HEAD state". The render call has no disabled prop for Push.
 
+- **Observed (app menu, M module 84952, darwin template)**: `Menu.buildFromTemplate` and `setApplicationMenu` build the menu from a JSON template for each platform (M 323262). The darwin menus are the product menu, File, Edit, View and Window, plus Help.
+  - Product menu: About, Version, View Release Notes, update items, Preferences (Command+,), Install the CLI, Services, Hide (Command+H), Hide Others (Command+Alt+H), Show All and Quit (Command+Q).
+  - File: New Tab (T), Close Tab (W), Reopen Closed Tab (Shift+T), Clone Repo (N), Init Repo (I), Open Repo (O), Open Repo Management (Option+O), Open Repo in External Editor (Shift+E), Open External Terminal (Alt+T), Open in File Manager (Alt+O), Sign into a Different Account. All use Command.
+  - Edit: Undo, Redo (Shift+Command+Z), Cut, Copy, Paste and Select All as native selectors.
+  - View: Reload Window (development only), Relaunch (Shift+R), Toggle Full Screen (Command+Control+F), Developer (development only), and the checkboxes Show Left Panel (Command+J), Show Commit Details Panel (Command+K) and Show Terminal Panel (Control+`).
+  - Window: Minimize (Command+M), Zoom, the submenu Tabs (Ctrl+Tab, Ctrl+Shift+Tab, Open Tabs List with Command+Shift+A, Select Tab 1 to 9 with Command+1 to 9) and the submenu Favorites (Open Favorite Repo 1 to 9 with Command+Control+1 to 9).
+  - Help: Open Command Palette (Command+P), Keyboard Shortcuts (Command+/), View Support Documentation, Support Logs, Feature Requests, Contact Support and Follow Us on Twitter.
+  - The Windows template has no product menu. Preferences and Exit are in File, and Tabs and Favorites are in View.
+- **Observed (zoom)**: the template has no zoom item. The keymap ids `zoomUp`, `zoomDown` and `zoomReset` have the labels `View-ZoomUp`="Increase Zoom", `View-ZoomDown`="Decrease Zoom" and `View-ZoomReset`="Reset Zoom" (R ~2831612). `ZOOM_FACTORS=[1.3,1.2,1.1,1,.9,.8]` and `DEFAULT_ZOOM_FACTOR=1` (R ~4609483). A step moves one place in that list and stops at the ends (`modifyZoom`, R 4189641). The result is the profile setting `zoom`. The main process calls `setZoomFactor` on all web contents (M ~1475717).
+- **Not found**: the accelerator strings of the zoom keymap entries. Section 9 lists Cmd+= and Cmd+-. Cmd+0 for reset is an assumption.
+
 ## 10. Right panel: sha, message and commit form
 
 - **Observed (sha)**: the header is `CommitLabel` ("commit:") plus a copy component around `getShortSha(sha)` (6 characters) (R 1378421). The copy component (R 1440497) copies the full sha on click. Its tooltip is `TextOperation-Copy` and changes to `TextOperation-CopySuccess`="Copied!" until the mouse leaves.

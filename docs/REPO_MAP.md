@@ -22,6 +22,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/commands.rs` | One Tauri command per `window.gitneat` call |
 | `rust/app/src/git.rs` | `git` runner and the blocked option check |
 | `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
+| `rust/app/src/appmenu.rs` | macOS app menu. Each custom item emits the event `app-menu` (D83) |
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
@@ -72,6 +73,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change graph lanes or colors | `rust/graph/src/port.rs` for lanes, `src/styles.css` (`--lane-*`) for colors |
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
+| Add or change an app menu item or a zoom step (D83) | `rust/app/src/appmenu.rs`, then `runMenu` in `src/App.tsx` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
 | Change the NEW tab page, its lists or its search | `src/components/NewTab.tsx`, `.new-tab` and `.recent` in `src/styles.css` |
 | Change favorites, aliases or the breadcrumb menu (D82) | `toggleFavorite` and `renameRepo` in `src/App.tsx`, the repository crumb in `src/components/Toolbar.tsx` |

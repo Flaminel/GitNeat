@@ -1,4 +1,6 @@
 pub mod actions;
+#[cfg(target_os = "macos")]
+pub mod appmenu;
 pub mod commands;
 pub mod git;
 pub mod load;
@@ -11,7 +13,7 @@ pub mod store;
 pub mod watch;
 
 use tauri::webview::NewWindowResponse;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
 fn window_size() -> (f64, f64) {
@@ -34,6 +36,10 @@ pub fn run() {
                 && let Ok(mut chosen) = app.state::<menu::Chosen>().0.lock()
             {
                 *chosen = Some(id);
+            }
+            #[cfg(target_os = "macos")]
+            if let Some(id) = appmenu::picked(&event.id().0) {
+                let _ = app.emit("app-menu", id);
             }
         })
         .setup(|app| {
@@ -58,6 +64,8 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let builder = builder.decorations(false);
             builder.build()?;
+            #[cfg(target_os = "macos")]
+            app.set_menu(appmenu::build(app.handle())?)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
