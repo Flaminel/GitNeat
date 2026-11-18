@@ -148,6 +148,8 @@ struct FileArgs {
     wip: Option<WipIn>,
     #[serde(default)]
     stash_apply: usize,
+    #[serde(default)]
+    history: bool,
 }
 
 #[derive(Deserialize)]
@@ -387,18 +389,24 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
         item("openFile", "Open file"),
         item("showItem", reveal_label(&a.platform)),
     ];
+    let history = if a.history {
+        vec![item("fileHistory", "File History"), item("fileBlame", "File Blame")]
+    } else {
+        Vec::new()
+    };
     if a.stash_apply > 0 {
         return groups(vec![
             vec![item(
                 "applyStashed",
                 plural(a.stash_apply, "Apply stashed file", "Apply {} files from stash"),
             )],
+            history,
             open,
             vec![item("copyFilePath", "Copy file path")],
         ]);
     }
     let Some(w) = a.wip.as_ref() else {
-        return groups(vec![open, vec![item("copyFilePath", "Copy file path")]]);
+        return groups(vec![history, open, vec![item("copyFilePath", "Copy file path")]]);
     };
     if !w.panel {
         let stage = flat(vec![
@@ -407,7 +415,7 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
             (!w.staged).then(|| item("discard", "Discard changes")),
             w.stash.then(|| item("stashFile", "Stash file")),
         ]);
-        return groups(vec![stage, open, vec![item("copyFilePath", "Copy file path")]]);
+        return groups(vec![stage, history, open, vec![item("copyFilePath", "Copy file path")]]);
     }
     let many = w.count > 1;
     let stage = if many {
@@ -447,7 +455,7 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
     } else {
         "Create patch from file changes".to_string()
     };
-    let mut tail = vec![open];
+    let mut tail = vec![if many { Vec::new() } else { history }, open];
     if !many {
         tail.push(vec![item("copyFilePath", "Copy file path")]);
     }

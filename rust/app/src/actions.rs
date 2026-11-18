@@ -1,3 +1,4 @@
+mod discard;
 mod history;
 mod index;
 mod rebase;

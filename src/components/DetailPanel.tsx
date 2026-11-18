@@ -13,6 +13,7 @@ export interface OpenFile {
   path: string;
   orig?: string;
   merge?: boolean;
+  view?: "blame" | "history";
 }
 
 interface Props {
@@ -352,7 +353,10 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           onMenu={(p) => {
             const chosen = picked.length > 1 && picked.includes(p) ? picked : [p];
             const origins = [...changed.values()].filter((f) => f.orig && chosen.includes(f.path)).map((f) => f.orig as string);
-            return M.fileMenu(ctx, p, undefined, undefined, stash ? { ref: stash.ref, paths: chosen, origins } : undefined);
+            const original = extra.includes(p) && !changed.has(p) ? { kind: "commit" as const, sha: detail.parents[2], parent: "" } : source;
+            return M.fileMenu(ctx, p, undefined, undefined, stash ? { ref: stash.ref, paths: chosen, origins } : undefined, (view) =>
+              onOpenFile({ source: original, path: p, orig: changed.get(p)?.orig, view }),
+            );
           }}
         />
       </div>
@@ -466,12 +470,13 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     };
   };
 
-  const open = (path: string, isStaged: boolean, untracked: boolean) => {
+  const open = (path: string, isStaged: boolean, untracked: boolean, view?: "blame" | "history") => {
     setPicked({ staged: false, paths: [] });
     onOpenFile({
       source: isStaged ? { kind: "staged" } : { kind: "unstaged", untracked },
       path,
-      merge: status.some((e) => e.path === path && statusCode(e, false) === "U"),
+      merge: !view && status.some((e) => e.path === path && statusCode(e, false) === "U"),
+      view,
     });
   };
 
@@ -541,7 +546,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             onOpen={(p) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?")}
             picked={pickedIn(unstagedPaths, false)}
             onPick={pick(unstagedPaths, false)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" }, selection(unstagedPaths, false, p))}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" }, selection(unstagedPaths, false, p), undefined, (view) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?", view))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
                 Stage File
@@ -565,7 +570,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             onOpen={(p) => open(p, true, false)}
             picked={pickedIn(stagedPaths, true)}
             onPick={pick(stagedPaths, true)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false }, selection(stagedPaths, true, p))}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false }, selection(stagedPaths, true, p), undefined, (view) => open(p, true, false, view))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.unstageFile(ctx, p); }}>
                 Unstage File

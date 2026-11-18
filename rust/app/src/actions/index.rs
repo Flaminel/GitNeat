@@ -1,4 +1,4 @@
-use super::{Res, git, parse, raw, run};
+use super::{Res, discard, git, parse, raw, run};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -236,12 +236,20 @@ async fn discard_one(cwd: &str, a: &Discard) -> Res<String> {
 
 async fn discard_file(cwd: &str, args: &Value) -> Res<Value> {
     let a: Discard = parse(args)?;
-    run(cwd, true, discard_one(cwd, &a)).await
+    discard::recorded(cwd, &[a.path.clone()], async {
+        discard_one(cwd, &a).await.map(|_| ())
+    })
+    .await
 }
 
 async fn discard_files(cwd: &str, args: &Value) -> Res<Value> {
     let a: DiscardMany = parse(args)?;
-    run(cwd, true, async {
+    let paths: Vec<String> = a
+        .files
+        .iter()
+        .flat_map(|f| std::iter::once(f.path.clone()).chain(f.orig.clone()))
+        .collect();
+    discard::recorded(cwd, &paths, async {
         for file in &a.files {
             discard_one(cwd, file).await?;
         }
@@ -338,9 +346,9 @@ async fn stash_apply_files(cwd: &str, args: &Value) -> Res<Value> {
 }
 
 async fn discard_all(cwd: &str) -> Res<Value> {
-    run(cwd, true, async {
+    discard::recorded(cwd, &[], async {
         git(cwd, &["reset", "--hard"]).await?;
-        git(cwd, &["clean", "-fd"]).await
+        git(cwd, &["clean", "-fd"]).await.map(|_| ())
     })
     .await
 }

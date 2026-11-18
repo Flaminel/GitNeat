@@ -30,6 +30,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool, amend message and commit hook check loaders (D45, D47, D86) |
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
+| `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
 | `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
 | `rust/app/examples/` | Command line entry points that the TS comparison tests run |
 | `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of the lane layout, the diff parser, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
@@ -56,6 +57,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
 | `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
+| `test/discard-undo.test.ts` | Undo and redo of a discard, through the Rust `action` example. Runs only with `GITNEAT_RUST_COMPARE=1`. |
 | `test/reword.test.ts` | Tests for `rewordDepth` in `src/actions.ts`: which commits the right panel can amend or reword (D53) |
 | `.github/workflows/build.yml` | CI job `tauri`: tests, Rust checks and Tauri bundles for macOS, Windows and Linux. Release on `v*` tags |
 | `build/icon.svg`, `build/icon.png` | App icon. Edit the SVG, then run `magick -background none -density 96 build/icon.svg -resize 1024x1024 build/icon.png`. |

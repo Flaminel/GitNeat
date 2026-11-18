@@ -782,6 +782,9 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
     layout: {},
     setLayout: () => undefined,
     record: (entry) => {
+      if ((entry as { discard?: unknown }).discard) {
+        return;
+      }
       h.recorded.push(entry);
       h.log.push(`record ${JSON.stringify(entry)}`);
     },

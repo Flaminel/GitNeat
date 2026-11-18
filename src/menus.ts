@@ -210,6 +210,7 @@ export function fileMenu(
   wip?: { staged: boolean; untracked: boolean },
   selection?: FileSelection,
   stashed?: { ref: string; paths: string[]; origins: string[] },
+  view?: (view: "blame" | "history") => void,
 ): Promise<void> {
   const abs = `${ctx.cwd}/${path}`;
   const paths = selection?.paths ?? [path];
@@ -222,7 +223,9 @@ export function fileMenu(
       selection.done();
     }
   };
-  return present(ctx, "file", { platform: gitneat().platform, path, wip: args, stashApply: stashed?.paths.length ?? 0 }, {
+  return present(ctx, "file", { platform: gitneat().platform, path, wip: args, stashApply: stashed?.paths.length ?? 0, history: Boolean(view) && !wip?.untracked }, {
+    fileHistory: () => view?.("history"),
+    fileBlame: () => view?.("blame"),
     stage: () => (selection ? finish(A.stageFiles(ctx, paths)) : A.stageFile(ctx, path)),
     unstage: () => (selection ? finish(A.unstageFiles(ctx, paths)) : A.unstageFile(ctx, path)),
     discard: () => (selection ? finish(A.discardFiles(ctx, paths, !!wip?.staged)) : A.discardFile(ctx, path, !!wip?.untracked)),

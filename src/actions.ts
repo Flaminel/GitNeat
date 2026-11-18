@@ -40,6 +40,7 @@ export interface UndoEntry {
   label: string;
   before: HeadState;
   after: HeadState;
+  discard?: { sha: string; paths: string[] };
 }
 
 const short = (sha: string) => sha.slice(0, 7);
@@ -50,7 +51,7 @@ interface Plan {
 }
 
 interface Done {
-  record: { before: HeadState; after: HeadState } | null;
+  record: { before: HeadState; after: HeadState; discard?: { sha: string; paths: string[] } } | null;
   toast?: string;
   notice?: string;
 }

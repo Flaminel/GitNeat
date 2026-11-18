@@ -70,6 +70,7 @@ struct UndoEntry {
     label: String,
     before: HeadState,
     after: HeadState,
+    discard: Option<super::discard::Discarded>,
 }
 
 #[derive(Deserialize)]
@@ -129,12 +130,18 @@ async fn move_to(cwd: &str, from: &HeadState, to: &HeadState, soft: bool) -> Res
 async fn undo(cwd: &str, args: &Value) -> Res<Value> {
     let a: Entry = parse(args)?;
     let e = a.entry;
+    if let Some(d) = &e.discard {
+        return super::discard::undo(cwd, d).await;
+    }
     move_to(cwd, &e.after, &e.before, e.label == "Commit").await
 }
 
 async fn redo(cwd: &str, args: &Value) -> Res<Value> {
     let a: Entry = parse(args)?;
     let e = a.entry;
+    if let Some(d) = &e.discard {
+        return super::discard::redo(cwd, d).await;
+    }
     move_to(cwd, &e.before, &e.after, e.label == "Commit").await
 }
 

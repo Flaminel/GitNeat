@@ -594,10 +594,10 @@ export function DiffView(props: Props) {
   const kind = file.source.kind;
 
   useEffect(() => {
-    setView("diff");
+    setView(file.view ?? "diff");
     setEditing(false);
     setWorking(null);
-  }, [sourceKey, file.path]);
+  }, [sourceKey, file.path, file.view]);
 
   useEffect(() => {
     let live = true;
