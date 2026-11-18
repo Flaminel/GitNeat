@@ -178,7 +178,13 @@ export interface BlameLine {
 
 export const loadBlame = (cwd: string, file: string, rev?: string): Promise<BlameLine[]> => gitneat().loadBlame(cwd, file, rev);
 
-export const loadFileHistory = (cwd: string, file: string, limit = 200): Promise<Commit[]> => gitneat().loadFileHistory(cwd, file, limit);
+export interface FileHistoryPage {
+  commits: Commit[];
+  end: boolean;
+  next: { sha: string; time: number } | null;
+}
+
+export const loadFileHistoryPage = (cwd: string, file: string, pages: number): Promise<FileHistoryPage> => gitneat().loadFileHistoryPage(cwd, file, pages);
 
 export type MergeLoad = { kind: "text"; segments: MergeSegment[]; bName: string } | { kind: "binary" } | { kind: "delete"; missing: "a" | "b" };
 

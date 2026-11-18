@@ -97,6 +97,11 @@ pub async fn load_blame(cwd: String, file: String, rev: Option<String>) -> Res<V
 }
 
 #[tauri::command]
+pub async fn load_file_history_page(cwd: String, file: String, pages: u32) -> Res<Value> {
+    loaders::load_file_history_page(&cwd, &file, pages.max(1) as usize * 30000).await
+}
+
+#[tauri::command]
 pub async fn load_file_history(cwd: String, file: String, limit: Option<u32>) -> Res<Vec<Value>> {
     loaders::load_file_history(&cwd, &file, limit.unwrap_or(200)).await
 }

@@ -2,7 +2,7 @@ import { MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "rea
 import { hunkPatch, Hunk, linesInRange, linesPatch, ParsedDiff } from "../diff";
 import { gitneat } from "../api";
 import { languageFor, monaco } from "../monaco";
-import { BlameLine, Commit, DiffSides, loadBlame, loadDiff, loadFileHistory, loadSides } from "../repo";
+import { BlameLine, Commit, DiffSides, FileHistoryPage, loadBlame, loadDiff, loadFileHistoryPage, loadSides } from "../repo";
 import { showMenu, useStored } from "../ui";
 import { OpenFile, StatusIcon } from "./DetailPanel";
 import { relativeTime } from "./GraphView";
@@ -519,32 +519,50 @@ function BlameView(props: { cwd: string; file: OpenFile; language: string; onSho
   );
 }
 
-const HISTORY_PAGE = 200;
-
 function HistoryView(props: { cwd: string; file: OpenFile; onOpenInCommit(commit: Commit, path: string): void }) {
-  const [commits, setCommits] = useState<Commit[] | null>(null);
-  const [limit, setLimit] = useState(HISTORY_PAGE);
+  const [history, setHistory] = useState<FileHistoryPage | null>(null);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
   const current = props.file.source.kind === "commit" ? props.file.source.sha : null;
   useEffect(() => {
-    setLimit(HISTORY_PAGE);
+    setPages(1);
+    setHistory(null);
   }, [props.cwd, props.file.path]);
   useEffect(() => {
     let live = true;
-    loadFileHistory(props.cwd, props.file.path, limit).then(
-      (c) => live && setCommits(c),
-      () => live && setCommits([]),
+    setLoading(true);
+    loadFileHistoryPage(props.cwd, props.file.path, pages).then(
+      (h) => live && (setHistory(h), setLoading(false)),
+      () => live && (setHistory({ commits: [], end: true, next: null }), setLoading(false)),
     );
     return () => {
       live = false;
     };
-  }, [props.cwd, props.file.path, limit]);
-  if (!commits) {
+  }, [props.cwd, props.file.path, pages]);
+  if (!history) {
     return <div className="diff-empty">Loading history…</div>;
+  }
+  let footer;
+  if (loading) {
+    footer = <div className="file-history-end">Loading…</div>;
+  } else if (history.end || !history.next) {
+    footer = <div className="file-history-end">End of History</div>;
+  } else {
+    footer = (
+      <div className="file-history-end">
+        <span>
+          Searched until {new Date(history.next.time * 1000).toLocaleDateString()} ({history.next.sha.slice(0, 6)})
+        </span>
+        <button className="file-history-more" onClick={() => setPages(pages + 1)}>
+          Go Deeper
+        </button>
+      </div>
+    );
   }
   return (
     <div className="file-history">
       <div className="file-history-title">File History</div>
-      {commits.map((c) => (
+      {history.commits.map((c) => (
         <div key={c.sha} className={`history-row${c.sha === current ? " active" : ""}`} onClick={() => props.onOpenInCommit(c, props.file.path)}>
           <span className="history-sha">{c.sha.slice(0, 6)}</span>
           <span className="history-subject">{c.subject}</span>
@@ -552,13 +570,7 @@ function HistoryView(props: { cwd: string; file: OpenFile; onOpenInCommit(commit
           <span className="history-date">{new Date(c.time * 1000).toLocaleDateString()}</span>
         </div>
       ))}
-      {commits.length >= limit ? (
-        <div className="file-history-end file-history-more" onClick={() => setLimit(limit + HISTORY_PAGE)}>
-          Go Deeper
-        </div>
-      ) : (
-        <div className="file-history-end">End of History</div>
-      )}
+      {footer}
     </div>
   );
 }

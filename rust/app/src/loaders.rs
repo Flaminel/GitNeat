@@ -7,6 +7,7 @@ use merge::port::Typed;
 use repo::port::{BlameLine, read_blame, read_commit, read_log, read_name_status};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 
 const FS: &str = "\x1f";
 const RS: &str = "\x1e";
@@ -211,6 +212,28 @@ pub async fn load_file_history(cwd: &str, file: &str, limit: u32) -> Res<Vec<Val
     Ok(values(&read_log(&out)))
 }
 
+pub async fn load_file_history_page(cwd: &str, file: &str, scan: usize) -> Res<Value> {
+    let count = format!("-n{}", scan + 1);
+    let ids = git(cwd, &["rev-list", &count, "HEAD"]).await?;
+    let ids: Vec<&str> = ids.lines().collect();
+    let end = ids.len() <= scan;
+    let window: HashSet<&str> = ids.iter().take(scan).copied().collect();
+    let format = format!("--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%s{RS}");
+    let out = git(cwd, &["log", "--follow", &format, "--", file]).await?;
+    let commits: Vec<Value> = values(&read_log(&out))
+        .into_iter()
+        .filter(|c| c["sha"].as_str().is_some_and(|sha| window.contains(sha)))
+        .collect();
+    let next = match ids.get(scan) {
+        Some(sha) => {
+            let time = git(cwd, &["log", "-1", "--format=%at", sha]).await?;
+            serde_json::json!({ "sha": sha, "time": time.trim().parse::<i64>().unwrap_or(0) })
+        }
+        None => Value::Null,
+    };
+    Ok(serde_json::json!({ "commits": commits, "end": end, "next": next }))
+}
+
 #[derive(Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
@@ -354,5 +377,18 @@ mod tests {
         assert_eq!(short_name("a~1\nb"), "a~1\nb");
         assert_eq!(short_name("a~1\nb~2"), "a~1\nb");
         assert_eq!(short_name("plain"), "plain");
+    }
+
+    #[tokio::test]
+    async fn file_history_page_windows_the_scan() {
+        let file = "../../package.json";
+        let small = load_file_history_page(".", file, 1).await.unwrap();
+        assert_eq!(small["end"], false);
+        assert!(small["next"]["sha"].is_string());
+        assert!(small["commits"].as_array().unwrap().len() <= 1);
+        let all = load_file_history_page(".", file, 10_000_000).await.unwrap();
+        assert_eq!(all["end"], true);
+        assert!(all["next"].is_null());
+        assert!(!all["commits"].as_array().unwrap().is_empty());
     }
 }

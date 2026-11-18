@@ -1765,7 +1765,12 @@ a.sha {
 }
 
 .file-history-more {
-  color: var(--accent);
+  margin-left: 12px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff;
   cursor: pointer;
 }
 

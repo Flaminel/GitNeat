@@ -69,6 +69,7 @@ pub fn run() {
             commands::load_sides,
             commands::load_blame,
             commands::load_file_history,
+            commands::load_file_history_page,
             commands::load_merge,
             commands::load_head_message,
             commands::open_repo_dialog,

@@ -452,7 +452,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D69. File history: Go Deeper
 
-- Decision: `HistoryView` in `src/components/DiffView.tsx` loads 200 commits. If the result has 200 or more rows, the end row reads "Go Deeper". A click raises the limit by 200 and loads the history again.
-- Reason: Source shows "Go Deeper" while more commits exist, and "End of History" only at the end (`docs/EVIDENCE.md` section 12). Task T14.
-- Rules: The limit resets to 200 when the file or the repository changes. The list stays on screen while the next load runs.
-- Limits: Source pages by scanned commits (30000 for each page), not by result rows (`docs/EVIDENCE.md` section 12). It also shows "Searched until {date} ({sha})" and continues the same revwalk. GitNeat pages by 200 result rows. Each click runs `git log --follow` again with the larger limit. It does not load only the next page. A file with exactly 200 commits shows "Go Deeper" once, then "End of History". No manual check in the app: the Tauri window was not started in this task.
+- Decision: `HistoryView` in `src/components/DiffView.tsx` calls `loadFileHistoryPage` with a page count. The Rust function `load_file_history_page` scans the first 30000 x pages commits of `HEAD` and returns the commits in that window that change the file. It returns `end` and `next` (sha and time of the first unscanned commit).
+- Reason: Source scans 30000 commits for each page, and shows "Searched until {date} ({sha})" with a "Go Deeper" button until `reachedEndOfHistory` (`docs/EVIDENCE.md` section 12). Task T14.
+- Rules: The end row reads "Loading…" while a page loads, "End of History" if `end` is true, else "Searched until" with the "Go Deeper" button. The page count resets when the file or the repository changes.
+- Limits: Source continues one revwalk. GitNeat runs `git rev-list` for the window and `git log --follow` for the file again on each click, then filters by window. The cost of `git log --follow` does not depend on the window. The old `load_file_history` command stays for the comparison tests. No manual check in the app: the Tauri window was not started in this task.
