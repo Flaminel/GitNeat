@@ -386,13 +386,14 @@ fn record(repo: &gix::Repository, id: ObjectId) -> Result<String, String> {
     let commit = repo.find_commit(id).map_err(err)?;
     let author = commit.author().map_err(err)?;
     let parents: Vec<String> = commit.parent_ids().map(|p| p.to_string()).collect();
+    let message = commit.message_raw_sloppy().to_str_lossy();
     Ok(format!(
-        "{id}{FS}{}{FS}{}{FS}{}{FS}{}{FS}{}{RS}",
+        "{id}{FS}{}{FS}{}{FS}{}{FS}{}{FS}{}{FS}{message}{RS}",
         parents.join(" "),
         author.name.to_str_lossy(),
         author.email.to_str_lossy(),
         author.seconds(),
-        git_subject(&commit.message_raw_sloppy().to_str_lossy())
+        git_subject(&message)
     ))
 }
 

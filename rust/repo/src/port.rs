@@ -21,6 +21,8 @@ pub struct Commit {
     pub time: f64,
     #[serde(serialize_with = "ser_undef")]
     pub subject: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", serialize_with = "ser_key")]
     pub stash: Option<Option<String>>,
 }
@@ -297,10 +299,20 @@ pub fn read_log(out: &str) -> Vec<Commit> {
                 email: f.get(3).map(|s| s.to_string()),
                 time: f.get(4).map_or(f64::NAN, |t| js_number(t)),
                 subject: Some(f.get(5).unwrap_or(&"").to_string()),
+                body: f.get(6).and_then(|m| describe(m)),
                 stash: None,
             }
         })
         .collect()
+}
+
+static BODY_BREAK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\n+(?:[\s\u{feff}]+\n+)?").unwrap());
+
+pub fn describe(message: &str) -> Option<String> {
+    let (_, rest) = js_trim(message).split_once('\n')?;
+    let body = BODY_BREAK.replace_all(js_trim(rest), " | ");
+    (!body.is_empty()).then(|| body.into_owned())
 }
 
 static AHEAD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ahead ([0-9]+)").unwrap());
@@ -646,6 +658,7 @@ pub fn insert_stashes(
             Commit {
                 parents: vec![stash.base.clone()],
                 subject: stash.message.clone(),
+                body: None,
                 stash: Some(stash.reference.clone()),
                 ..detail.clone()
             },
@@ -716,6 +729,7 @@ mod tests {
             email: Some("e".into()),
             time: 1.0,
             subject: Some("s".into()),
+            body: None,
             stash: None,
         }
     }
@@ -748,6 +762,18 @@ mod tests {
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].parents, vec!["p1", "p2"]);
         assert_eq!(c[0].time, 1_700_000_000.0);
+    }
+
+    #[test]
+    fn body_follows_source() {
+        assert_eq!(describe("subject"), None);
+        assert_eq!(describe("subject\n\n  \n"), None);
+        assert_eq!(
+            describe("s\n\nfirst\nsecond\n \n\nthird\n").as_deref(),
+            Some("first | second | third")
+        );
+        let c = read_log("a\x1f\x1fA\x1fe\x1f1\x1fs\x1fs\n\nbody\n\x1e");
+        assert_eq!(c[0].body.as_deref(), Some("body"));
     }
 
     #[test]

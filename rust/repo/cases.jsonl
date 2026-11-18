@@ -1969,3 +1969,11 @@
 {"fn":"samePath","args":["ΣΑΣ:","σας:"],"ok":false}
 {"fn":"samePath","args":["z:\\ÉX","Z:/éx"],"ok":true}
 {"fn":"samePath","args":["1:\\a","1:\\A"],"ok":false}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fs\n\nbody line\n\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s","body":"body line"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fs\nnext\n\n\nthird\n \t\n\nfourth\n\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s","body":"next | third | fourth"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001f  s  \n\n   \n\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fs\n\n﻿x\n﻿\ny\n\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s","body":"x | y"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fsingle\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001f\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fs\r\n\r\nwin\r\nline\r\n\u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s","body":"win\r | line"}]}
+{"fn":"parseLog","args":["a\u001f\u001fA\u001fe\u001f1\u001fs\u001fs\n\nα β\n\n  γ  \u001e"],"ok":[{"sha":"a","parents":[],"author":"A","email":"e","time":1,"subject":"s","body":"α β |   γ"}]}

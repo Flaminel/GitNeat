@@ -27,5 +27,5 @@ fn call(name: &str, args: &[Value]) -> Result<Value, String> {
 
 #[test]
 fn replays_recorded_cases() {
-    assert_eq!(support::replay(call), 1971);
+    assert_eq!(support::replay(call), 1979);
 }

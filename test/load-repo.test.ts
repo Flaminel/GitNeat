@@ -245,6 +245,9 @@ const fixtures: Record<string, () => string> = {
     write(dir, "d.txt", "d\n");
     g(dir, "add", "-A");
     g(dir, "commit", "-q", "--cleanup=verbatim", "-m", "\n\n  blank first\nsecond line\n\nbody");
+    write(dir, "e.txt", "e\n");
+    g(dir, "add", "-A");
+    g(dir, "commit", "-q", "--cleanup=verbatim", "-m", "subject\n\npara one\nline two\n \t\n\n\npara three\n\nSigned-off-by: A <a@x>\n");
     return dir;
   },
   crlf: () => {

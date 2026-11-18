@@ -788,6 +788,16 @@ body.resizing-row * {
   gap: 8px;
 }
 
+.message-body {
+  padding-left: 8px;
+  opacity: 0.6;
+}
+
+.desc-never .message-body,
+.desc-hover .row:not(:hover) .message-body {
+  display: none;
+}
+
 .row.stash .cell.message {
   font-style: italic;
   color: var(--text-dim);

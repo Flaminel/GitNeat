@@ -129,7 +129,7 @@ pub(crate) fn graph_rows(commits: &[Commit], head: Option<&str>, dirty: bool) ->
 }
 
 fn log_format() -> String {
-    format!("--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%s{RS}")
+    format!("--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%s{FS}%B{RS}")
 }
 
 async fn stash_times(cwd: &str, shas: &[&str]) -> HashMap<String, Commit> {

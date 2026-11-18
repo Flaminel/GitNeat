@@ -9,6 +9,7 @@ export interface Commit {
   email: string;
   time: number;
   subject: string;
+  body?: string;
   stash?: string;
 }
 

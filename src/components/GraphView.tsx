@@ -1,6 +1,6 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Commit, GraphRow, Ref, Segment } from "../repo";
-import { Splitter, useStoredWidth } from "../ui";
+import { showMenu, Splitter, useStored, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
@@ -12,6 +12,14 @@ export const LANE_COLORS = 10;
 export const WIP = "WIP";
 
 export type SelectMode = "toggle" | "range";
+
+type DescMode = "always" | "hover" | "never";
+
+const DESC_MODES: { value: DescMode; label: string }[] = [
+  { value: "always", label: "Always" },
+  { value: "hover", label: "On hover" },
+  { value: "never", label: "Never" },
+];
 
 interface Props {
   commits: Commit[];
@@ -243,7 +251,10 @@ const RowView = memo(function RowView(props: {
             // WIP <span className="wip-count">{props.wipCount}</span>
           </span>
         ) : (
-          <span>{commit.subject}</span>
+          <span>
+            {commit.subject}
+            {commit.body && <span className="message-body">{commit.body}</span>}
+          </span>
         )}
         {props.dateLabel && <span className="date-pill">{props.dateLabel}</span>}
       </div>
@@ -257,6 +268,14 @@ export function GraphView(props: Props) {
   const [height, setHeight] = useState(800);
   const [refsWidth, setRefsWidth] = useStoredWidth("refs", 220);
   const [graphUser, setGraphUser] = useStoredWidth("graph", -1);
+  const [desc, setDesc] = useStored<DescMode>("graph.description", "always", (v) => DESC_MODES.some((m) => m.value === v));
+  const descMenu = () =>
+    showMenu([
+      {
+        label: "Show commit description in graph",
+        submenu: DESC_MODES.map((m) => ({ label: `${m.value === desc ? "✓ " : ""}${m.label}`, run: () => setDesc(m.value) })),
+      },
+    ]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -361,8 +380,8 @@ export function GraphView(props: Props) {
   const end = Math.min(props.commits.length, Math.ceil((scrollTop + height) / ROW_HEIGHT) + 10);
 
   return (
-    <div className="graph-view">
-      <div className="graph-header">
+    <div className={`graph-view desc-${desc}`}>
+      <div className="graph-header" onContextMenu={descMenu}>
         <div style={{ width: refsWidth }} className="col-head">
           Branch / Tag
           <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={60} max={600} />

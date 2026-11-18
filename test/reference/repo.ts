@@ -69,7 +69,7 @@ export async function loadRepo(cwd: string, hidden: string[], solo: string[], li
           "log",
           "--date-order",
           `-n${limit}`,
-          `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`,
+          `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${FS}%B${RS}`,
           ...revs.filter((r) => r.startsWith("--")),
           "--stdin",
           "--",
@@ -104,7 +104,7 @@ async function stashTimes(cwd: string, stashes: Stash[]): Promise<Map<string, Co
   if (stashes.length === 0) {
     return map;
   }
-  const out = await tryGit(cwd, ["show", "-s", `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`, ...stashes.map((s) => s.sha)]);
+  const out = await tryGit(cwd, ["show", "-s", `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${FS}%B${RS}`, ...stashes.map((s) => s.sha)]);
   for (const c of parseLog(out)) {
     map.set(c.sha, c);
   }
@@ -118,7 +118,8 @@ function insertStashes(commits: Commit[], stashes: Stash[], details: Map<string,
     if (parentIndex < 0 || !detail) {
       continue;
     }
-    commits.splice(parentIndex, 0, { ...detail, parents: [stash.base], subject: stash.message, stash: stash.ref });
+    const { body: _body, ...rest } = detail;
+    commits.splice(parentIndex, 0, { ...rest, parents: [stash.base], subject: stash.message, stash: stash.ref });
   }
 }
 
@@ -138,13 +139,23 @@ async function detectOperation(cwd: string): Promise<Operation> {
   return /rebase in progress|You are currently rebasing|You are currently editing a commit while rebasing/.test(status.stdout) ? "rebase" : null;
 }
 
+function describe(message: string): string | undefined {
+  const text = message.trim();
+  const index = text.indexOf("\n");
+  if (index === -1) {
+    return undefined;
+  }
+  return text.substring(index + 1).trim().replace(/\n+(?:\s+\n+)?/g, " | ") || undefined;
+}
+
 export function parseLog(out: string): Commit[] {
   return out
     .split(RS)
     .map((r) => r.replace(/^\n/, ""))
     .filter(Boolean)
     .map((record) => {
-      const [sha, parents, author, email, time, subject] = record.split(FS);
+      const [sha, parents, author, email, time, subject, message] = record.split(FS);
+      const body = message === undefined ? undefined : describe(message);
       return {
         sha,
         parents: parents ? parents.split(" ") : [],
@@ -152,6 +163,7 @@ export function parseLog(out: string): Commit[] {
         email,
         time: Number(time),
         subject: subject ?? "",
+        ...(body ? { body } : {}),
       };
     });
 }
