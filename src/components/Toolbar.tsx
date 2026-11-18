@@ -4,10 +4,14 @@ import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import { showMenu, useStored } from "../ui";
 import { Icon } from "./icons";
+import { repoLabel } from "./Tabs";
 
 interface Props {
   ctx: Ctx;
   recent: string[];
+  favorites: string[];
+  aliases: Record<string, string>;
+  onViewAll(): void;
   undoLabel?: string;
   redoLabel?: string;
   onUndo(): void;
@@ -33,11 +37,13 @@ function ToolButton(props: { label: string; icon: React.ReactNode; onClick(): vo
   );
 }
 
+const RECENT_BREADCRUMBS = 4;
+
 const PULL_OPTIONS = A.PULL_OPTIONS;
 
 const detachedText = (label: string) => `${label} is not available when in a detached HEAD state`;
 
-export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: Props) {
+export function Toolbar({ ctx, recent, favorites, aliases, onViewAll, undoLabel, redoLabel, onUndo, onRedo }: Props) {
   const data = ctx.data;
   const current = data.refs.find((r) => r.current);
   const locals = data.refs.filter((r) => r.kind === "local");
@@ -51,7 +57,23 @@ export function Toolbar({ ctx, recent, undoLabel, redoLabel, onUndo, onRedo }: P
       <div className="repo-switch">
         <button
           className="crumb"
-          onClick={() => showMenu(recent.filter((p) => p !== data.cwd).map((p) => ({ label: p, run: () => ctx.openTab(p) })))}
+          onClick={() => {
+            const MOD = gitneat().platform === "darwin" ? "⌘" : "Ctrl+";
+            const open = (p: string) => ({ run: () => ctx.openTab(p) });
+            const favs = favorites.slice(0, 9);
+            showMenu([
+              favs.length > 0 && { label: "Favorites", enabled: false },
+              ...favs.map((p, i) => ({ label: `${repoLabel(p, aliases)}    ${MOD}${i + 1}`, ...open(p) })),
+              favs.length > 0 && "-",
+              { label: "Recently opened", enabled: false },
+              ...recent
+                .filter((p) => p !== data.cwd && !favorites.includes(p))
+                .slice(0, RECENT_BREADCRUMBS)
+                .map((p) => ({ label: repoLabel(p, aliases), ...open(p) })),
+              "-",
+              { label: "View all repositories", run: onViewAll },
+            ]);
+          }}
         >
           <small>repository</small>
           <b>{data.name} ▾</b>

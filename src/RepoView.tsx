@@ -28,6 +28,9 @@ interface Props {
   mainSections(mainPath: string): Partial<RepoPrefs> | undefined;
   openTab(path: string): void;
   recent: string[];
+  favorites: string[];
+  aliases: Record<string, string>;
+  onViewAll(): void;
 }
 
 const COMMIT_LIMIT = 2000;
@@ -57,7 +60,7 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent }: Props) {
+export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll }: Props) {
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
   const cached = cache.get(path);
@@ -333,6 +336,9 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
       <Toolbar
         ctx={ctx}
         recent={recent}
+        favorites={favorites}
+        aliases={aliases}
+        onViewAll={onViewAll}
         undoLabel={undoStack[undoStack.length - 1]?.label}
         redoLabel={redoStack[redoStack.length - 1]?.label}
         onUndo={undo}

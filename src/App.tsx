@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
-import { Tab, Tabs, tabTitle } from "./components/Tabs";
+import { repoName, Tab, Tabs } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
 import { forgetRepos, RepoPrefs, RepoView } from "./RepoView";
@@ -12,14 +12,17 @@ interface State {
   tabs: Tab[];
   active: number;
   recent: string[];
+  favorites: string[];
+  aliases: Record<string, string>;
   closed: Tab[];
   prefs: Record<string, RepoPrefs>;
   layout: Layout;
 }
 
-const EMPTY: State = { tabs: [], active: 0, recent: [], closed: [], prefs: {}, layout: {} };
+const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {} };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const NEW_TAB: Tab = {};
+const RECENT_LIMIT = 100;
 
 function StatusBar() {
   const [base] = useState(() => window.devicePixelRatio);
@@ -49,6 +52,12 @@ export function App() {
       .then((saved) => {
         loaded.current = true;
         const s = { ...EMPTY, ...(saved as Partial<State>) };
+        for (const t of s.tabs as (Tab & { title?: string })[]) {
+          if (t.path && t.title) {
+            s.aliases = { ...s.aliases, [t.path]: t.title };
+          }
+          delete t.title;
+        }
         if (!(saved as Partial<State>).layout) {
           s.layout = legacyLayout();
         }
@@ -75,7 +84,7 @@ export function App() {
     (path: string) =>
       update((s) => {
         const existing = s.tabs.findIndex((t) => !!t.path && samePath(t.path, path));
-        const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, 20);
+        const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, RECENT_LIMIT);
         if (existing >= 0) {
           return { ...s, active: existing, recent };
         }
@@ -95,6 +104,21 @@ export function App() {
       ui.toast(result.error, "error");
     }
   }, [openTab, ui]);
+
+  const toggleFavorite = (path: string) =>
+    update((s) => ({ ...s, favorites: s.favorites.includes(path) ? s.favorites.filter((p) => p !== path) : [...s.favorites, path] }));
+
+  const renameRepo = async (path: string) => {
+    const v = await ui.prompt("Rename repository", [{ name: "alias", label: "Alias", value: state?.aliases[path] ?? repoName(path) }], "Save alias");
+    if (!v) {
+      return;
+    }
+    const alias = v.alias.trim();
+    update((s) => {
+      const { [path]: _, ...rest } = s.aliases;
+      return { ...s, aliases: alias && alias !== repoName(path) ? { ...rest, [path]: alias } : rest };
+    });
+  };
 
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
 
@@ -195,12 +219,10 @@ export function App() {
           onClose={(i) => closeTabs((j) => j !== i)}
           onCloseOthers={(i) => closeTabs((j) => j === i)}
           onCloseRight={(i) => closeTabs((j) => j <= i)}
-          onRename={async (i) => {
-            const v = await ui.prompt("Rename tab", [{ name: "title", label: "Tab name", value: tabTitle(state.tabs[i]) }], "Rename");
-            if (v) {
-              update((s) => ({ ...s, tabs: s.tabs.map((t, j) => (j === i ? { ...t, title: v.title.trim() || undefined } : t)) }));
-            }
-          }}
+          aliases={state.aliases}
+          favorites={state.favorites}
+          onRename={(i) => void renameRepo(state.tabs[i].path!)}
+          onFavorite={(i) => toggleFavorite(state.tabs[i].path!)}
           onReopen={reopen}
           onMove={(from, to) =>
             update((s) => {
@@ -224,9 +246,24 @@ export function App() {
             }}
             openTab={openTab}
             recent={state.recent}
+            favorites={state.favorites}
+            aliases={state.aliases}
+            onViewAll={newTab}
           />
         ) : (
-          <NewTab recent={state.recent} onOpen={openTab} onOpenDialog={openDialog} onClone={clone} onInit={init} />
+          <NewTab
+            recent={state.recent}
+            favorites={state.favorites}
+            aliases={state.aliases}
+            onOpen={openTab}
+            onOpenDialog={openDialog}
+            onClone={clone}
+            onInit={init}
+            onFavorite={toggleFavorite}
+            onAlias={(p) => void renameRepo(p)}
+            onRemoveRecent={(p) => update((s) => ({ ...s, recent: s.recent.filter((r) => r !== p) }))}
+            onRemoveAllRecent={() => update((s) => ({ ...s, recent: [] }))}
+          />
         )}
         <StatusBar />
       </div>

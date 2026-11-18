@@ -29,6 +29,7 @@ export function tauriApi(): GitNeatApi {
     loadHeadMessage: (cwd) => invoke("load_head_message", { cwd }),
     openRepoDialog: () => invoke("open_repo_dialog"),
     pickDirectory: () => invoke("pick_directory"),
+    missingPaths: (paths) => invoke("missing_paths", { paths }),
     saveFile: (defaultName, content) => invoke("save_file", { defaultName, content }),
     writeTemp: (content) => invoke("write_temp", { content }),
     readFile: (cwd, rel) => invoke("read_file", { cwd, rel }),

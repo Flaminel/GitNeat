@@ -76,6 +76,7 @@ pub fn run() {
             commands::load_head_message,
             commands::open_repo_dialog,
             commands::pick_directory,
+            commands::missing_paths,
             commands::save_file,
             commands::write_temp,
             commands::read_file,

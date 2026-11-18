@@ -5,7 +5,6 @@ import { showMenu } from "../ui";
 
 export interface Tab {
   path?: string;
-  title?: string;
 }
 
 interface Props {
@@ -16,13 +15,20 @@ interface Props {
   onClose(i: number): void;
   onCloseOthers(i: number): void;
   onCloseRight(i: number): void;
+  aliases: Record<string, string>;
+  favorites: string[];
   onRename(i: number): void;
+  onFavorite(i: number): void;
   onReopen(): void;
   onMove(from: number, to: number): void;
   onNew(): void;
 }
 
-export const tabTitle = (tab: Tab) => tab.title || tab.path?.split(/[\\/]/).pop() || tab.path || "New Tab";
+export const repoName = (path: string) => path.split(/[\\/]/).pop() || path;
+
+export const repoLabel = (path: string, aliases: Record<string, string>) => aliases[path] || repoName(path);
+
+export const tabTitle = (tab: Tab, aliases: Record<string, string>) => (tab.path ? repoLabel(tab.path, aliases) : "New Tab");
 
 export function Tabs(props: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
@@ -58,13 +64,18 @@ export function Tabs(props: Props) {
               { label: "Close other tabs", enabled: props.tabs.length > 1, run: () => props.onCloseOthers(i) },
               { label: "Close tabs to the right", enabled: i < props.tabs.length - 1, run: () => props.onCloseRight(i) },
               { label: "Rename tab", enabled: !!tab.path, run: () => props.onRename(i) },
+              {
+                label: tab.path && props.favorites.includes(tab.path) ? "Remove from favorites" : "Add to favorites",
+                enabled: !!tab.path,
+                run: () => props.onFavorite(i),
+              },
               "-",
               { label: "Reopen Closed Tab", enabled: props.canReopen, run: props.onReopen },
             ])
           }
         >
           <span className="tab-icon">▸</span>
-          <span className="tab-title">{tabTitle(tab)}</span>
+          <span className="tab-title">{tabTitle(tab, props.aliases)}</span>
           <button
             className="tab-close"
             onMouseDown={(e) => e.stopPropagation()}

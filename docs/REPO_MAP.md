@@ -73,7 +73,8 @@ GitNeat is a Tauri 2 app with two parts.
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
-| Change the NEW tab page or its search | `src/components/NewTab.tsx`, `.new-tab` in `src/styles.css` |
+| Change the NEW tab page, its lists or its search | `src/components/NewTab.tsx`, `.new-tab` and `.recent` in `src/styles.css` |
+| Change favorites, aliases or the breadcrumb menu (D82) | `toggleFavorite` and `renameRepo` in `src/App.tsx`, the repository crumb in `src/components/Toolbar.tsx` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |

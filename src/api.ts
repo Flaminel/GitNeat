@@ -27,6 +27,7 @@ export interface GitNeatApi {
   loadHeadMessage(cwd: string): Promise<HeadMessage>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
+  missingPaths(paths: string[]): Promise<string[]>;
   saveFile(name: string, content: string): Promise<boolean>;
   writeTemp(content: string): Promise<string>;
   readFile(cwd: string, rel: string): Promise<string | null>;

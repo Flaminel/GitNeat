@@ -176,6 +176,14 @@ pub async fn pick_directory(window: Window) -> Option<String> {
 }
 
 #[tauri::command]
+pub async fn missing_paths(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|p| !std::path::Path::new(p).is_dir())
+        .collect()
+}
+
+#[tauri::command]
 pub async fn save_file(window: Window, default_name: String, content: String) -> Res<bool> {
     let (tx, rx) = oneshot::channel();
     window

@@ -2103,6 +2103,29 @@ a.sha {
   background: var(--hover);
 }
 
+.recent a.missing {
+  opacity: 0.6;
+}
+
+.recent a em {
+  color: var(--text-faint);
+  margin-left: 8px;
+  font-style: normal;
+}
+
+.recent-remove,
+.recent-clear {
+  float: right;
+  background: none;
+  border: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.recent-clear {
+  font-size: 12px;
+}
+
 .recent a span {
   color: var(--text-faint);
   margin-left: 8px;
