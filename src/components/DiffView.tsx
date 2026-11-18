@@ -519,19 +519,25 @@ function BlameView(props: { cwd: string; file: OpenFile; language: string; onSho
   );
 }
 
+const HISTORY_PAGE = 200;
+
 function HistoryView(props: { cwd: string; file: OpenFile; onOpenInCommit(commit: Commit, path: string): void }) {
   const [commits, setCommits] = useState<Commit[] | null>(null);
+  const [limit, setLimit] = useState(HISTORY_PAGE);
   const current = props.file.source.kind === "commit" ? props.file.source.sha : null;
   useEffect(() => {
+    setLimit(HISTORY_PAGE);
+  }, [props.cwd, props.file.path]);
+  useEffect(() => {
     let live = true;
-    loadFileHistory(props.cwd, props.file.path).then(
+    loadFileHistory(props.cwd, props.file.path, limit).then(
       (c) => live && setCommits(c),
       () => live && setCommits([]),
     );
     return () => {
       live = false;
     };
-  }, [props.cwd, props.file.path]);
+  }, [props.cwd, props.file.path, limit]);
   if (!commits) {
     return <div className="diff-empty">Loading history…</div>;
   }
@@ -546,7 +552,13 @@ function HistoryView(props: { cwd: string; file: OpenFile; onOpenInCommit(commit
           <span className="history-date">{new Date(c.time * 1000).toLocaleDateString()}</span>
         </div>
       ))}
-      <div className="file-history-end">End of History</div>
+      {commits.length >= limit ? (
+        <div className="file-history-end file-history-more" onClick={() => setLimit(limit + HISTORY_PAGE)}>
+          Go Deeper
+        </div>
+      ) : (
+        <div className="file-history-end">End of History</div>
+      )}
     </div>
   );
 }

@@ -1764,6 +1764,11 @@ a.sha {
   color: var(--text-dim);
 }
 
+.file-history-more {
+  color: var(--accent);
+  cursor: pointer;
+}
+
 .history-row {
   display: flex;
   gap: 12px;

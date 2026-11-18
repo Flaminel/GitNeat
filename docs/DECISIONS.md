@@ -449,3 +449,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source gives the initials avatar a color for each author. Task T13.
 - Rules: The same author always gets the same color. The hash is `hash * 31 + code`, modulo 10. The ring keeps the lane color.
 - Limits: No image from an external service (D12). Two authors can share a color, because the palette has ten colors. The right panel avatar keeps `--avatar-bg`. Source uses `DEFAULT_AVATAR_BACKGROUND_COLOR` `#199489` when it has no image. Its exact color rule is not in the evidence. No manual check in the app: the Tauri window was not started in this task.
+
+## D69. File history: Go Deeper
+
+- Decision: `HistoryView` in `src/components/DiffView.tsx` loads 200 commits. If the result has 200 or more rows, the end row reads "Go Deeper". A click raises the limit by 200 and loads the history again.
+- Reason: Source shows "Go Deeper" while more commits exist, and "End of History" only at the end (`docs/EVIDENCE.md` section 12). Task T14.
+- Rules: The limit resets to 200 when the file or the repository changes. The list stays on screen while the next load runs.
+- Limits: Each click runs `git log --follow` again with the larger limit. It does not load only the next page. A file with exactly 200 commits shows "Go Deeper" once, then "End of History". No manual check in the app: the Tauri window was not started in this task.
