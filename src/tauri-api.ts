@@ -35,6 +35,7 @@ export function tauriApi(): GitNeatApi {
     pickDirectory: () => invoke("pick_directory"),
     missingPaths: (paths) => invoke("missing_paths", { paths }),
     saveFile: (defaultName, content) => invoke("save_file", { defaultName, content }),
+  openPatch: () => invoke("open_patch"),
     writeTemp: (content) => invoke("write_temp", { content }),
     readFile: (cwd, rel) => invoke("read_file", { cwd, rel }),
     writeFile: (cwd, rel, content) => invoke("write_file", { cwd, rel, content }),

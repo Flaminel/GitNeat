@@ -83,6 +83,7 @@ struct StashFiles {
 #[derive(Deserialize, Clone, Copy, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum PatchAction {
+    Apply,
     Stage,
     Unstage,
     Discard,
@@ -92,6 +93,7 @@ enum PatchAction {
 impl PatchAction {
     fn flags(self) -> &'static [&'static str] {
         match self {
+            PatchAction::Apply => &["apply"],
             PatchAction::Stage => &["apply", "--cached"],
             PatchAction::Unstage => &["apply", "--cached", "-R"],
             PatchAction::Discard => &["apply", "-R"],
@@ -410,6 +412,21 @@ mod init_tests {
             super::init(cwd, &json!({"branch": "bad name"}))
                 .await
                 .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn apply_writes_a_patch_to_the_working_tree() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_str().unwrap();
+        super::git(cwd, &["init", "-q"]).await.unwrap();
+        let patch = "diff --git a/n.txt b/n.txt\nnew file mode 100644\n--- /dev/null\n+++ b/n.txt\n@@ -0,0 +1 @@\n+hi\n";
+        super::apply_patch(cwd, &json!({"patch": patch, "action": "apply"}))
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("n.txt")).unwrap(),
+            "hi\n"
         );
     }
 }

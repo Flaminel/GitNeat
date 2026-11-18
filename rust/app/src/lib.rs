@@ -102,6 +102,7 @@ pub fn run() {
             commands::pick_directory,
             commands::missing_paths,
             commands::save_file,
+            commands::open_patch,
             commands::write_temp,
             commands::read_file,
             commands::write_file,

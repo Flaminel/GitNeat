@@ -15,6 +15,7 @@ interface Props {
   cwd: string;
   file: OpenFile;
   refreshKey: number;
+  syntaxHighlighting?: boolean;
   onClose(): void;
   onPatch(patch: string, action: PatchAction): Promise<unknown>;
   onShowCommit(sha: string): void;
@@ -661,14 +662,14 @@ export function DiffView(props: Props) {
   const fileEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const sourceKey = JSON.stringify(file.source);
-  const language = useMemo(() => languageFor(file.path), [file.path]);
+  const language = useMemo(() => (props.syntaxHighlighting === false ? "plaintext" : languageFor(file.path)), [file.path, props.syntaxHighlighting]);
   const kind = file.source.kind;
 
   useEffect(() => {
     setView(file.view ?? "diff");
-    setEditing(false);
+    setEditing(!!file.edit);
     setWorking(null);
-  }, [sourceKey, file.path, file.view]);
+  }, [sourceKey, file.path, file.view, file.edit]);
 
   useEffect(() => {
     let live = true;

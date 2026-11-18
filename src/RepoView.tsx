@@ -36,9 +36,11 @@ export interface Settings {
   autoPrune: boolean;
   defaultBranch: string;
   rememberTabs: boolean;
+  toolbarLabels: boolean;
+  syntaxHighlighting: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true };
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true };
 export const MAX_COMMITS_MIN = 500;
 export const AUTO_FETCH_MAX = 60;
 
@@ -98,6 +100,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   const openSections = prefs.openSections ?? DEFAULT_SECTIONS;
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
+  const [rightCollapsed, setRightCollapsed] = useStoredFlag("right.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const loadSeq = useRef(0);
@@ -319,7 +322,24 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         setOpenFile(file);
       },
       toggleLeft: () => setLeftCollapsed(!leftCollapsed),
+      toggleDetails: () => setRightCollapsed(!rightCollapsed),
       openInTool,
+      editFile: (file) => {
+        const entry = ctx.data.status.find((e) => e.path === file);
+        const changed = !!entry && entry.work !== " " && entry.work !== "?";
+        setMulti([]);
+        if (changed) {
+          setSelected(WIP);
+        }
+        setOpenFile({ source: { kind: "unstaged", untracked: entry?.index === "?" }, path: file, view: "file", edit: true });
+      },
+      createFile: async (file) => {
+        if (await A.createFile(ctx, file)) {
+          setMulti([]);
+          setSelected(WIP);
+          setOpenFile({ source: { kind: "unstaged", untracked: true }, path: file, view: "file", edit: true });
+        }
+      },
     });
     return () => setRepoApi(null);
   });
@@ -333,6 +353,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
       const key = `${e.shiftKey ? "Shift+" : ""}${e.code}`;
       const run: Record<string, () => unknown> = {
         KeyJ: () => setLeftCollapsed(!leftCollapsed),
+        KeyK: () => setRightCollapsed(!rightCollapsed),
         KeyZ: undo,
         KeyY: redo,
         "Shift+KeyZ": redo,
@@ -490,6 +511,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
               cwd={path}
               file={openFile}
               refreshKey={refreshKey}
+              syntaxHighlighting={settings.syntaxHighlighting}
               onClose={() => setOpenFile(null)}
               onPatch={(patch, action) => A.applyPatch(ctx, patch, action)}
               onShowCommit={(sha) => {
@@ -529,7 +551,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
             />
           )}
         </main>
-        {selected && (
+        {selected && !rightCollapsed && (
           <>
             <Splitter value={rightWidth} set={setRightWidth} min={260} max={900} invert />
             <div className="pane" style={{ width: rightWidth }}>

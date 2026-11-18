@@ -235,6 +235,24 @@ pub async fn save_file(window: Window, default_name: String, content: String) ->
 }
 
 #[tauri::command]
+pub async fn open_patch(window: Window) -> Res<Option<String>> {
+    let (tx, rx) = oneshot::channel();
+    window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .add_filter("Patch", &["patch", "diff"])
+        .pick_file(move |p| {
+            let _ = tx.send(to_path(p));
+        });
+    let Some(source) = rx.await.ok().flatten() else {
+        return Ok(None);
+    };
+    let bytes = tokio::fs::read(source).await.map_err(err)?;
+    Ok(Some(String::from_utf8_lossy(&bytes).into_owned()))
+}
+
+#[tauri::command]
 pub async fn write_temp(content: String) -> Res<String> {
     let dir = tempfile::Builder::new()
         .prefix("gitneat-")

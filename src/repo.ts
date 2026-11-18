@@ -150,6 +150,18 @@ export type DiffSource = { kind: "commit"; sha: string; parent?: string } | { ki
 export const loadDiff = (cwd: string, source: DiffSource, file: string, ignoreWhitespace = false, orig?: string): Promise<ParsedDiff> =>
   gitneat().loadDiff(cwd, source, file, ignoreWhitespace, orig);
 
+export function pullRequestUrl(web: string, branch: string): string {
+  const name = encodeURIComponent(branch).replace(/%2F/g, "/");
+  const host = /^https:\/\/([^/]+)/.exec(web)?.[1] ?? "";
+  if (host.includes("gitlab")) {
+    return `${web}/-/merge_requests/new?merge_request[source_branch]=${encodeURIComponent(branch)}`;
+  }
+  if (host.includes("bitbucket")) {
+    return `${web}/pull-requests/new?source=${encodeURIComponent(branch)}`;
+  }
+  return host.includes("github") ? `${web}/compare/${name}?expand=1` : web;
+}
+
 export function remoteWebUrl(url: string): string | null {
   const m = /^(?:https?:\/\/(?:[^@/]+@)?|ssh:\/\/(?:[^@/]+@)?|[^@/]+@)([^/:]+)(?::\d+)?[:/](.+?)(?:\.git)?\/?$/.exec(url.trim());
   return m ? `https://${m[1]}/${m[2]}` : null;

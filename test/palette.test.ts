@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { available, Command, EMPTY_FRECENCY, frecencyScore, fuzzyScore, matchPositions, parseFrecency, rank, record } from "../src/palette";
+import { available, Command, EMPTY_FRECENCY, frecencyScore, fuzzyScore, matchPositions, parseFrecency, rank, record, workingFiles } from "../src/palette";
+import { pullRequestUrl } from "../src/repo";
 
 const item = (id: string, label: string, extra: Partial<Command> = {}): Command => ({ id, label, ...extra });
 const NOW = 1_700_000_000_000;
@@ -66,4 +67,21 @@ test("commands follow the repository, detached head and operation flags", () => 
   assert.equal(available(attached, { hasRepo: true, detached: true, busy: false }), false);
   assert.equal(available(attached, { hasRepo: true, detached: false, busy: true }), false);
   assert.equal(available(item("c", "Clone"), none), true);
+});
+
+test("the working file list adds new files and drops deleted and renamed ones", () => {
+  const status = [
+    { path: "new.ts", index: "A", work: " " },
+    { path: "loose.ts", index: "?", work: "?" },
+    { path: "gone.ts", index: " ", work: "D" },
+    { path: "moved.ts", orig: "old.ts", index: "R", work: " " },
+  ];
+  assert.deepEqual(workingFiles(["gone.ts", "old.ts", "keep.ts"], status).sort(), ["keep.ts", "loose.ts", "moved.ts", "new.ts"]);
+});
+
+test("the pull request address follows the hosting service", () => {
+  assert.equal(pullRequestUrl("https://github.com/o/r", "feat/x"), "https://github.com/o/r/compare/feat/x?expand=1");
+  assert.equal(pullRequestUrl("https://gitlab.com/o/r", "feat/x"), "https://gitlab.com/o/r/-/merge_requests/new?merge_request[source_branch]=feat%2Fx");
+  assert.equal(pullRequestUrl("https://bitbucket.org/o/r", "x"), "https://bitbucket.org/o/r/pull-requests/new?source=x");
+  assert.equal(pullRequestUrl("https://example.com/o/r", "x"), "https://example.com/o/r");
 });

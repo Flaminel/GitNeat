@@ -2475,3 +2475,7 @@ a.sha {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.no-tool-labels .tool-label {
+  display: none;
+}

@@ -13,7 +13,8 @@ export interface OpenFile {
   path: string;
   orig?: string;
   merge?: boolean;
-  view?: "blame" | "history";
+  view?: "blame" | "history" | "file";
+  edit?: boolean;
 }
 
 interface Props {

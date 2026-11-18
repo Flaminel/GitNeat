@@ -1,4 +1,5 @@
 mod discard;
+mod files;
 mod history;
 mod index;
 mod rebase;
@@ -122,6 +123,9 @@ pub async fn dispatch(cwd: &str, name: &str, args: Value) -> Res<Value> {
         return done;
     }
     if let Some(done) = index::call(cwd, name, &args).await {
+        return done;
+    }
+    if let Some(done) = files::call(cwd, name, &args).await {
         return done;
     }
     if let Some(done) = tools::call(cwd, name, &args).await {

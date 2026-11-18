@@ -46,6 +46,7 @@ export interface GitNeatApi {
   pickDirectory(): Promise<string | null>;
   missingPaths(paths: string[]): Promise<string[]>;
   saveFile(name: string, content: string): Promise<boolean>;
+  openPatch(): Promise<string | null>;
   writeTemp(content: string): Promise<string>;
   readFile(cwd: string, rel: string): Promise<string | null>;
   writeFile(cwd: string, rel: string, content: string): Promise<boolean>;

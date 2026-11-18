@@ -158,7 +158,7 @@ export function App() {
     if (!state) {
       return;
     }
-    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs } = state.settings;
+    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting } = state.settings;
     const v = await ui.prompt(
       "Preferences",
       [
@@ -166,6 +166,8 @@ export function App() {
         { name: "autoPrune", label: "Auto-Prune", kind: "checkbox", value: String(autoPrune) },
         { name: "defaultBranch", label: "Default Branch Name", help: "Sets the default branch name when initializing new repositories.", placeholder: "main", value: defaultBranch, ref: true },
         { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
+        { name: "toolbarLabels", label: "Show toolbar icon labels", kind: "checkbox", value: String(toolbarLabels) },
+        { name: "syntaxHighlighting", label: "Syntax Highlighting", kind: "checkbox", value: String(syntaxHighlighting) },
         { name: "lazyLoad", label: "Lazy Load Commits in Graph", kind: "checkbox", value: String(lazyLoad) },
         {
           name: "maxCommits",
@@ -198,6 +200,8 @@ export function App() {
         autoPrune: v.autoPrune === "true",
         defaultBranch: v.defaultBranch.trim() === "main" ? "" : v.defaultBranch.trim(),
         rememberTabs: v.rememberTabs === "true",
+        toolbarLabels: v.toolbarLabels === "true",
+        syntaxHighlighting: v.syntaxHighlighting === "true",
       },
     }));
   };
@@ -390,6 +394,7 @@ export function App() {
     closeTab: () => closeTabs((i) => i !== state.active),
     preferences,
     zoom: (step) => (step ? stepZoom(step) : update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } }))),
+    toggleSetting: (key) => update((s) => ({ ...s, settings: { ...s.settings, [key]: !s.settings[key] } })),
     openRepo: openTab,
     recent: state.recent,
     favorites: state.favorites,
@@ -397,7 +402,7 @@ export function App() {
   };
   return (
     <LayoutContext.Provider value={layoutStore}>
-      <div className="app">
+      <div className={`app${state.settings.toolbarLabels ? "" : " no-tool-labels"}`}>
         <Tabs
           tabs={state.tabs}
           active={state.active}

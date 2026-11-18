@@ -1,5 +1,5 @@
 import { gitneat } from "./api";
-import { Commit, DiffSource, GitError, Operation, Ref, RepoData, samePath } from "./repo";
+import { Commit, DiffSource, GitError, Operation, pullRequestUrl, Ref, RepoData, remoteWebUrl, samePath } from "./repo";
 import { Field, Layout, Ui } from "./ui";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
@@ -851,3 +851,52 @@ export const saveResolved = (ctx: Ctx, path: string, content: string) =>
     }
     return act(ctx.cwd, "stageFile", { path });
   });
+
+export async function openAndApplyPatch(ctx: Ctx): Promise<void> {
+  const patch = await gitneat().openPatch();
+  if (patch === null) {
+    return;
+  }
+  const ok = await ctx.ui.task("Apply patch", () => act(ctx.cwd, "applyPatch", { patch, action: "apply" }), "Failed to apply patch");
+  ctx.refresh();
+  if (ok) {
+    ctx.ui.toast("Patch applied successfully");
+  }
+}
+
+export async function createFile(ctx: Ctx, path: string): Promise<boolean> {
+  const ok = await ctx.ui.task("Create file", () => act(ctx.cwd, "createFile", { path }), "Create file Failed");
+  ctx.refresh();
+  return ok;
+}
+
+export async function deleteFile(ctx: Ctx, path: string): Promise<boolean> {
+  if (!(await ctx.ui.confirm("Delete File", `Are you sure you want to delete '${path}'?`, "Delete", true))) {
+    return false;
+  }
+  const ok = await ctx.ui.task("Delete file", () => act(ctx.cwd, "deleteFile", { path }), `Delete file at path failed: ${path}.`);
+  ctx.refresh();
+  if (ok) {
+    ctx.ui.toast(`Deleted '${path}'`);
+  }
+  return ok;
+}
+
+export async function runMaintenance(ctx: Ctx): Promise<void> {
+  const ok = await ctx.ui.task("Repository maintenance", () => act(ctx.cwd, "maintenance", {}), "Repository Maintenance Failed");
+  if (ok) {
+    ctx.ui.toast("Repository Maintenance Finished");
+  }
+}
+
+export function startPullRequest(ctx: Ctx): void {
+  const branch = ctx.data.branch;
+  const upstream = ctx.data.refs.find((r) => r.current)?.upstream?.split("/")[0];
+  const remote = ctx.data.remotes.find((r) => r.name === upstream) ?? ctx.data.remotes.find((r) => r.name === "origin") ?? ctx.data.remotes[0];
+  const web = remote && remoteWebUrl(remote.url);
+  if (!branch || !web) {
+    ctx.ui.toast(branch ? "The remote has no web address." : "Checkout a branch to start a pull request.", "error", "Start Pull Request");
+    return;
+  }
+  void gitneat().openExternal(pullRequestUrl(web, branch));
+}

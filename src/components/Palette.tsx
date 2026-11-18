@@ -84,13 +84,19 @@ export function Palette({ start, app, frecency, setFrecency, onClose }: Props) {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setIndex(Math.max(index - 1, 0));
-    } else if (e.key === "Tab" || e.key === "Enter") {
-      e.preventDefault();
-      choose(matches[index]);
     } else if (e.key === "Backspace" && !query && domain !== "top") {
       e.preventDefault();
       setDomain("top");
       setIndex(0);
+    } else if (domain === "createFile") {
+      if (e.key === "Enter" && query.trim()) {
+        e.preventDefault();
+        onClose();
+        void repo?.createFile(query.trim());
+      }
+    } else if (e.key === "Tab" || e.key === "Enter") {
+      e.preventDefault();
+      choose(matches[index]);
     }
   };
 

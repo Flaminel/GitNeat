@@ -1,6 +1,6 @@
-import type { Commit, Ref } from "./repo";
+import type { Commit, Ref, StatusEntry } from "./repo";
 
-export type Domain = "top" | "checkout" | "openRepo" | "searchCommits" | "blame" | "history";
+export type Domain = "top" | "checkout" | "openRepo" | "searchCommits" | "blame" | "history" | "editFile" | "openFile" | "viewFile" | "deleteFile" | "createFile";
 
 export interface Item {
   id: string;
@@ -29,14 +29,24 @@ export const PLACEHOLDERS: Record<Domain, string> = {
   searchCommits: "Search commits by message, sha, or author",
   blame: "Search for a file to view who did what (i.e. its blame)",
   history: "Search for a file to view its history / blame",
+  editFile: "Search for a file to edit",
+  openFile: "Search for a file to open",
+  viewFile: "Search for a file to view",
+  deleteFile: "Search for a file to delete",
+  createFile: "Enter a new file name",
 };
 
 export const DOMAIN_LABELS: Record<Exclude<Domain, "top">, string> = {
   blame: "Blame",
   checkout: "Checkout",
+  createFile: "Create File",
+  deleteFile: "Delete File",
+  editFile: "Edit File",
   history: "History",
+  openFile: "Open File",
   openRepo: "Open Repo",
   searchCommits: "Search Commits",
+  viewFile: "View File",
 };
 
 const HOUR = 36e5;
@@ -204,4 +214,23 @@ export function commitItems(commits: Commit[], run: (commit: Commit) => unknown)
 
 export function fileItems(files: string[], run: (file: string) => unknown): Item[] {
   return files.map((f) => ({ id: f, label: f, run: () => run(f) }));
+}
+
+export function workingFiles(tracked: string[], status: StatusEntry[]): string[] {
+  const files = new Set(tracked);
+  for (const entry of status) {
+    for (const code of [entry.index, entry.work]) {
+      if (code === "A" || code === "?") {
+        files.add(entry.path);
+      } else if (code === "D") {
+        files.delete(entry.path);
+      } else if (code === "R") {
+        files.add(entry.path);
+        if (entry.orig) {
+          files.delete(entry.orig);
+        }
+      }
+    }
+  }
+  return [...files];
 }

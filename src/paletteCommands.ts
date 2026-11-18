@@ -2,7 +2,7 @@ import * as A from "./actions";
 import { Ctx } from "./actions";
 import { gitneat } from "./api";
 import type { OpenFile } from "./components/DetailPanel";
-import { Command, commitItems, DOMAIN_LABELS, Domain, fileItems, Item, refItems, Situation } from "./palette";
+import { Command, commitItems, DOMAIN_LABELS, Domain, fileItems, Item, refItems, Situation, workingFiles } from "./palette";
 import { loadAllFiles } from "./repo";
 import { repoLabel } from "./components/Tabs";
 
@@ -16,7 +16,10 @@ export interface RepoApi {
   showWip(): void;
   openFile(file: OpenFile): void;
   toggleLeft(): void;
+  toggleDetails(): void;
   openInTool(): unknown;
+  editFile(path: string): void;
+  createFile(path: string): unknown;
 }
 
 export interface AppApi {
@@ -26,6 +29,7 @@ export interface AppApi {
   closeTab(): void;
   preferences(): unknown;
   zoom(step: number): void;
+  toggleSetting(key: "toolbarLabels" | "syntaxHighlighting"): void;
   openRepo(path: string): void;
   recent: string[];
   favorites: string[];
@@ -43,7 +47,7 @@ export const getRepoApi = (): RepoApi | null => current;
 export const situation = (repo: RepoApi | null): Situation => ({
   hasRepo: !!repo,
   detached: !!repo && !repo.ctx.data.branch,
-  busy: !!repo && repo.ctx.data.operation !== null,
+  busy: !!repo && repo.ctx.data.operation === "rebase",
 });
 
 function command(id: string, label: string, run: () => unknown, extra: Partial<Command> = {}): Command {
@@ -56,7 +60,7 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
   const live = { repo: true, busy: false };
   const attached = { repo: true, busy: false, detached: false };
   const need = <T,>(fn: (repo: RepoApi, ctx: Ctx) => T) => () => (repo && ctx ? fn(repo, ctx) : undefined);
-  const domains: Command[] = (["blame", "checkout", "history", "openRepo", "searchCommits"] as const).map((domain) => ({
+  const domains: Command[] = (["blame", "checkout", "deleteFile", "editFile", "history", "openFile", "openRepo", "searchCommits", "viewFile"] as const).map((domain) => ({
     id: `domain-${domain}`,
     label: DOMAIN_LABELS[domain],
     domain,
@@ -80,6 +84,7 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("unstageAll", "Unstage all changes", need((_, c) => A.unstageAll(c)), { flags: r }),
     command("unstageAllAndReset", "Discard all changes", need((_, c) => A.discardAll(c)), { hidden: "reset hard all", flags: live }),
     command("exportToPatch", "Create patch from all working directory changes", need((_, c) => A.savePatchWork(c, c.data.status.map((s) => s.path))), { flags: r }),
+    command("applyPatch", "Apply patch", need((_, c) => A.openAndApplyPatch(c)), { flags: live }),
     command("openFileInExternalView", "Open in External Diff/Merge Tool", need((p) => p.openInTool()), { flags: r }),
     command("openRepo", "Open Repository Management Tab", app.newTab),
     command("cloneRepo", "Clone", app.clone),
@@ -89,7 +94,13 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("closeRepo", "Close Tab", app.closeTab),
     command("settings", "Settings", app.preferences, { hidden: "preferences options" }),
     command("viewWorkingDirChanges", "View Working Directory Changes", need((p, c) => c.data.status.length && p.showWip()), { hidden: "changes wip workdir working", flags: r }),
+    command("createFile", "Create File", () => undefined, { domain: "createFile", hidden: "create new file", flags: r }),
+    command("runRepoMaintenance", "Perform Repo Maintenance", need((_, c) => A.runMaintenance(c)), { flags: r }),
+    command("startPullRequest", "Start Pull Request", need((_, c) => A.startPullRequest(c)), { hidden: "New Create Pull Request", flags: live }),
+    command("toggleToolbarLabels", "Toggle Toolbar Labels", () => app.toggleSetting("toolbarLabels")),
+    command("toggleSyntaxHighlighting", "Toggle Syntax Highlighting", () => app.toggleSetting("syntaxHighlighting")),
     command("toggleLeftPanel", "Toggle Left Panel", need((p) => p.toggleLeft()), { flags: r }),
+    command("toggleDetailPanel", "Toggle Commit Details Panel", need((p) => p.toggleDetails()), { flags: r }),
     command("zoomUp", "Increase Zoom", () => app.zoom(1)),
     command("zoomDown", "Decrease Zoom", () => app.zoom(-1)),
     command("zoomReset", "Reset Zoom", () => app.zoom(0)),
@@ -110,6 +121,12 @@ export async function domainItems(domain: Domain, app: AppApi, repo: RepoApi | n
   }
   if (domain === "searchCommits") {
     return commitItems(ctx.data.commits, (c) => repo.select(c.sha));
+  }
+  if (domain === "editFile" || domain === "openFile" || domain === "viewFile" || domain === "deleteFile") {
+    const head = ctx.data.head;
+    const tracked = head ? await loadAllFiles(ctx.cwd, head) : [];
+    const run = domain === "deleteFile" ? (path: string) => A.deleteFile(ctx, path) : (path: string) => repo.editFile(path);
+    return fileItems(workingFiles(tracked, ctx.data.status), run);
   }
   if (domain === "blame" || domain === "history") {
     const head = ctx.data.head;

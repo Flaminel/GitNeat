@@ -32,6 +32,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
 | `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
+| `rust/app/src/actions/files.rs` | Create file, delete file and repository maintenance actions (D95) |
 | `rust/app/src/actions/tools.rs` | Open a file in the external diff or merge tool with `git difftool` and `git mergetool`, and the tool config check (D92) |
 | `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
 | `rust/app/examples/` | Command line entry points that the TS comparison tests run |
