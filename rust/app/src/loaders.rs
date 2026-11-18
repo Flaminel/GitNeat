@@ -66,7 +66,14 @@ pub async fn load_commit(cwd: &str, sha: &str) -> Res<Value> {
         ],
     };
     detail.files = read_name_status(&git(cwd, &args).await?);
-    Ok(value(&detail))
+    let mut out = value(&detail);
+    if let Some(untracked) = detail.parents.get(2) {
+        let paths = load_all_files(cwd, untracked).await.unwrap_or_default();
+        if !paths.is_empty() {
+            out["untracked"] = serde_json::json!(paths);
+        }
+    }
+    Ok(out)
 }
 
 pub async fn load_all_files(cwd: &str, sha: &str) -> Res<Vec<String>> {

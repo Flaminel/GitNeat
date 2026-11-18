@@ -1240,7 +1240,8 @@ a.sha {
   background: var(--hover);
 }
 
-.file.active {
+.file.active,
+.file.picked {
   background: var(--selected);
 }
 

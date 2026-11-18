@@ -197,13 +197,24 @@ export function worktreeMenu(ctx: Ctx, wt: Worktree): Promise<void> {
   });
 }
 
-export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untracked: boolean; stash?: boolean }): Promise<void> {
+export interface FileStash {
+  paths: string[];
+  message: string;
+  done(): void;
+}
+
+export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untracked: boolean }, stash?: FileStash): Promise<void> {
   const abs = `${ctx.cwd}/${path}`;
-  return present(ctx, "file", { platform: gitneat().platform, path, wip }, {
+  const args = wip && stash ? { ...wip, stash: true, count: stash.paths.length } : wip;
+  return present(ctx, "file", { platform: gitneat().platform, path, wip: args }, {
     stage: () => A.stageFile(ctx, path),
     unstage: () => A.unstageFile(ctx, path),
     discard: () => A.discardFile(ctx, path, !!wip?.untracked),
-    stashFile: () => A.stashPaths(ctx, [path]),
+    stashFile: async () => {
+      if (stash && (await A.stashPaths(ctx, stash.paths, stash.message))) {
+        stash.done();
+      }
+    },
     openFile: () => gitneat().openPath(abs),
     showItem: () => gitneat().showItem(abs),
     copyFilePath: () => gitneat().copy(path),

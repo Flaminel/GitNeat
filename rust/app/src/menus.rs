@@ -67,6 +67,8 @@ struct WipIn {
     staged: bool,
     #[serde(default)]
     stash: bool,
+    #[serde(default)]
+    count: usize,
 }
 
 #[derive(Deserialize, Debug)]
@@ -347,6 +349,13 @@ fn worktree_menu(cwd: &str, platform: &str, wt: &WorktreeIn) -> Vec<MenuSpec> {
 }
 
 fn file_menu(platform: &str, wip: Option<&WipIn>) -> Vec<MenuSpec> {
+    if let Some(w) = wip.filter(|w| w.count > 1) {
+        return w
+            .stash
+            .then(|| item("stashFile", format!("Stash {} files", w.count)))
+            .into_iter()
+            .collect();
+    }
     let stage = match wip {
         Some(w) => flat(vec![
             (!w.staged).then(|| item("stage", "Stage")),

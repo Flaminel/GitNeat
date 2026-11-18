@@ -486,7 +486,7 @@ async function stashRestore(ctx: Ctx, ref: string, verb: "apply" | "pop"): Promi
 export const stashApply = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "apply");
 export const stashPop = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "pop");
 
-export async function stashPaths(ctx: Ctx, paths: string[]): Promise<void> {
+export async function stashPaths(ctx: Ctx, paths: string[], stashMessage = ""): Promise<boolean> {
   const message =
     paths.length === 1
       ? `This will stash all staged and unstaged changes in "${paths[0]}". Are you sure you want to stash this file?`
@@ -494,8 +494,9 @@ export async function stashPaths(ctx: Ctx, paths: string[]): Promise<void> {
   const label = paths.length === 1 ? "Stash file" : `Stash ${paths.length} files`;
   if (await ctx.ui.confirm("Stash", message, label, true)) {
     const origins = ctx.data.status.filter((e) => paths.includes(e.path) && e.orig).map((e) => e.orig as string);
-    await go(ctx, "Stash", "stashPaths", { paths: [...paths, ...origins] });
+    return go(ctx, "Stash", "stashPaths", { paths: [...paths, ...origins], message: stashMessage });
   }
+  return false;
 }
 
 export async function stashDrop(ctx: Ctx, ref: string): Promise<void> {

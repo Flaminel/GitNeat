@@ -23,6 +23,7 @@ struct StashEdit {
 #[derive(Deserialize)]
 struct StashPaths {
     paths: Vec<String>,
+    message: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -125,7 +126,11 @@ async fn stash_save(cwd: &str, args: &Value) -> Res<Value> {
 
 async fn stash_paths(cwd: &str, args: &Value) -> Res<Value> {
     let a: StashPaths = parse(args)?;
-    let mut list = vec!["stash", "push", "--include-untracked", "--"];
+    let mut list = vec!["stash", "push", "--include-untracked"];
+    if let Some(message) = a.message.as_deref().filter(|m| !m.is_empty()) {
+        list.extend(["-m", message]);
+    }
+    list.push("--");
     list.extend(a.paths.iter().map(String::as_str));
     run(cwd, true, git(cwd, &list)).await
 }

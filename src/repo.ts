@@ -115,6 +115,7 @@ export interface CommitDetail {
   committerEmail: string;
   coAuthors: string[];
   files: FileChange[];
+  untracked?: string[];
 }
 
 export class GitError extends Error {}

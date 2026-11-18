@@ -37,14 +37,16 @@ function FileList(props: {
   onOpen(path: string): void;
   onMenu?(path: string): void;
   extra?(path: string): ReactNode;
+  picked?: string[];
+  onPick?(path: string, range: boolean): void;
 }) {
   const row = (f: { path: string; status: string }, label: ReactNode, depth: number) => (
     <div
       key={f.path}
-      className={`file${props.isOpen(f.path) ? " active" : ""}`}
+      className={`file${props.isOpen(f.path) ? " active" : ""}${props.picked?.includes(f.path) ? " picked" : ""}`}
       style={{ paddingLeft: 10 + depth * 14 }}
       title={f.path}
-      onClick={() => props.onOpen(f.path)}
+      onClick={(e) => (props.onPick && (e.metaKey || e.ctrlKey || e.shiftKey) ? props.onPick(f.path, e.shiftKey) : props.onOpen(f.path))}
       onContextMenu={() => props.onMenu?.(f.path)}
     >
       <StatusIcon status={f.status} />
@@ -163,7 +165,9 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const source: DiffSource = { kind: "commit", sha: detail.sha, parent: detail.parents[0] };
   const changed = new Map(detail.files.map((f) => [f.path, f]));
   const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
-  const files = [...listed].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
+  const extra = detail.untracked ?? [];
+  const withUntracked: FileChange[] = [...listed, ...extra.filter((p) => !listed.some((f) => f.path === p)).map((p) => ({ path: p, status: "A" }))];
+  const files = [...withUntracked].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
   const stash = ctx.data.stashes.find((s) => s.sha === detail.sha);
   const isHead = detail.sha === ctx.data.head;
   const depth = stash ? 0 : A.rewordDepth(ctx.data, detail.sha);
@@ -253,7 +257,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           <div className="author-date">authored {formatDate(detail.authorTime)}</div>
         </div>
         <div className="parents">
-          {detail.parents.map((p) => (
+          {(stash ? detail.parents.slice(0, 1) : detail.parents).map((p) => (
             <div key={p}>
               parent:{" "}
               <a
@@ -321,7 +325,13 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           files={files}
           tree={tree}
           isOpen={(p) => openFile?.path === p && openFile.source.kind === "commit"}
-          onOpen={(p) => onOpenFile({ source, path: p, orig: changed.get(p)?.orig })}
+          onOpen={(p) =>
+            onOpenFile(
+              extra.includes(p) && !changed.has(p)
+                ? { source: { kind: "commit", sha: detail.parents[2], parent: "" }, path: p }
+                : { source, path: p, orig: changed.get(p)?.orig },
+            )
+          }
           onMenu={(p) => M.fileMenu(ctx, p)}
         />
       </div>
@@ -349,11 +359,15 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const pushAfter = pendingPush ?? ctx.commitDefaults.push;
   const skipHooks = pendingSkip ?? ctx.commitDefaults.skipHooks;
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [picked, setPicked] = useState<{ staged: boolean; paths: string[] }>({ staged: false, paths: [] });
   const [hook, setHook] = useState(false);
   const status = ctx.data.status;
   const conflicted = status.filter((e) => statusCode(e, false) === "U");
   const unstaged = status.filter((e) => (e.work !== " " || e.index === "?") && statusCode(e, false) !== "U");
   const staged = status.filter((e) => e.index !== " " && e.index !== "?" && statusCode(e, true) !== "U");
+
+  const unstagedPaths = unstaged.map((e) => e.path);
+  const stagedPaths = staged.map((e) => e.path);
 
   const operation = ctx.data.operation === "merge" || ctx.data.operation === "rebase" ? ctx.data.operation : null;
   const [opInfo, setOpInfo] = useState<OperationInfo | null>(null);
@@ -406,12 +420,41 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   };
 
-  const open = (path: string, isStaged: boolean, untracked: boolean) =>
+  const pick = (list: string[], isStaged: boolean) => (p: string, range: boolean) => {
+    const current = picked.staged === isStaged ? picked.paths.filter((x) => list.includes(x)) : [];
+    if (range && current.length) {
+      const a = list.indexOf(current[current.length - 1]);
+      const b = list.indexOf(p);
+      setPicked({ staged: isStaged, paths: list.slice(Math.min(a, b), Math.max(a, b) + 1) });
+    } else {
+      setPicked({ staged: isStaged, paths: current.includes(p) ? current.filter((x) => x !== p) : [...current, p] });
+    }
+  };
+  const pickedIn = (list: string[], isStaged: boolean) => (picked.staged === isStaged ? picked.paths.filter((x) => list.includes(x)) : []);
+  const stashArgs = (list: string[], isStaged: boolean, p: string): M.FileStash | undefined => {
+    if (ctx.data.operation === "merge") {
+      return undefined;
+    }
+    const chosen = pickedIn(list, isStaged);
+    return {
+      paths: chosen.length > 1 && chosen.includes(p) ? chosen : [p],
+      message: description.trim() ? `${summary.trim()}\n\n${description.trim()}` : summary.trim(),
+      done: () => {
+        setSummary("");
+        setDescription("");
+        setPicked({ staged: false, paths: [] });
+      },
+    };
+  };
+
+  const open = (path: string, isStaged: boolean, untracked: boolean) => {
+    setPicked({ staged: false, paths: [] });
     onOpenFile({
       source: isStaged ? { kind: "staged" } : { kind: "unstaged", untracked },
       path,
       merge: status.some((e) => e.path === path && statusCode(e, false) === "U"),
     });
+  };
 
   const isOpen = (isStaged: boolean) => (p: string) =>
     openFile?.path === p && openFile.source.kind === (isStaged ? "staged" : "unstaged");
@@ -477,7 +520,9 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             tree={tree}
             isOpen={isOpen(false)}
             onOpen={(p) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?")}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?", stash: ctx.data.operation !== "merge" })}
+            picked={pickedIn(unstagedPaths, false)}
+            onPick={pick(unstagedPaths, false)}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" }, stashArgs(unstagedPaths, false, p))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
                 Stage File
@@ -499,7 +544,9 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             tree={tree}
             isOpen={isOpen(true)}
             onOpen={(p) => open(p, true, false)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false, stash: ctx.data.operation !== "merge" })}
+            picked={pickedIn(stagedPaths, true)}
+            onPick={pick(stagedPaths, true)}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false }, stashArgs(stagedPaths, true, p))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.unstageFile(ctx, p); }}>
                 Unstage File
