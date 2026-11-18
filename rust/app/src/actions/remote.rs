@@ -139,14 +139,41 @@ async fn pull_branch(cwd: &str, args: &Value) -> Res<Value> {
     run(cwd, true, git(cwd, &["fetch", remote, &spec])).await
 }
 
+fn prune_flag(args: &Value) -> Option<&'static str> {
+    args.get("prune")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+        .then_some("--prune")
+}
+
 async fn pull(cwd: &str, args: &Value) -> Res<Value> {
     let a: Pull = parse(args)?;
+    let mut flags: Vec<&str> = prune_flag(args).into_iter().collect();
     match a.mode {
-        PullMode::Fetch => run(cwd, true, git(cwd, &["fetch", "--all", "--prune"])).await,
-        PullMode::Rebase => pulled(cwd, git(cwd, &["pull", "--rebase", "--autostash"])).await,
-        PullMode::Ff => pulled(cwd, git(cwd, &["pull", "--ff"])).await,
-        PullMode::FfOnly => pulled(cwd, git(cwd, &["pull", "--ff-only"])).await,
+        PullMode::Fetch => {
+            let mut argv = vec!["fetch", "--all"];
+            argv.extend(flags);
+            run(cwd, true, git(cwd, &argv)).await
+        }
+        PullMode::Rebase => {
+            flags.extend(["--rebase", "--autostash"]);
+            pulled(cwd, git(cwd, &pull_argv(&flags))).await
+        }
+        PullMode::Ff => {
+            flags.push("--ff");
+            pulled(cwd, git(cwd, &pull_argv(&flags))).await
+        }
+        PullMode::FfOnly => {
+            flags.push("--ff-only");
+            pulled(cwd, git(cwd, &pull_argv(&flags))).await
+        }
     }
+}
+
+fn pull_argv<'a>(flags: &[&'a str]) -> Vec<&'a str> {
+    let mut argv = vec!["pull"];
+    argv.extend_from_slice(flags);
+    argv
 }
 
 fn rejected(error: &str) -> bool {
@@ -238,7 +265,10 @@ async fn remove_remote(cwd: &str, args: &Value) -> Res<Value> {
 
 async fn fetch_remote(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
-    run(cwd, true, git(cwd, &["fetch", "--prune", &a.name])).await
+    let mut argv = vec!["fetch"];
+    argv.extend(prune_flag(args));
+    argv.push(&a.name);
+    run(cwd, true, git(cwd, &argv)).await
 }
 
 async fn clone(cwd: &str, args: &Value) -> Res<Value> {
@@ -246,4 +276,16 @@ async fn clone(cwd: &str, args: &Value) -> Res<Value> {
     git(cwd, &["clone", "--", &a.url, &a.target])
         .await
         .map(Value::String)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    #[test]
+    fn prune_is_on_unless_the_argument_turns_it_off() {
+        assert_eq!(super::prune_flag(&json!({})), Some("--prune"));
+        assert_eq!(super::prune_flag(&json!({"prune": true})), Some("--prune"));
+        assert_eq!(super::prune_flag(&json!({"prune": false})), None);
+    }
 }

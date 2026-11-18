@@ -25,6 +25,7 @@ export interface Ctx {
   hidden: string[];
   solo: string[];
   record(entry: UndoEntry): void;
+  prune: boolean;
   layout: Layout;
   setLayout(key: string, value: number | boolean | string): void;
 }
@@ -159,15 +160,15 @@ export const checkoutRef = (ctx: Ctx, name: string) => go(ctx, `Checkout ${name}
 
 export const checkoutCommit = (ctx: Ctx, sha: string) => go(ctx, `Checkout ${short(sha)}`, "checkoutCommit", { sha });
 
-export const autoFetch = (cwd: string): Promise<boolean> =>
-  act(cwd, "pull", { mode: "fetch" }).then(
+export const autoFetch = (cwd: string, prune: boolean): Promise<boolean> =>
+  act(cwd, "pull", { mode: "fetch", prune }).then(
     () => true,
     () => false,
   );
 
 export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => act<string>(parent, "clone", { url, target });
 
-export const initRepo = (dir: string): Promise<string> => act<string>(dir, "init", {});
+export const initRepo = (dir: string, branch: string): Promise<string> => act<string>(dir, "init", { branch });
 
 interface RemoteChoice {
   mode: "create" | "reset";
@@ -349,9 +350,9 @@ export const mergeNoFf = (ctx: Ctx, name: string) => go(ctx, `Merge ${name}`, "m
 
 export function pull(ctx: Ctx, mode: PullMode = "ff") {
   if (mode === "fetch") {
-    return go(ctx, "Fetch", "pull", { mode });
+    return go(ctx, "Fetch", "pull", { mode, prune: ctx.prune });
   }
-  return go(ctx, "Pull", "pull", { mode });
+  return go(ctx, "Pull", "pull", { mode, prune: ctx.prune });
 }
 
 export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<void> {
@@ -531,7 +532,7 @@ export async function removeRemote(ctx: Ctx, name: string): Promise<void> {
   }
 }
 
-export const fetchRemote = (ctx: Ctx, name: string) => go(ctx, `Fetch ${name}`, "fetchRemote", { name });
+export const fetchRemote = (ctx: Ctx, name: string) => go(ctx, `Fetch ${name}`, "fetchRemote", { name, prune: ctx.prune });
 
 const confirmForceRemove = (ctx: Ctx) =>
   ctx.ui.confirm(

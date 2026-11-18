@@ -79,9 +79,18 @@ struct ResolveFile {
     how: Resolve,
 }
 
+async fn init(cwd: &str, args: &Value) -> Res<Value> {
+    let branch = args.get("branch").and_then(Value::as_str).unwrap_or("");
+    let mut argv = vec!["init"];
+    if !branch.is_empty() {
+        argv.extend(["-b", branch]);
+    }
+    git(cwd, &argv).await.map(Value::String)
+}
+
 pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
     Some(match name {
-        "init" => git(cwd, &["init"]).await.map(Value::String),
+        "init" => init(cwd, args).await,
         "stashSave" => stash_save(cwd, args).await,
         "stashApply" => stash(cwd, "apply", args).await,
         "stashPop" => stash(cwd, "pop", args).await,
@@ -196,4 +205,32 @@ async fn resolve_file(cwd: &str, args: &Value) -> Res<Value> {
         git(cwd, &["add", "--", &a.path]).await
     })
     .await
+}
+
+#[cfg(test)]
+mod init_tests {
+    use serde_json::json;
+
+    fn head(dir: &std::path::Path) -> String {
+        std::fs::read_to_string(dir.join(".git/HEAD")).unwrap()
+    }
+
+    #[tokio::test]
+    async fn init_uses_the_given_branch_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_str().unwrap();
+        super::init(cwd, &json!({"branch": "trunk"})).await.unwrap();
+        assert_eq!(head(dir.path()).trim(), "ref: refs/heads/trunk");
+    }
+
+    #[tokio::test]
+    async fn init_rejects_an_invalid_branch_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_str().unwrap();
+        assert!(
+            super::init(cwd, &json!({"branch": "bad name"}))
+                .await
+                .is_err()
+        );
+    }
 }

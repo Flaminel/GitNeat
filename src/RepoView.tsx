@@ -26,9 +26,12 @@ export interface Settings {
   autoFetch: number;
   lazyLoad: boolean;
   maxCommits: number;
+  autoPrune: boolean;
+  defaultBranch: string;
+  rememberTabs: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000 };
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true };
 export const MAX_COMMITS_MIN = 500;
 export const AUTO_FETCH_MAX = 60;
 
@@ -186,12 +189,12 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         return;
       }
       running = true;
-      await A.autoFetch(path);
+      await A.autoFetch(path, settings.autoPrune);
       running = false;
       void load();
     }, settings.autoFetch * 60000);
     return () => clearInterval(timer);
-  }, [path, settings.autoFetch, load]);
+  }, [path, settings.autoFetch, settings.autoPrune, load]);
 
   useEffect(() => {
     const onFocus = () => void load();
@@ -235,6 +238,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         toggleSolo: (full) => setPrefs({ hidden: prefs.hidden, solo: toggle(prefs.solo, full) }),
         hidden: prefs.hidden,
         solo: prefs.solo,
+        prune: settings.autoPrune,
         layout,
         setLayout,
         record: (entry) => {
@@ -242,7 +246,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
           setRedoStack([]);
         },
       },
-    [data, path, ui, load, openTab, prefs, setPrefs, layout, setLayout],
+    [data, path, ui, load, openTab, prefs, setPrefs, layout, setLayout, settings.autoPrune],
   );
 
   const undo = async () => {

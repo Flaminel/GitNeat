@@ -53,6 +53,9 @@ export function App() {
         loaded.current = true;
         const s = { ...EMPTY, ...(saved as Partial<State>) };
         s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
+        if (!s.settings.rememberTabs) {
+          s.tabs = [];
+        }
         for (const t of s.tabs as (Tab & { title?: string })[]) {
           if (t.path && t.title) {
             s.aliases = { ...s.aliases, [t.path]: t.title };
@@ -125,13 +128,16 @@ export function App() {
     if (!state) {
       return;
     }
-    const { autoFetch, lazyLoad, maxCommits } = state.settings;
+    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs } = state.settings;
     const v = await ui.prompt(
       "Preferences",
       [
         { name: "autoFetch", label: `Auto-Fetch interval in minutes (0 to ${AUTO_FETCH_MAX}, 0 turns it off)`, value: String(autoFetch) },
         { name: "lazyLoad", label: "Lazy Load Commits in Graph", kind: "checkbox", value: String(lazyLoad) },
         { name: "maxCommits", label: `Maximum commits in graph (minimum ${MAX_COMMITS_MIN})`, value: String(maxCommits) },
+        { name: "autoPrune", label: "Auto-Prune branches when fetching", kind: "checkbox", value: String(autoPrune) },
+        { name: "defaultBranch", label: "Default branch name for new repositories (empty uses the git default)", placeholder: "main", value: defaultBranch },
+        { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
       ],
       "Save",
     );
@@ -148,7 +154,17 @@ export function App() {
       ui.toast(`The maximum commit count must be a whole number of at least ${MAX_COMMITS_MIN}.`, "error", "Preferences");
       return;
     }
-    update((s) => ({ ...s, settings: { autoFetch: fetchMinutes, lazyLoad: v.lazyLoad === "true", maxCommits: commitCount } }));
+    update((s) => ({
+      ...s,
+      settings: {
+        autoFetch: fetchMinutes,
+        lazyLoad: v.lazyLoad === "true",
+        maxCommits: commitCount,
+        autoPrune: v.autoPrune === "true",
+        defaultBranch: v.defaultBranch.trim(),
+        rememberTabs: v.rememberTabs === "true",
+      },
+    }));
   };
 
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
@@ -278,7 +294,7 @@ export function App() {
 
   const init = async () => {
     const dir = await gitneat().pickDirectory();
-    if (dir && (await ui.task("Init", () => initRepo(dir)))) {
+    if (dir && (await ui.task("Init", () => initRepo(dir, state?.settings.defaultBranch ?? "")))) {
       openTab(dir);
     }
   };

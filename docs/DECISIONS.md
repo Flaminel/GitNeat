@@ -592,3 +592,12 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The auto-fetch timer is in `RepoView`, so it runs for the active tab only, as in Source. Each tick runs "fetch all" and then reloads. A tick waits for the previous fetch to end. An error is silent. There is no failure notice, because the Source bundle has none. The task text named one.
 - Reason: Task T26. Source `getDefaultSettings`, `autoFetchSaga`, `getCurrentNumberOfCommits` and `getMoreCommitsSaga` (`docs/EVIDENCE.md` section 11).
 - Limits: The task text said that lazy loading stops at the maximum. Source uses the maximum as the first load count and then pages beyond it, so GitNeat follows Source. The Source Preferences also has auto-prune, default branch name and remember tabs. GitNeat does not build them. The dialog is a plain prompt, not the Source Preferences view with sections. No manual check in the app: the Tauri window was not started in this task.
+
+## D85. Auto-prune, default branch name and remember tabs
+
+- Decision: `settings` has three more fields: `autoPrune` (default true), `defaultBranch` (default empty) and `rememberTabs` (default true). The Preferences dialog (D84) shows them.
+- Rules: The `pull` and `fetchRemote` actions take `prune`, which is true if absent. A fetch adds `--prune` if it is true. A pull adds `--prune` too, because Source reads the setting in the pull saga. `Ctx.prune` carries the setting, and auto-fetch passes it.
+- Rules: The `init` action takes `branch`. A non-empty name runs `git init -b <name>`. An invalid name makes git fail, and the user sees the git error. Clone does not use the setting, as in Source.
+- Rules: If `rememberTabs` is off, the app drops the saved tabs when the state loads and opens one NEW tab. The closed tab list stays.
+- Reason: Task T26b. Source `autoPrune`, `init.defaultBranch` and `rememberTabs` (`docs/EVIDENCE.md` section 11).
+- Limits: Before this task a fetch always pruned. The setting now turns it off. Source also writes `fetch.prune` and `init.defaultBranch` to the git config when its profile sync is on. GitNeat does not write git config. Source checks the branch name with its own name rule. GitNeat leaves the check to git, so the message differs. The English labels come from the Source locale file, which was not read, so GitNeat labels are our wording. No manual check in the app: the Tauri window was not started in this task.
