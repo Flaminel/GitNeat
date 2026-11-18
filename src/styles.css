@@ -562,8 +562,8 @@ body.resizing-row * {
 }
 
 .section.open {
-  flex: 0 1 132px;
-  min-height: 108px;
+  flex: 0 1 162px;
+  min-height: 138px;
 }
 
 .section.open.grow {
