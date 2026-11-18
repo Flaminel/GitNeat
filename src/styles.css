@@ -11,6 +11,7 @@
   --text-dim: rgba(255, 255, 255, 0.6);
   --text-faint: rgba(255, 255, 255, 0.4);
   --text-dimmed: rgba(255, 255, 255, 0.2);
+  --text-dimmed-selected: rgba(255, 255, 255, 0.5);
   --accent: #4d88ff;
   --green: #5cb85c;
   --red: #d9413d;
@@ -2115,6 +2116,13 @@ a.sha {
 .row.dim .cell,
 .row.dim .cell * {
   color: var(--text-dimmed);
+}
+
+.row.dim:hover .cell,
+.row.dim:hover .cell *,
+.row.selected.dim .cell,
+.row.selected.dim .cell * {
+  color: var(--text-dimmed-selected);
 }
 
 .row.date-break {

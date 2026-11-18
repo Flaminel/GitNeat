@@ -401,7 +401,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The graph search shows "{i} of {N}" and "0 results", as in Source. `GraphView` in `src/components/GraphView.tsx` keeps the matches in graph order in `matchList`. The index is the position of the selected commit in `matchList`. Enter and Shift+Enter move the selection to the next and the previous match.
 - Reason: Source uses `CommitSearch-ResultsText` and `CommitSearch-NoResults` (see `docs/EVIDENCE.md` section 11). Task T09 of the parity plan (D50).
 - Rules: If the query has no match, the counter shows "0 results". If the selected commit is not a match, the counter shows "0 of {N}". An empty query shows no counter.
-- Limits: Typing does not select the first match. Source has a filter mode, GitNeat only dims the rows that do not match. No manual check in the app: the screen was locked during T09.
+- Limits: Typing does not select the first match. No manual check in the app: the screen was locked during T09.
 
 ## D63. Default pull action and detached HEAD guards
 
@@ -541,3 +541,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source loads commits lazily near the bottom (`docs/EVIDENCE.md` section 11). Task T23.
 - Rules: GitNeat shows no "Displaying N commits" footer. Source shows the footer only if lazy loading is off, and its default is on. GitNeat has no setting to turn lazy loading off. The task text asked for the footer, but parity follows the bundle.
 - Limits: Each step loads the whole log again, with the larger limit. Source loads pages of 200. A page of 2000 keeps the number of reloads low. A repository with 100000 commits reloads 50 times to reach the end. No manual check in the app: the Tauri window was not started in this task.
+
+## D79. Search has no filter mode
+
+- Decision: GitNeat does not add a filter mode to the graph search. The search dims the rows that do not match, as in D62.
+- Reason: The Source app never sets `searchMode` on the graph. The search runs in "normal" mode and dims rows (`docs/EVIDENCE.md` section 11, search mode). The filter mode of the graph package is not reachable. The task text described it from the package code. Task T40.
+- Rules: A dimmed row that is selected or hovered uses `--text-dimmed-selected` (rgba(255,255,255,0.5)). Other dimmed rows use `--text-dimmed`. Source uses the same two colors.
+- Limits: The Source author and team filter (`CommitFilter-FilterPlaceholder`, the Filter icon in the graph header) is not built. It uses the same dim path. No manual check in the app. `--filter-match` is not used, because Source does not use it.
