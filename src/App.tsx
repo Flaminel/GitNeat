@@ -132,12 +132,17 @@ export function App() {
     const v = await ui.prompt(
       "Preferences",
       [
-        { name: "autoFetch", label: `Auto-Fetch interval in minutes (0 to ${AUTO_FETCH_MAX}, 0 turns it off)`, value: String(autoFetch) },
-        { name: "lazyLoad", label: "Lazy Load Commits in Graph", kind: "checkbox", value: String(lazyLoad) },
-        { name: "maxCommits", label: `Maximum commits in graph (minimum ${MAX_COMMITS_MIN})`, value: String(maxCommits) },
-        { name: "autoPrune", label: "Auto-Prune branches when fetching", kind: "checkbox", value: String(autoPrune) },
-        { name: "defaultBranch", label: "Default branch name for new repositories (empty uses the git default)", placeholder: "main", value: defaultBranch },
+        { name: "autoFetch", label: "Auto-Fetch Interval", help: "In minutes, between 0 and 60 (0 disables auto-fetch). Fetches all visible remotes.", value: String(autoFetch) },
+        { name: "autoPrune", label: "Auto-Prune", kind: "checkbox", value: String(autoPrune) },
+        { name: "defaultBranch", label: "Default Branch Name", help: "Sets the default branch name when initializing new repositories.", placeholder: "main", value: defaultBranch, ref: true },
         { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
+        { name: "lazyLoad", label: "Lazy Load Commits in Graph", kind: "checkbox", value: String(lazyLoad) },
+        {
+          name: "maxCommits",
+          label: "Initial Commits in Graph",
+          help: `Minimum ${MAX_COMMITS_MIN}. If commit lazy loading is enabled, GitNeat loads additional commits if you reach the earliest commit in the graph. Increasing this value may adversely affect performance.`,
+          value: String(maxCommits),
+        },
       ],
       "Save",
     );
@@ -161,7 +166,7 @@ export function App() {
         lazyLoad: v.lazyLoad === "true",
         maxCommits: commitCount,
         autoPrune: v.autoPrune === "true",
-        defaultBranch: v.defaultBranch.trim(),
+        defaultBranch: v.defaultBranch.trim() === "main" ? "" : v.defaultBranch.trim(),
         rememberTabs: v.rememberTabs === "true",
       },
     }));

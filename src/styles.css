@@ -2224,3 +2224,8 @@ a.sha {
   color: var(--text-dim);
   text-align: center;
 }
+
+.field-help {
+  color: var(--text-dim);
+  opacity: 0.8;
+}

@@ -4,6 +4,7 @@ import { gitneat, MenuSpec } from "./api";
 export interface Field {
   name: string;
   label: string;
+  help?: string;
   value?: string;
   placeholder?: string;
   kind?: "text" | "textarea" | "checkbox" | "select";
@@ -221,6 +222,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
         {request.fields.map((field, i) => (
           <label key={field.name} className={field.kind === "checkbox" ? "check" : "field"}>
             {field.kind !== "checkbox" && <span>{field.label}</span>}
+            {field.kind !== "checkbox" && field.help && <small className="field-help">{field.help}</small>}
             {field.kind === "textarea" ? (
               <textarea
                 autoFocus={i === 0}

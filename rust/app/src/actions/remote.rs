@@ -139,16 +139,17 @@ async fn pull_branch(cwd: &str, args: &Value) -> Res<Value> {
     run(cwd, true, git(cwd, &["fetch", remote, &spec])).await
 }
 
-fn prune_flag(args: &Value) -> Option<&'static str> {
-    args.get("prune")
-        .and_then(Value::as_bool)
-        .unwrap_or(true)
-        .then_some("--prune")
+fn prune_flag(args: &Value) -> &'static str {
+    if args.get("prune").and_then(Value::as_bool).unwrap_or(true) {
+        "--prune"
+    } else {
+        "--no-prune"
+    }
 }
 
 async fn pull(cwd: &str, args: &Value) -> Res<Value> {
     let a: Pull = parse(args)?;
-    let mut flags: Vec<&str> = prune_flag(args).into_iter().collect();
+    let mut flags: Vec<&str> = vec![prune_flag(args)];
     match a.mode {
         PullMode::Fetch => {
             let mut argv = vec!["fetch", "--all"];
@@ -266,7 +267,7 @@ async fn remove_remote(cwd: &str, args: &Value) -> Res<Value> {
 async fn fetch_remote(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
     let mut argv = vec!["fetch"];
-    argv.extend(prune_flag(args));
+    argv.push(prune_flag(args));
     argv.push(&a.name);
     run(cwd, true, git(cwd, &argv)).await
 }
@@ -284,8 +285,8 @@ mod tests {
 
     #[test]
     fn prune_is_on_unless_the_argument_turns_it_off() {
-        assert_eq!(super::prune_flag(&json!({})), Some("--prune"));
-        assert_eq!(super::prune_flag(&json!({"prune": true})), Some("--prune"));
-        assert_eq!(super::prune_flag(&json!({"prune": false})), None);
+        assert_eq!(super::prune_flag(&json!({})), "--prune");
+        assert_eq!(super::prune_flag(&json!({"prune": true})), "--prune");
+        assert_eq!(super::prune_flag(&json!({"prune": false})), "--no-prune");
     }
 }
