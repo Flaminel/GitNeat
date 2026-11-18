@@ -23,7 +23,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/git.rs` | `git` runner and the blocked option check |
 | `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
-| `rust/app/src/store.rs` | Saved state file |
+| `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
 | `rust/app/src/load.rs` | `load_repo`: backend choice, the `git` CLI path and the graph rows |
 | `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool and amend message loaders (D45, D47) |
@@ -98,7 +98,7 @@ GitNeat is a Tauri 2 app with two parts.
 
 | Name | Effect |
 | --- | --- |
-| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). |
+| `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). A `portable.txt` next to the exe also sets the exe folder (D80). |
 | `GITNEAT_BACKEND` | `cli` makes the Tauri `load_repo` use the `git` CLI instead of gix |
 | `GITNEAT_RUST_COMPARE` | `1` runs the TS against Rust comparison tests in `npm test` |
 | `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. |

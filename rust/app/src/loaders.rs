@@ -39,7 +39,9 @@ fn truthy(text: Option<&str>) -> Option<&str> {
 }
 
 pub async fn load_commit(cwd: &str, sha: &str) -> Res<Value> {
-    let format = format!("--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%cn{FS}%ct{FS}%B{FS}%ce{FS}%(trailers:key=Co-authored-by,valueonly,unfold)");
+    let format = format!(
+        "--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%cn{FS}%ct{FS}%B{FS}%ce{FS}%(trailers:key=Co-authored-by,valueonly,unfold)"
+    );
     let meta = git(cwd, &["show", "-s", &format, sha]).await?;
     let mut detail = read_commit(&meta)?;
     let full = detail.sha.clone();
@@ -448,7 +450,14 @@ mod tests {
 
     fn sh(dir: &std::path::Path, args: &[&str]) {
         let out = std::process::Command::new("git")
-            .args(["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false"])
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@x",
+                "-c",
+                "commit.gpgsign=false",
+            ])
             .args(args)
             .current_dir(dir)
             .output()
@@ -485,7 +494,10 @@ mod tests {
             .unwrap();
         let onto = String::from_utf8(onto.stdout).unwrap();
         let info = load_operation(cwd, Some(Operation::Rebase)).await;
-        assert_eq!((info.from.as_str(), info.to.as_str()), ("side", onto.trim()));
+        assert_eq!(
+            (info.from.as_str(), info.to.as_str()),
+            ("side", onto.trim())
+        );
         sh(&dir, &["rebase", "--abort"]);
         let _ = std::fs::remove_dir_all(&dir);
     }

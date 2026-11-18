@@ -835,7 +835,10 @@ mod tests {
         assert_eq!(d.message, "body");
         assert_eq!(d.committer_email, "");
         assert!(d.co_authors.is_empty());
-        let t = read_commit("abc\x1f\x1fAn\x1fe@x\x1f17\x1fCn\x1f18\x1fbody\x1fc@x\x1fA <a@x>\nB <b@x>\n\n").unwrap();
+        let t = read_commit(
+            "abc\x1f\x1fAn\x1fe@x\x1f17\x1fCn\x1f18\x1fbody\x1fc@x\x1fA <a@x>\nB <b@x>\n\n",
+        )
+        .unwrap();
         assert_eq!(t.committer_email, "c@x");
         assert_eq!(t.co_authors, vec!["A <a@x>", "B <b@x>"]);
         assert!(read_commit("abc\x1f").is_err());

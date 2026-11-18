@@ -30,6 +30,10 @@ Run these commands in the root folder of the repository.
 
 Note: Build each platform on that platform.
 
+## Portable Windows build
+
+The release has the file `gitneat-portable-windows.zip`. Unzip it into any folder and run `gitneat.exe`. The file `portable.txt` next to the exe makes the app write `gitneat-state.json` into that folder. Delete `portable.txt` to use the app data folder. The portable build needs the WebView2 runtime. It has no updater.
+
 ## Tests
 
 - Run `npm test` to run the unit tests.

@@ -156,7 +156,9 @@ fn rejected(error: &str) -> bool {
 }
 
 fn remote_changed(error: &str) -> bool {
-    ["stale info", "fetch first"].iter().any(|m| error.contains(m))
+    ["stale info", "fetch first"]
+        .iter()
+        .any(|m| error.contains(m))
 }
 
 async fn push(cwd: &str, args: &Value) -> Res<Value> {
@@ -187,7 +189,9 @@ async fn push(cwd: &str, args: &Value) -> Res<Value> {
         }
         let result = git(cwd, if a.force { &forced } else { &plain }).await;
         match result {
-            Err(error) if remote_changed(&error) => Err(needs_confirm("push-remote-changed", &error)),
+            Err(error) if remote_changed(&error) => {
+                Err(needs_confirm("push-remote-changed", &error))
+            }
             Err(error) if !a.force && rejected(&error) => Err(needs_confirm("push-behind", &error)),
             other => other,
         }

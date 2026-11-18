@@ -1,13 +1,23 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
+const PORTABLE_MARKER: &str = "portable.txt";
+
+fn portable_dir(exe: Option<PathBuf>) -> Option<PathBuf> {
+    let dir = exe?.parent()?.to_path_buf();
+    dir.join(PORTABLE_MARKER).is_file().then_some(dir)
+}
+
 pub fn user_data() -> PathBuf {
-    match std::env::var_os("GITNEAT_USER_DATA") {
-        Some(dir) => PathBuf::from(dir),
-        None => dirs::config_dir()
-            .unwrap_or_else(std::env::temp_dir)
-            .join("GitNeat"),
+    if let Some(dir) = std::env::var_os("GITNEAT_USER_DATA") {
+        return PathBuf::from(dir);
     }
+    if let Some(dir) = portable_dir(std::env::current_exe().ok()) {
+        return dir;
+    }
+    dirs::config_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("GitNeat")
 }
 
 fn path() -> PathBuf {
@@ -42,14 +52,34 @@ async fn write(target: PathBuf, data: &Value) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn portable_dir_needs_the_marker_next_to_the_exe() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("gitneat.exe");
+        assert_eq!(super::portable_dir(Some(exe.clone())), None);
+        std::fs::write(dir.path().join("portable.txt"), "").unwrap();
+        assert_eq!(
+            super::portable_dir(Some(exe)),
+            Some(dir.path().to_path_buf())
+        );
+        assert_eq!(super::portable_dir(None), None);
+    }
+
     #[tokio::test]
     async fn set_replaces_the_file_and_leaves_no_temp_file() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("gitneat-state.json");
-        super::write(target.clone(), &serde_json::json!({"active": 0})).await.unwrap();
-        super::write(target.clone(), &serde_json::json!({"active": 1})).await.unwrap();
+        super::write(target.clone(), &serde_json::json!({"active": 0}))
+            .await
+            .unwrap();
+        super::write(target.clone(), &serde_json::json!({"active": 1}))
+            .await
+            .unwrap();
         let text = std::fs::read_to_string(&target).unwrap();
-        assert_eq!(serde_json::from_str::<serde_json::Value>(&text).unwrap(), serde_json::json!({"active": 1}));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&text).unwrap(),
+            serde_json::json!({"active": 1})
+        );
         assert!(!dir.path().join("gitneat-state.json.tmp").exists());
     }
 

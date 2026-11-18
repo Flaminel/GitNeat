@@ -548,3 +548,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The Source app never sets `searchMode` on the graph. The search runs in "normal" mode and dims rows (`docs/EVIDENCE.md` section 11, search mode). The filter mode of the graph package is not reachable. The task text described it from the package code. Task T40.
 - Rules: A dimmed row that is selected or hovered uses `--text-dimmed-selected` (rgba(255,255,255,0.5)). Other dimmed rows use `--text-dimmed`. Source uses the same two colors.
 - Limits: The Source author and team filter (`CommitFilter-FilterPlaceholder`, the Filter icon in the graph header) is not built. It uses the same dim path. No manual check in the app. `--filter-match` is not used, because Source does not use it.
+
+## D80. Portable Windows build
+
+- Decision: CI zips `rust/target/release/gitneat.exe` and an empty `portable.txt` into `gitneat-portable-windows.zip` on the Windows job. The zip goes to the same artifact as the installers, so the release job publishes it.
+- Rules: `user_data` in `rust/app/src/store.rs` picks the state folder in this order. First `GITNEAT_USER_DATA`. Then the folder of the exe, if `portable.txt` is there. Then the app data folder.
+- Reason: The user asked for this task. Source has no portable build, so there is no Source evidence. Task T43.
+- Limits: The exe needs the WebView2 runtime on the machine. The zip does not bundle it. The portable build has no updater. The zip step was not run locally: only the Windows CI job runs it.
