@@ -457,9 +457,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The end row reads "Loading…" while a page loads, "End of History" if `end` is true, else "Searched until" with the "Go Deeper" button. The page count resets when the file or the repository changes.
 - Limits: Source continues one revwalk. GitNeat runs `git rev-list` for the window and `git log --follow` for the file again on each click, then filters by window. The cost of `git log --follow` does not depend on the window. The old `load_file_history` command stays for the comparison tests. No manual check in the app: the Tauri window was not started in this task.
 
-## D70. Discard on hover and detached HEAD warning
+## D70. Detached HEAD warning, no Discard on hover
 
-- Decision: Each unstaged file row in `DetailPanel` shows a "Discard" button on hover, before "Stage File". The button calls `discardFile` with its confirm dialog. A `detached-warning` row shows "You are in a detached HEAD state" under the header when HEAD has no branch.
-- Reason: Source shows Discard on WIP file rows and the string `StagingPanel-WarningDetachedHeadState` (`docs/EVIDENCE.md` section 10). Task T15.
-- Rules: The warning shows only when a HEAD commit exists and no branch is checked out. The header text "detached HEAD" stays.
-- Limits: The button label and the warning color (`--orange`) have no Source evidence beyond the string. No manual check in the app: the Tauri window was not started in this task.
+- Decision: A `detached-warning` row shows "You are in a detached HEAD state" above the Unstaged Files section. It has a warning icon and a tooltip with the Source explanation. The unstaged row keeps one hover button, "Stage File". Discard stays in the file context menu.
+- Reason: The Source bundle shows one hover button for each WIP row, and a second button only for submodules. `File-Reset` "Discard changes" is a context menu item. The task text said Discard shows on hover. The bundle does not. Task T15 follows the bundle (`docs/EVIDENCE.md` section 10).
+- Rules: The warning shows if HEAD has a commit, no branch is checked out and no rebase runs. The WIP view is the only place that renders it.
+- Limits: No manual check in the app: the Tauri window was not started in this task. Source sets the warning style with CSS classes whose values are not in the evidence. GitNeat uses a centered row with an orange icon.

@@ -1194,9 +1194,17 @@ a.sha {
 }
 
 .detached-warning {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 6px 10px;
-  color: var(--orange);
+  color: var(--text);
   border-bottom: 1px solid var(--border);
+}
+
+.detached-icon {
+  margin-right: 6px;
+  color: var(--orange);
 }
 
 .wip-detail .stage-section {
