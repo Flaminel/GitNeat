@@ -448,8 +448,8 @@ test("clone and init: rust equals ts", { skip: !enabled, timeout: 120000 }, asyn
   cases.push({ name: "init", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
   cases.push({ name: "init again", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
   for (const c of cases) {
-    const expected = JSON.parse(JSON.stringify(await settle(c.ts)).split(c.dirs[0]).join("<dir>"));
-    const actual = JSON.parse(JSON.stringify(c.rust()).split(c.dirs[1]).join("<dir>"));
+    const expected = JSON.parse(JSON.stringify(await settle(c.ts)).split(JSON.stringify(c.dirs[0]).slice(1, -1)).join("<dir>"));
+    const actual = JSON.parse(JSON.stringify(c.rust()).split(JSON.stringify(c.dirs[1]).slice(1, -1)).join("<dir>"));
     assert.deepStrictEqual(actual, expected, c.name);
     assert.equal(repoState(c.dirs[1]), repoState(c.dirs[0]), `${c.name} state`);
     compared += 1;

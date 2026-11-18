@@ -743,7 +743,7 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
   } catch (error) {
     ret = { thrown: error instanceof Error ? error.message : String(error) };
   }
-  const sep = String.raw`(\\\\|\\|/)`;
+  const sep = String.raw`(\\+|/)`;
   const side = new RegExp(`${path.basename(runRoot)}${sep}${tag}(?=${sep})`, "g");
   return JSON.parse(JSON.stringify({ ret: ret ?? null, log: h.log, state: snapshot(d) }).replace(side, "<R>$1<T>"));
 }
