@@ -1,4 +1,4 @@
-use crate::load::{Operation, RepoData, non_blank, values};
+use crate::load::{Operation, RepoData, graph_rows, non_blank, values};
 use gix::ObjectId;
 use gix::bstr::{BString, ByteSlice};
 use gix::remote::Direction;
@@ -563,6 +563,8 @@ pub fn load_repo_gix(
         .collect();
     insert_stashes(&mut commits, &stashes, &details);
 
+    let status = read_status(&status_text(repo)?);
+    let rows = graph_rows(&commits, head.as_deref(), !status.is_empty());
     Ok(RepoData {
         cwd: cwd.to_string(),
         name: cwd.rsplit(['/', '\\']).next().unwrap_or(cwd).to_string(),
@@ -574,7 +576,8 @@ pub fn load_repo_gix(
         worktrees: values(&parse_worktrees(&worktree_text(&wts))),
         remotes: values(&parse_remotes(&remote_text(repo)?)),
         submodules: submodule_paths(cwd)?,
-        status: values(&read_status(&status_text(repo)?)),
+        status: values(&status),
         operation: operation(repo),
+        rows,
     })
 }

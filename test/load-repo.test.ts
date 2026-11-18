@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
 import type { GitResult } from "../src/api";
+import { layoutGraph } from "./reference/graph";
 import { loadRepo } from "./reference/repo";
 
 const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
@@ -35,6 +36,7 @@ let example = "";
 const backends = ["cli", "gix"];
 
 let extraEnv: Record<string, string> = {};
+let rowCount = 0;
 
 function g(cwd: string, ...args: string[]): string {
   return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C", ...extraEnv } });
@@ -306,6 +308,9 @@ before(
 );
 
 after(() => {
+  if (enabled) {
+    console.log(`loadRepo: ${rowCount} graph rows compared per backend`);
+  }
   if (root) {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -316,6 +321,9 @@ for (const [name, build] of Object.entries(fixtures)) {
     const dir = build();
     for (const v of variants) {
       const expected = JSON.parse(JSON.stringify(await loadRepo(dir, v.hidden, v.solo, v.limit)));
+      const wip = { sha: "WIP", parents: expected.head ? [expected.head] : [] };
+      expected.rows = layoutGraph(expected.status.length === 0 ? expected.commits : [wip, ...expected.commits]);
+      rowCount += expected.rows.length;
       if (name === "submodules") {
         assert.deepStrictEqual(expected.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
       }

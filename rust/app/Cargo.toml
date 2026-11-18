@@ -22,6 +22,7 @@ gix = { version = "0.90.0", default-features = false, features = ["status", "rev
 gix-status = "0.37.0"
 repo = { path = "../repo" }
 diff = { path = "../diff" }
+graph = { path = "../graph" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

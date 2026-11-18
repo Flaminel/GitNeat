@@ -1,5 +1,6 @@
 use crate::git::{GitResult, run_git};
 use crate::load_gix::load_repo_gix;
+use graph::port::{GraphCommit, GraphRow, layout};
 use repo::js::is_undefined;
 use repo::port::{
     Commit, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log, read_refs,
@@ -11,6 +12,7 @@ use std::collections::HashMap;
 
 const FS: &str = "\x1f";
 const RS: &str = "\x1e";
+const WIP: &str = "WIP";
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -35,6 +37,7 @@ pub struct RepoData {
     pub submodules: Vec<String>,
     pub status: Vec<Value>,
     pub operation: Option<Operation>,
+    pub rows: Vec<GraphRow>,
 }
 
 fn git<'a>(
@@ -104,6 +107,21 @@ pub(crate) fn value<T: Serialize>(item: &T) -> Value {
 
 pub(crate) fn values<T: Serialize>(items: &[T]) -> Vec<Value> {
     items.iter().map(value).collect()
+}
+
+pub(crate) fn graph_rows(commits: &[Commit], head: Option<&str>, dirty: bool) -> Vec<GraphRow> {
+    let mut list: Vec<GraphCommit> = Vec::with_capacity(commits.len() + 1);
+    if dirty {
+        list.push(GraphCommit {
+            sha: WIP.to_string(),
+            parents: head.map(String::from).into_iter().collect(),
+        });
+    }
+    list.extend(commits.iter().map(|c| GraphCommit {
+        sha: c.sha.clone(),
+        parents: c.parents.clone(),
+    }));
+    layout(&list)
 }
 
 fn log_format() -> String {
@@ -264,6 +282,8 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         .map(|l| l.split(' ').skip(1).collect::<Vec<_>>().join(" "))
         .collect();
 
+    let status = read_status(&status_out);
+    let rows = graph_rows(&commits, head.as_deref(), !status.is_empty());
     RepoData {
         cwd: cwd.to_string(),
         name: cwd.rsplit(['/', '\\']).next().unwrap_or(cwd).to_string(),
@@ -275,7 +295,8 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         worktrees: values(&parse_worktrees(&wt_out)),
         remotes: values(&parse_remotes(&remote_out)),
         submodules,
-        status: values(&read_status(&status_out)),
+        status: values(&status),
         operation: detect_operation(cwd).await,
+        rows,
     }
 }
