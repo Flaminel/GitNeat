@@ -612,3 +612,12 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: `RepoPrefs.commitDefaults` (`push`, `skipHooks`) holds the default of each repository, false at first. The app menu item "Repository Preferences..." (id `repo-preferences`) opens a dialog with "Push after each commit" and "Skip git hooks by default when committing". The dialog acts on the active tab.
 - Reason: Task T27. Source `CommitDetailPanel-CommitOptions`, `defaultCommitOptions`, `CommitPreferences-DefaultPushAfterCommit` and `CommitPreferences-DefaultSkipGitHooks` (`docs/EVIDENCE.md` section 10).
 - Limits: Only `pre-commit` and `commit-msg` count as hooks, because `--no-verify` skips only these two. Source has a full repository Preferences view with more sections and a Git hooks path setting. GitNeat has only the two commit defaults, in a plain dialog, and no menu item on Windows and Linux (D83). The push uses the normal push flow, so its prompts and force warnings apply. No manual check in the app: the Tauri window was not started in this task.
+
+## D87. Stash detail and partial stash
+
+- Decision: The right panel shows a selected stash with the header "stash: sha", the buttons Apply, Pop and Delete, and the message box. A click on the message box opens the inline editor. Update Message calls `editStash` with the new text.
+- Decision: The action `stashPaths` runs `git stash push --include-untracked -- paths`. The file menu of an unstaged or staged file has "Stash file". `stashPaths` in `src/actions.ts` asks a danger confirm first and adds the old path of a renamed file.
+- Decision: `stashApply` and `stashPop` in `src/actions.ts` refuse with an error toast if a file is staged. If unstaged or untracked files exist, they ask a confirm first.
+- Reason: Task T28. Source `PartialStashSelectedPaths`, `StashThisFile`, `Stash-ApplyWithUncommittedChangesPrompt` and `AmendStashMessageTip` (`docs/EVIDENCE.md` section 12).
+- Limits: The file lists have no multi-select, so "Stash N files" has no entry point. `stashPaths` accepts many paths. The stash has no custom message, because the commit box text is not shared. A stash does not list its untracked files. No manual check in the app: the Tauri window was not started in this task.
+

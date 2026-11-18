@@ -65,6 +65,8 @@ pub struct WorktreeIn {
 #[derive(Deserialize, Debug)]
 struct WipIn {
     staged: bool,
+    #[serde(default)]
+    stash: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -350,6 +352,7 @@ fn file_menu(platform: &str, wip: Option<&WipIn>) -> Vec<MenuSpec> {
             (!w.staged).then(|| item("stage", "Stage")),
             w.staged.then(|| item("unstage", "Unstage")),
             (!w.staged).then(|| item("discard", "Discard changes")),
+            w.stash.then(|| item("stashFile", "Stash file")),
         ]),
         None => Vec::new(),
     };

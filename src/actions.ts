@@ -470,8 +470,33 @@ export async function stashSave(ctx: Ctx): Promise<void> {
   }
 }
 
-export const stashApply = (ctx: Ctx, ref = "stash@{0}") => go(ctx, "Apply stash", "stashApply", { ref });
-export const stashPop = (ctx: Ctx, ref = "stash@{0}") => go(ctx, "Pop stash", "stashPop", { ref });
+async function stashRestore(ctx: Ctx, ref: string, verb: "apply" | "pop"): Promise<boolean> {
+  const status = ctx.data.status;
+  if (status.some((e) => e.index !== " " && e.index !== "?")) {
+    ctx.ui.toast("Cannot apply stash while anything is staged. Stash, commit, or unstage first.", "error");
+    return false;
+  }
+  const label = verb === "pop" ? "Pop Stash" : "Apply Stash";
+  if (status.length > 0 && !(await ctx.ui.confirm(label, "You have uncommitted changes. Are you sure you want to apply the stash on top of your changes?", label, true))) {
+    return false;
+  }
+  return go(ctx, verb === "pop" ? "Pop stash" : "Apply stash", verb === "pop" ? "stashPop" : "stashApply", { ref });
+}
+
+export const stashApply = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "apply");
+export const stashPop = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "pop");
+
+export async function stashPaths(ctx: Ctx, paths: string[]): Promise<void> {
+  const message =
+    paths.length === 1
+      ? `This will stash all staged and unstaged changes in "${paths[0]}". Are you sure you want to stash this file?`
+      : "This will stash all staged and unstaged changes in the selected files. Are you sure you want to stash all selected files?";
+  const label = paths.length === 1 ? "Stash file" : `Stash ${paths.length} files`;
+  if (await ctx.ui.confirm("Stash", message, label, true)) {
+    const origins = ctx.data.status.filter((e) => paths.includes(e.path) && e.orig).map((e) => e.orig as string);
+    await go(ctx, "Stash", "stashPaths", { paths: [...paths, ...origins] });
+  }
+}
 
 export async function stashDrop(ctx: Ctx, ref: string): Promise<void> {
   if (await ctx.ui.confirm("Delete stash", `Delete ${ref}?`, "Delete", true)) {
@@ -479,12 +504,14 @@ export async function stashDrop(ctx: Ctx, ref: string): Promise<void> {
   }
 }
 
-export async function editStash(ctx: Ctx, ref: string): Promise<void> {
+export async function editStash(ctx: Ctx, ref: string, text?: string): Promise<boolean> {
   const current = ctx.data.stashes.find((s) => s.ref === ref)?.message ?? "";
-  const v = await ctx.ui.prompt("Edit stash message", [{ name: "message", label: "Message", value: current }], "Save");
-  if (v?.message.trim() && v.message !== current) {
-    await go(ctx, "Edit stash message", "stashEdit", { ref, message: v.message });
+  const message = text ?? (await ctx.ui.prompt("Edit stash message", [{ name: "message", label: "Message", value: current }], "Save"))?.message;
+  if (message?.trim() && message !== current) {
+    await go(ctx, "Edit stash message", "stashEdit", { ref, message });
+    return true;
   }
+  return false;
 }
 
 export const pushTag = (ctx: Ctx, tag: string, remote: string) => go(ctx, "Push tag", "pushTag", { tag, remote });

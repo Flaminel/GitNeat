@@ -1044,6 +1044,20 @@ a.sha {
   border-color: var(--accent);
 }
 
+.stash-actions {
+  display: flex;
+  gap: 6px;
+  margin: 10px 10px 0;
+}
+
+.stash-actions button {
+  flex: 1;
+}
+
+.stash-actions .danger {
+  color: var(--red);
+}
+
 .message-edit {
   display: flex;
   flex-direction: column;

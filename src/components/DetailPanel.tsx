@@ -164,8 +164,9 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const changed = new Map(detail.files.map((f) => [f.path, f]));
   const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
   const files = [...listed].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
+  const stash = ctx.data.stashes.find((s) => s.sha === detail.sha);
   const isHead = detail.sha === ctx.data.head;
-  const depth = A.rewordDepth(ctx.data, detail.sha);
+  const depth = stash ? 0 : A.rewordDepth(ctx.data, detail.sha);
   const saveMessage = async () => {
     if (!editing) {
       return;
@@ -176,7 +177,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
       return;
     }
     try {
-      if (await A.saveMessage(ctx, detail.sha, isHead, message)) {
+      if (stash ? await A.editStash(ctx, stash.ref, message) : await A.saveMessage(ctx, detail.sha, isHead, message)) {
         setEditing(null);
       }
     } catch (error) {
@@ -187,12 +188,19 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   return (
     <div className="detail">
       <div className="detail-head">
-        commit:{" "}
+        {stash ? "stash" : "commit"}:{" "}
         <b className="sha" onClick={() => gitneat().copy(detail.sha).then(() => setCopied(true))} title="Copy">
           {detail.sha.slice(0, 6)}
         </b>
         {copied && <span className="copied">Copied!</span>}
       </div>
+      {stash && (
+        <div className="stash-actions">
+          <button onClick={() => A.stashApply(ctx, stash.ref)}>Apply</button>
+          <button onClick={() => A.stashPop(ctx, stash.ref)}>Pop</button>
+          <button className="danger" onClick={() => A.stashDrop(ctx, stash.ref)}>Delete</button>
+        </div>
+      )}
       {editing ? (
         <div className="message-edit">
           <div className="summary-row">
@@ -212,20 +220,20 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
             value={editing.description}
             onChange={(e) => setEditing({ ...editing, description: e.target.value })}
           />
-          {!isHead && depth !== null && (
+          {!stash && !isHead && depth !== null && (
             <div className="reword-note">Rewording this commit message will cause {depth + 1} commits to be rebased.</div>
           )}
           <button className="commit-btn" disabled={!editing.summary.trim()} onClick={saveMessage}>
             Update Message
           </button>
-          <button onClick={() => setEditing(null)}>{isHead ? "Cancel Amend" : "Cancel Reword"}</button>
+          <button onClick={() => setEditing(null)}>{isHead || stash ? "Cancel Amend" : "Cancel Reword"}</button>
         </div>
       ) : (
         <>
           <div
             style={{ height: messageHeight }}
             className={`message-box${depth !== null ? " editable-message" : ""}`}
-            title={depth === null ? undefined : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
+            title={depth === null ? undefined : stash ? "Click to amend your stash message" : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
             onClick={() => {
               if (depth !== null) {
                 setEditing({ summary: subject, description: body.join("\n").trim() });
@@ -469,7 +477,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             tree={tree}
             isOpen={isOpen(false)}
             onOpen={(p) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?")}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" })}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?", stash: ctx.data.operation !== "merge" })}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
                 Stage File
@@ -491,7 +499,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             tree={tree}
             isOpen={isOpen(true)}
             onOpen={(p) => open(p, true, false)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false })}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false, stash: ctx.data.operation !== "merge" })}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.unstageFile(ctx, p); }}>
                 Unstage File
