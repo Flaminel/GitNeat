@@ -75,7 +75,7 @@ async function moveTo(ctx: Ctx, from: HeadState, to: HeadState, soft: boolean): 
     throw new GitError("The repository changed since this action. GitNeat cannot undo it.");
   }
   if (from.branch !== to.branch) {
-    await g(ctx, to.branch ? ["switch", to.branch] : ["switch", "--detach", to.head as string]);
+    await g(ctx, to.branch ? ["switch", to.branch] : ["switch", "--detach", to.head as string]).catch((e) => checkoutError(e, "undo checkout", ""));
     return;
   }
   await g(ctx, ["reset", soft ? "--soft" : "--keep", to.head as string]);
@@ -111,14 +111,14 @@ export async function rangeInfo(cwd: string, sha: string): Promise<RangeInfo> {
 
 const LOCAL_CHANGES = "Your local changes to the following files would be overwritten by checkout";
 
-const checkoutError = (error: unknown): never => {
+const checkoutError = (error: unknown, action = "checkout", tail = "\nCommit, stash, or discard your changes first."): never => {
   const text = error instanceof Error ? error.message : String(error);
   const count = text.includes(LOCAL_CHANGES) ? text.split("\n").filter((l) => l.startsWith("\t")).length : 0;
   if (count === 0) {
     throw error;
   }
-  const lead = count === 1 ? "1 conflict prevents checkout." : `${count} conflicts prevent checkout.`;
-  throw new GitError(`${lead}\nCommit, stash, or discard your changes first.`);
+  const lead = count === 1 ? `1 conflict prevents ${action}.` : `${count} conflicts prevent ${action}.`;
+  throw new GitError(lead + tail);
 };
 
 async function autoStash(ctx: Ctx, target: string): Promise<void> {
@@ -128,7 +128,7 @@ async function autoStash(ctx: Ctx, target: string): Promise<void> {
   await g(ctx, ["stash", "push", "--include-untracked", "-m", `Auto stash before checking out "${target}"`]);
 }
 
-export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]).catch(checkoutError));
+export const checkoutRef = (ctx: Ctx, name: string) => run(ctx, `Checkout ${name}`, () => g(ctx, ["switch", name]).catch((e) => checkoutError(e)));
 
 export const checkoutCommit = (ctx: Ctx, sha: string) =>
   run(ctx, `Checkout ${short(sha)}`, async () => {
@@ -136,28 +136,102 @@ export const checkoutCommit = (ctx: Ctx, sha: string) =>
     await g(ctx, ["switch", "--detach", sha]);
   });
 
-async function behindUpstream(ctx: Ctx, local: string, remote: string): Promise<boolean> {
-  const tracks = await g(ctx, ["rev-parse", "--abbrev-ref", `${local}@{upstream}`]).catch(() => "");
-  const [a, b] = await Promise.all([g(ctx, ["rev-parse", local]), g(ctx, ["rev-parse", remote])]);
-  if (tracks.trim() !== remote || a === b) {
+const gAt = (cwd: string, args: string[]) => git(cwd, args);
+
+async function canResetLocal(cwd: string, local: string, remote: string): Promise<boolean> {
+  const tracks = await gAt(cwd, ["rev-parse", "--abbrev-ref", `${local}@{upstream}`]).catch(() => "");
+  if (tracks.trim() !== remote) {
     return false;
   }
-  return g(ctx, ["merge-base", "--is-ancestor", local, remote]).then(() => true, () => false);
+  return gAt(cwd, ["merge-base", "--is-ancestor", local, remote]).then(() => true, () => false);
+}
+
+async function autoStashAt(cwd: string, target: string): Promise<void> {
+  if (!(await gAt(cwd, ["status", "--porcelain"])).trim()) {
+    return;
+  }
+  await gAt(cwd, ["stash", "push", "--include-untracked", "-m", `Auto stash before checking out "${target}"`]);
+}
+
+class Diverged extends Error {}
+
+async function switchRemote(cwd: string, local: string, remote: string, inWorktree: boolean, choice: { mode: string; newName?: string } | null): Promise<void> {
+  const reset = async () => {
+    await autoStashAt(cwd, remote);
+    await gAt(cwd, ["switch", "-C", local, remote]).catch((e) => checkoutError(e));
+  };
+  if (choice?.mode === "reset") {
+    return reset();
+  }
+  if (choice?.mode === "create") {
+    await gAt(cwd, ["switch", "-c", (choice.newName ?? "").trim(), "--track", remote]);
+    return;
+  }
+  if (!inWorktree && (await gAt(cwd, ["rev-parse", local]).catch(() => "a")) === (await gAt(cwd, ["rev-parse", remote]).catch(() => "b"))) {
+    await gAt(cwd, ["switch", local]).catch((e) => checkoutError(e));
+    return;
+  }
+  if (await canResetLocal(cwd, local, remote)) {
+    return reset();
+  }
+  throw new Diverged();
 }
 
 export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
   const local = remoteBranch.split("/").slice(1).join("/");
   const existing = ctx.data.refs.find((r) => r.kind === "local" && r.name === local);
-  await run(ctx, `Checkout ${remoteBranch}`, async () => {
-    if (!existing) {
-      await g(ctx, ["switch", "-c", local, "--track", remoteBranch]);
-    } else if (await behindUpstream(ctx, local, remoteBranch)) {
-      await autoStash(ctx, remoteBranch);
-      await g(ctx, ["switch", "-C", local, remoteBranch]).catch(checkoutError);
-    } else {
-      await g(ctx, ["switch", local]).catch(checkoutError);
+  if (!existing) {
+    await run(ctx, `Checkout ${remoteBranch}`, () => g(ctx, ["switch", "-c", local, "--track", remoteBranch]));
+    return;
+  }
+  const holder = existing.worktree && existing.worktree.replace(/\/+$/, "") !== ctx.cwd.replace(/\/+$/, "") ? existing.worktree : null;
+  const cwd = holder ?? ctx.cwd;
+  let choice: { mode: string; newName?: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let pending = false;
+    const work = async () => {
+      try {
+        await switchRemote(cwd, local, remoteBranch, Boolean(holder), choice);
+      } catch (error) {
+        if (!(error instanceof Diverged)) {
+          throw error;
+        }
+        pending = true;
+      }
+    };
+    const ok = holder ? await ctx.ui.task(`Checkout ${remoteBranch}`, work, "Checkout Failed") : await run(ctx, `Checkout ${remoteBranch}`, work);
+    if (holder) {
+      ctx.refresh();
     }
-  });
+    if (!ok) {
+      return;
+    }
+    if (!pending) {
+      if (holder) {
+        ctx.openTab(holder);
+      }
+      return;
+    }
+    const choices = [
+      { label: holder ? "Open Worktree and create Branch Here" : "Create Branch Here", value: "create" },
+      { label: holder ? "Open Worktree and reset Local to Here" : "Reset Local to Here", value: "reset", danger: true },
+    ];
+    const fields: Field[] = [{ name: "newName", label: "", placeholder: "branch name", ref: true }];
+    for (;;) {
+      const answer = await ctx.ui.choose(`A local '${local}' already exists${holder ? " in a worktree" : ""}.`, choices, fields);
+      if (!answer) {
+        return;
+      }
+      if (answer.choice === "reset") {
+        choice = { mode: "reset" };
+        break;
+      }
+      if (answer.newName?.trim()) {
+        choice = { mode: "create", newName: answer.newName };
+        break;
+      }
+    }
+  }
 }
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {

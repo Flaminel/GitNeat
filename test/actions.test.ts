@@ -229,6 +229,21 @@ S("checkoutRemote-behind-autostash", (d) => {
   g(d.repo, "checkout", "-q", "-b", "other");
   write(d.repo, "a.txt", "dirty\n");
 }, (ctx) => A.checkoutRemote(ctx, "origin/main"));
+function divergedLocal(d: Dirs): void {
+  diverged(d, true);
+}
+S("checkoutRemote-diverged-create", divergedLocal, (ctx) => A.checkoutRemote(ctx, "origin/main"), { answers: [{ choice: "create", newName: "copy" }] });
+S("checkoutRemote-diverged-reset", divergedLocal, (ctx) => A.checkoutRemote(ctx, "origin/main"), { answers: [{ choice: "reset" }] });
+S("checkoutRemote-diverged-cancel", divergedLocal, (ctx) => A.checkoutRemote(ctx, "origin/main"), { expect: /choose/ });
+S("checkoutRemote-worktree", (d) => {
+  remote(d);
+  g(d.repo, "worktree", "add", "-q", d.wt, "topic");
+}, (ctx) => A.checkoutRemote(ctx, "origin/topic"));
+S("checkoutRemote-worktree-diverged", (d) => {
+  remote(d);
+  g(d.repo, "worktree", "add", "-q", d.wt, "topic");
+  commit(d.wt, "w.txt", "w\n", "worktree work");
+}, (ctx) => A.checkoutRemote(ctx, "origin/topic"), { answers: [{ choice: "reset" }] });
 S("createBranch", branches, (ctx) => A.createBranch(ctx, "main~1"), { prompt: { name: " feature/x " } });
 S("createBranch-exists", branches, (ctx) => A.createBranch(ctx, "main"), { prompt: { name: "side" }, expect: /already exists/ });
 S("createWorktree-new", base, (ctx) => A.createWorktree(ctx, sha(ctx, "first")), { prompt: { name: "wt-b" } });
@@ -591,6 +606,11 @@ S("undo-checkout", branches, async (ctx, _d, h) => {
   await A.undo(ctx, h.recorded[0]);
   await A.redo(ctx, h.recorded[0]);
 });
+S("undo-checkout-conflict", conflict, async (ctx, d, h) => {
+  await A.checkoutRef(ctx, "side");
+  write(d.repo, "a.txt", "dirty\n");
+  await A.undo(ctx, h.recorded[0]);
+}, { expect: /conflict prevents undo checkout/ });
 S("undo-detach", branches, async (ctx, _d, h) => {
   await A.checkoutCommit(ctx, sha(ctx, "first"));
   await A.undo(ctx, h.recorded[0]);

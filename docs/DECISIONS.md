@@ -515,12 +515,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 ## D76. Checkout with local changes
 
 - Decision: A failed checkout does not offer to stash. Source does the same (`docs/EVIDENCE.md` section 12). The task text asked for a prompt. The Source bundle has none.
-- Decision: The actions `checkoutRef` and `checkoutRemote` change the git error "Your local changes ... would be overwritten by checkout" to "1 conflict prevents checkout." or "{n} conflicts prevent checkout." with the line "Commit, stash, or discard your changes first." The toast title stays "Checkout Failed".
+- Decision: The actions `checkoutRef` and `checkoutRemote` change the git error "Your local changes ... would be overwritten by checkout" to "1 conflict prevents checkout." or "{n} conflicts prevent checkout." with the line "Commit, stash, or discard your changes first." The toast title stays "Checkout Failed". Undo and redo of a checkout show "{n} conflicts prevent undo checkout." only.
 - Decision: `checkoutCommit` stashes first if the working tree has changes (`git stash push --include-untracked`). The message is `Auto stash before checking out "HEAD"`.
-- Decision: `checkoutRemote` always runs in Rust. If the local branch exists, tracks the remote branch and is behind it, the action stashes with `Auto stash before checking out "{remote branch}"`, then runs `git switch -C {local} {remote}`. Otherwise it runs `git switch {local}`.
-- Reason: Source `autoStash` and `calculateCheckoutDecision`. Task T21.
-- Limits: Source asks "new branch or reset local" if the local branch diverged or has another upstream. GitNeat only switches to the local branch.
+- Decision: `checkoutRemote` follows `calculateCheckoutDecision`. No local branch: create it with `--track`. Same sha: `git switch {local}`. The local branch tracks the remote branch and is an ancestor of it: stash with `Auto stash before checking out "{remote branch}"`, then `git switch -C {local} {remote}`. Otherwise the action returns `needs-confirm:remote-diverged`. `src/actions.ts` then asks "A local '{name}' already exists." with a branch name input, "Create Branch Here", "Reset Local to Here" and Cancel. The retry sends `mode` and `newName`. Create runs `switch -c {name} --track {remote}`. Reset stashes and runs `switch -C`.
+- Decision: If another worktree holds the local branch, `checkoutRemote` runs in that worktree (`inWorktree`) and then opens it as a tab. The ancestor case resets without a prompt, even if the shas are equal. Otherwise the prompt reads "A local '{name}' already exists in a worktree." with the "Open Worktree and ..." button labels. `openRef` in `src/actions.ts` handles the double click on a ref. A local branch that another worktree holds opens that worktree.
+- Reason: Source `autoStash`, `calculateCheckoutDecision`, `checkoutRefOrOpenWorktree` and `gitCheckoutAndUpdateHead`. Task T21.
+- Rules: Undo does not restore an auto stash. Source does the same.
 - Limits: The conflict count comes from the tab-indented lines of the git error. Untracked file conflicts keep the git text, as in Source.
-- Limits: Undo does not restore the auto stash. See D13.
-- Limits: No manual check in the app. The comparison tests `checkoutCommit-autostash`, `checkoutRemote-behind` and `checkoutRemote-behind-autostash` cover the actions.
-
+- Limits: No manual check in the app. The comparison tests cover the actions and the prompts. The Tauri window was not started in this task.

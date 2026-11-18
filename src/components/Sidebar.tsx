@@ -169,7 +169,7 @@ export function Sidebar({
         className={`item${ref.current ? " current" : ""}${hidden ? " hidden-ref" : ""}`}
         style={{ paddingLeft: 26 + depth * 14 }}
         onClick={() => onSelectSha(ref.sha)}
-        onDoubleClick={() => (ref.kind === "remote" ? A.checkoutRemote(ctx, ref.name) : ref.kind === "local" ? A.checkoutRef(ctx, ref.name) : A.checkoutCommit(ctx, ref.sha))}
+        onDoubleClick={() => A.openRef(ctx, ref)}
         onContextMenu={() => M.refMenu(ctx, ref, true)}
       >
         <span

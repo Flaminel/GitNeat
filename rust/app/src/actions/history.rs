@@ -1,3 +1,4 @@
+use super::refs::conflict_error;
 use super::{HeadState, Res, env, git, git_env, head_state, parse, raw, run};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -111,9 +112,10 @@ async fn move_to(cwd: &str, from: &HeadState, to: &HeadState, soft: bool) -> Res
     let target = to.head.as_deref().unwrap_or_default();
     if from.branch != to.branch {
         match to.branch.as_deref() {
-            Some(branch) => git(cwd, &["switch", branch]).await?,
-            None => git(cwd, &["switch", "--detach", target]).await?,
-        };
+            Some(branch) => git(cwd, &["switch", branch]).await,
+            None => git(cwd, &["switch", "--detach", target]).await,
+        }
+        .map_err(|e| conflict_error(e, "undo checkout"))?;
         return Ok(Value::Null);
     }
     let mode = if soft { "--soft" } else { "--keep" };

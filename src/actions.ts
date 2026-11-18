@@ -1,5 +1,5 @@
 import { gitneat } from "./api";
-import { Commit, GitError, Operation, Ref, RepoData } from "./repo";
+import { Commit, GitError, Operation, Ref, RepoData, samePath } from "./repo";
 import { Field, Layout, Ui } from "./ui";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
@@ -163,11 +163,86 @@ export const cloneRepo = (parent: string, url: string, target: string): Promise<
 
 export const initRepo = (dir: string): Promise<string> => act<string>(dir, "init", {});
 
-export const checkoutRemote = (ctx: Ctx, remoteBranch: string) => {
+interface RemoteChoice {
+  mode: "create" | "reset";
+  newName?: string;
+}
+
+async function askRemoteChoice(ctx: Ctx, local: string, inWorktree: boolean): Promise<RemoteChoice | null> {
+  const choices = [
+    { label: inWorktree ? "Open Worktree and create Branch Here" : "Create Branch Here", value: "create" },
+    { label: inWorktree ? "Open Worktree and reset Local to Here" : "Reset Local to Here", value: "reset", danger: true },
+  ];
+  const fields: Field[] = [{ name: "newName", label: "", placeholder: "branch name", ref: true }];
+  for (;;) {
+    const answer = await ctx.ui.choose(`A local '${local}' already exists${inWorktree ? " in a worktree" : ""}.`, choices, fields);
+    if (!answer) {
+      return null;
+    }
+    if (answer.choice === "reset") {
+      return { mode: "reset" };
+    }
+    if (answer.newName?.trim()) {
+      return { mode: "create", newName: answer.newName };
+    }
+  }
+}
+
+export async function checkoutRemote(ctx: Ctx, remoteBranch: string): Promise<void> {
   const local = remoteBranch.split("/").slice(1).join("/");
-  const localExists = ctx.data.refs.some((r) => r.kind === "local" && r.name === local);
-  return go(ctx, `Checkout ${remoteBranch}`, "checkoutRemote", { remoteBranch, localExists }).then(() => undefined);
-};
+  const localRef = ctx.data.refs.find((r) => r.kind === "local" && r.name === local);
+  const holder = localRef?.worktree && !samePath(localRef.worktree, ctx.cwd) ? localRef.worktree : null;
+  const cwd = holder ?? ctx.cwd;
+  const base = { remoteBranch, localExists: Boolean(localRef), inWorktree: Boolean(holder) };
+  let choice: RemoteChoice | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const box: { pending: boolean } = { pending: false };
+    const ok = await ctx.ui.task(
+      `Checkout ${remoteBranch}`,
+      async () => {
+        try {
+          const done = await act(cwd, "checkoutRemote", { ...base, ...choice });
+          if (!holder && done.record) {
+            ctx.record({ label: `Checkout ${remoteBranch}`, ...done.record });
+          }
+        } catch (error) {
+          if (!needsConfirm(error, "remote-diverged")) {
+            throw error;
+          }
+          box.pending = true;
+        }
+      },
+      "Checkout Failed",
+    );
+    ctx.refresh();
+    if (!ok) {
+      return;
+    }
+    if (!box.pending) {
+      if (holder) {
+        ctx.openTab(holder);
+      }
+      return;
+    }
+    choice = await askRemoteChoice(ctx, local, Boolean(holder));
+    if (!choice) {
+      return;
+    }
+  }
+}
+
+export function openRef(ctx: Ctx, ref: Ref): Promise<unknown> | void {
+  if (ref.kind === "remote") {
+    return checkoutRemote(ctx, ref.name);
+  }
+  if (ref.kind !== "local") {
+    return checkoutCommit(ctx, ref.sha);
+  }
+  if (ref.worktree && !samePath(ref.worktree, ctx.cwd)) {
+    return ctx.openTab(ref.worktree);
+  }
+  return checkoutRef(ctx, ref.name);
+}
 
 export async function createBranch(ctx: Ctx, from: string): Promise<void> {
   const v = await ctx.ui.prompt("Create branch", [{ name: "name", label: "Branch name", ref: true, placeholder: "feature/my-branch" }], "Create branch");

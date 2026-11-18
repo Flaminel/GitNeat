@@ -377,9 +377,7 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
               }
               onRefMenu={(r) => M.refMenu(ctx, r)}
               onRefDrop={(source, target) => M.dropMenu(ctx, source, target)}
-              onRefOpen={(r) =>
-                r.kind === "local" ? A.checkoutRef(ctx, r.name) : r.kind === "remote" ? A.checkoutRemote(ctx, r.name) : A.checkoutCommit(ctx, r.sha)
-              }
+              onRefOpen={(r) => A.openRef(ctx, r)}
             />
           )}
         </main>

@@ -17,6 +17,10 @@ struct Sha {
 struct CheckoutRemote {
     remote_branch: String,
     local_exists: bool,
+    #[serde(default)]
+    in_worktree: bool,
+    mode: Option<String>,
+    new_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -134,17 +138,24 @@ pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
 const LOCAL_CHANGES: &str =
     "Your local changes to the following files would be overwritten by checkout";
 
-fn checkout_error(error: String) -> String {
+pub fn conflict_error(error: String, action: &str) -> String {
     if !error.contains(LOCAL_CHANGES) {
         return error;
     }
-    let count = error.lines().filter(|l| l.starts_with('\t')).count();
-    match count {
+    match error.lines().filter(|l| l.starts_with('\t')).count() {
         0 => error,
-        1 => "1 conflict prevents checkout.\nCommit, stash, or discard your changes first.".into(),
-        n => format!(
-            "{n} conflicts prevent checkout.\nCommit, stash, or discard your changes first."
-        ),
+        1 => format!("1 conflict prevents {action}."),
+        n => format!("{n} conflicts prevent {action}."),
+    }
+}
+
+fn checkout_error(error: String) -> String {
+    let tail = "\nCommit, stash, or discard your changes first.";
+    let message = conflict_error(error.clone(), "checkout");
+    if message == error {
+        error
+    } else {
+        message + tail
     }
 }
 
@@ -182,13 +193,23 @@ async fn checkout_commit(cwd: &str, args: &Value) -> Res<Value> {
     .await
 }
 
-async fn behind_upstream(cwd: &str, local: &str, remote: &str) -> bool {
+async fn reset_local(cwd: &str, local: &str, remote: &str) -> Res<String> {
+    auto_stash(cwd, remote).await?;
+    git(cwd, &["switch", "-C", local, remote])
+        .await
+        .map_err(checkout_error)
+}
+
+async fn same_commit(cwd: &str, local: &str, remote: &str) -> bool {
+    let a = git(cwd, &["rev-parse", local]).await;
+    let b = git(cwd, &["rev-parse", remote]).await;
+    a.is_ok() && a == b
+}
+
+async fn can_reset_local(cwd: &str, local: &str, remote: &str) -> bool {
     let upstream = format!("{local}@{{upstream}}");
     let tracks = git(cwd, &["rev-parse", "--abbrev-ref", &upstream]).await;
-    let differs =
-        git(cwd, &["rev-parse", local]).await.ok() != git(cwd, &["rev-parse", remote]).await.ok();
-    differs
-        && tracks.is_ok_and(|t| t.trim() == remote)
+    tracks.is_ok_and(|t| t.trim() == remote)
         && git(cwd, &["merge-base", "--is-ancestor", local, remote])
             .await
             .is_ok()
@@ -196,28 +217,32 @@ async fn behind_upstream(cwd: &str, local: &str, remote: &str) -> bool {
 
 async fn checkout_remote(cwd: &str, args: &Value) -> Res<Value> {
     let a: CheckoutRemote = parse(args)?;
-    let local = a
-        .remote_branch
-        .split('/')
-        .skip(1)
-        .collect::<Vec<_>>()
-        .join("/");
+    let (_, local) = split_remote(&a.remote_branch);
+    let remote = a.remote_branch.as_str();
     if !a.local_exists {
         return run(
             cwd,
             true,
-            git(cwd, &["switch", "-c", &local, "--track", &a.remote_branch]),
+            git(cwd, &["switch", "-c", local, "--track", remote]),
         )
         .await;
     }
     run(cwd, true, async {
-        if behind_upstream(cwd, &local, &a.remote_branch).await {
-            auto_stash(cwd, &a.remote_branch).await?;
-            return git(cwd, &["switch", "-C", &local, &a.remote_branch])
-                .await
-                .map_err(checkout_error);
+        match a.mode.as_deref() {
+            Some("reset") => return reset_local(cwd, local, remote).await,
+            Some("create") => {
+                let name = a.new_name.as_deref().unwrap_or_default().trim();
+                return git(cwd, &["switch", "-c", name, "--track", remote]).await;
+            }
+            _ => {}
         }
-        git(cwd, &["switch", &local]).await.map_err(checkout_error)
+        if !a.in_worktree && same_commit(cwd, local, remote).await {
+            return git(cwd, &["switch", local]).await.map_err(checkout_error);
+        }
+        if can_reset_local(cwd, local, remote).await {
+            return reset_local(cwd, local, remote).await;
+        }
+        Err(needs_confirm("remote-diverged", local))
     })
     .await
 }
