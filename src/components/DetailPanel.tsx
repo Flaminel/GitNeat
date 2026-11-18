@@ -4,7 +4,7 @@ import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
 import { showMenu, Splitter, useStoredWidth } from "../ui";
-import { CommitDetail, CompareFile, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadCompare, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
+import { Commit, CommitDetail, CompareFile, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadCompare, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
 
@@ -161,6 +161,8 @@ function FileToolbar(props: {
   );
 }
 
+const WIP_CARD: Commit = { sha: WIP, parents: [], author: "", email: "", time: 0, subject: "" };
+
 function compareSource(f: CompareFile): DiffSource {
   if (f.untracked) {
     return { kind: "unstaged", untracked: true };
@@ -184,7 +186,7 @@ function CompareInfo({ ctx, multi, openFile, onOpenFile }: Props) {
   const wip = multi.includes(WIP);
   const shas = multi.filter((s) => s !== WIP);
   const key = JSON.stringify([shas, wip]);
-  const cards = ctx.data.commits.filter((c) => shas.includes(c.sha));
+  const cards = multi.map((s) => (s === WIP ? WIP_CARD : ctx.data.commits.find((c) => c.sha === s))).filter((c): c is Commit => Boolean(c));
 
   useEffect(() => {
     let live = true;
@@ -217,16 +219,16 @@ function CompareInfo({ ctx, multi, openFile, onOpenFile }: Props) {
       <div className="multi-commit-section">
         <div className="multi-commit-title">{compareTitle(shas.length, wip)}</div>
         <div className="multi-commits">
-          {wip && (
-            <div className="multi-commit">
-              <Avatar name="WIP" />
-              <div className="multi-commit-text">
-                <div className="author-name">Working directory</div>
-                <div className="author-date">{ctx.data.status.length} changes</div>
+          {cards.map((c) =>
+            c.sha === WIP ? (
+              <div key={c.sha} className="multi-commit">
+                <Avatar name="WIP" />
+                <div className="multi-commit-text">
+                  <div className="author-name">Working directory</div>
+                  <div className="author-date">{ctx.data.status.length} changes</div>
+                </div>
               </div>
-            </div>
-          )}
-          {cards.map((c) => (
+            ) : (
             <div key={c.sha} className="multi-commit">
               <Avatar name={c.author} />
               <div className="multi-commit-text">
@@ -237,7 +239,8 @@ function CompareInfo({ ctx, multi, openFile, onOpenFile }: Props) {
                 <div className="multi-commit-subject" title={c.subject}>{c.subject}</div>
               </div>
             </div>
-          ))}
+            ),
+          )}
         </div>
       </div>
       {error && <div className="detail-empty">{error}</div>}

@@ -265,9 +265,9 @@ export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<voi
   });
 }
 
-export function multiMenu(ctx: Ctx, commits: Commit[]): Promise<void> {
+export function multiMenu(ctx: Ctx, commits: Commit[], wip = false): Promise<void> {
   const shas = commits.map((c) => c.sha);
-  return present(ctx, "multi", { ...env(ctx), shas }, {
+  return present(ctx, "multi", { ...env(ctx), shas, wip }, {
     cherryPickMany: () => A.cherryPickMany(ctx, commits),
     squash: () => A.rewriteMany(ctx, shas, "squash"),
     drop: () => A.rewriteMany(ctx, shas, "drop"),

@@ -475,7 +475,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
                 c.sha === WIP
                   ? M.wipMenu(ctx)
                   : multi.length > 1 && multi.includes(c.sha)
-                    ? M.multiMenu(ctx, commits.filter((x) => x.sha !== WIP && multi.includes(x.sha)))
+                    ? M.multiMenu(ctx, commits.filter((x) => x.sha !== WIP && multi.includes(x.sha)), multi.includes(WIP))
                     : M.commitMenu(ctx, c)
               }
               onRefMenu={(r) => M.refMenu(ctx, r)}

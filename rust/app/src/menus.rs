@@ -179,6 +179,8 @@ struct MultiArgs {
     #[serde(flatten)]
     env: Env,
     shas: Vec<String>,
+    #[serde(default)]
+    wip: bool,
 }
 
 fn has(value: &Option<String>) -> bool {
@@ -563,9 +565,9 @@ fn drop_menu(env: &Env, source_full: &str, target: &RefIn) -> Option<Vec<MenuSpe
     ]))
 }
 
-async fn multi_menu(cwd: &str, env: &Env, shas: &[String]) -> Res<Vec<MenuSpec>> {
+async fn multi_menu(cwd: &str, env: &Env, shas: &[String], wip: bool) -> Res<Vec<MenuSpec>> {
     let n = shas.len();
-    let mut all_in_history = env.operation.as_deref() != Some("rebase");
+    let mut all_in_history = !wip && env.operation.as_deref() != Some("rebase");
     for sha in shas {
         let info = range_info(cwd, sha).await?;
         if !info.ancestor || info.has_merges {
@@ -633,7 +635,7 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
         }
         MenuKind::Multi => {
             let a: MultiArgs = actions::parse(args)?;
-            multi_menu(cwd, &a.env, &a.shas).await?
+            multi_menu(cwd, &a.env, &a.shas, a.wip).await?
         }
     };
     Ok(Some(tidy(items)))
