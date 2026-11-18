@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { gitneat } from "../api";
 import { showMenu } from "../ui";
 import { Icon } from "./icons";
@@ -24,6 +24,9 @@ interface Props {
   onMove(from: number, to: number): void;
   onNew(): void;
   onManagement(): void;
+  tabsListOpen: boolean;
+  onTabsList(): void;
+  tabsList: ReactNode;
 }
 
 export const repoName = (path: string) => path.split(/[\\/]/).pop() || path;
@@ -94,6 +97,12 @@ export function Tabs(props: Props) {
         +
       </button>
       <div className="tabbar-drag" data-tauri-drag-region />
+      <div className="tabs-list-wrap">
+        <button className={`tabs-list-button${props.tabsListOpen ? " active" : ""}`} title={`Tabs list (${isMac ? "Cmd" : "Ctrl"} + Shift + A)`} onClick={props.onTabsList}>
+          ⌄
+        </button>
+        {props.tabsListOpen && props.tabsList}
+      </div>
       {controls && <WindowControls />}
     </div>
   );

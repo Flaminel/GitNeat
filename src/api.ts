@@ -1,12 +1,16 @@
 import type { ParsedDiff } from "./diff";
 import type { BlameLine, Commit, CommitDetail, CommitPage, CompareFile, Lanes, DiffSides, DiffSource, ImageSides, FileHistoryPage, HeadMessage, MergeLoad, Operation, OperationInfo, RepoData, Submodule } from "./repo";
 
+import type { AppMenu } from "./keymap";
+
 export interface MenuSpec {
   label?: string;
   id?: string;
   type?: "separator";
   enabled?: boolean;
   submenu?: MenuSpec[];
+  accelerator?: string;
+  checked?: boolean;
 }
 
 export interface AskpassRequest {
@@ -129,6 +133,9 @@ export interface GitNeatApi {
   onAskpass(fn: (request: AskpassRequest) => void): () => void;
   askpassReply(request: number, reply: AskpassReply | null): Promise<void>;
   setZoom(factor: number): Promise<void>;
+  appMenu(): Promise<AppMenu[]>;
+  setPanelChecks(left: boolean | null, details: boolean | null): Promise<void>;
+  toggleFullscreen(): Promise<void>;
 }
 
 declare global {

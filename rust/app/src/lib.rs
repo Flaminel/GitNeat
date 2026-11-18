@@ -1,5 +1,4 @@
 pub mod actions;
-#[cfg(target_os = "macos")]
 pub mod appmenu;
 pub mod askpass;
 pub mod commands;
@@ -38,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(watch::Watchers::default())
         .manage(menu::Chosen::default())
+        .manage(appmenu::Checks::default())
         .on_menu_event(|app, event| {
             if let Some(id) = menu::picked(&event.id().0)
                 && let Ok(mut chosen) = app.state::<menu::Chosen>().0.lock()
@@ -128,6 +128,8 @@ pub fn run() {
             commands::read_file,
             commands::write_file,
             commands::menu,
+            appmenu::app_menu,
+            appmenu::set_panel_checks,
             commands::context_menu,
             commands::clipboard,
             commands::open_external,

@@ -16,6 +16,10 @@ GitNeat is a Tauri 2 app with two parts.
 | Path | Purpose |
 | --- | --- |
 | `src/api.ts` | Types for `window.gitneat` and `MenuSpec` |
+| `src/keymap.ts` | Keyboard Shortcuts table, accelerator matcher and filter (D102) |
+| `src/components/KeyboardShortcuts.tsx` | Keyboard Shortcuts modal (D102) |
+| `src/components/MenuBar.tsx` | Menu bar for Windows and Linux (D102) |
+| `src/components/TabsList.tsx` | Tabs list popup (D102) |
 | `src/tauri-api.ts` | `window.gitneat` for the Tauri app, through Tauri `invoke` and `listen` |
 | `rust/MAP.md` | Rust port status: units, waves, claims |
 | `rust/app/src/main.rs` | Tauri window, plugins, menu event handler, command list |
@@ -23,7 +27,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/git.rs` | `git` runner and the blocked option check |
 | `rust/app/src/askpass.rs` | Askpass server and helper for credential and SSH passphrase prompts (D90) |
 | `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
-| `rust/app/src/appmenu.rs` | macOS app menu. Each custom item emits the event `app-menu` (D83) |
+| `rust/app/src/appmenu.rs` | App menu table for all platforms. The macOS menu and the webview menu bar come from it. The command `set_panel_checks` sets the panel check items (D83, D102) |
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
@@ -98,7 +102,8 @@ GitNeat is a Tauri 2 app with two parts.
 | Change graph lanes or colors | `rust/graph/src/port.rs` for lanes, `src/styles.css` (`--lane-*`) for colors |
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
-| Add or change an app menu item or a zoom step (D83) | `rust/app/src/appmenu.rs`, then `runMenu` in `src/App.tsx` |
+| Add or change an app menu item or a zoom step (D83, D102) | `rust/app/src/appmenu.rs`, then `runMenu` in `src/App.tsx`. The key handler reads the accelerators from the same table |
+| Change the Keyboard Shortcuts list (D102) | `keymapGroups` in `src/keymap.ts` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
 | Change the Clone or Init modal, the shallow options or the init files (D96) | `src/components/RepoModal.tsx`, `rust/app/src/setup.rs`, `rust/app/templates/` |
 | Change the NEW tab page, its lists or its search | `src/components/NewTab.tsx`, `.new-tab` and `.recent` in `src/styles.css` |

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Manager, Runtime, Window};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,6 +15,10 @@ pub struct MenuSpec {
     pub enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub submenu: Option<Vec<MenuSpec>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accelerator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
 }
 
 #[derive(Default)]
@@ -47,13 +51,24 @@ fn build<R: Runtime, M: Manager<R>>(
                 Some(id) => format!("{PREFIX}{id}"),
                 None => format!("gitneat-none:{seq}"),
             };
-            out.push(Box::new(MenuItem::with_id(
-                app,
-                id,
-                label,
-                enabled,
-                None::<&str>,
-            )?));
+            if let Some(checked) = item.checked {
+                out.push(Box::new(CheckMenuItem::with_id(
+                    app,
+                    id,
+                    label,
+                    enabled,
+                    checked,
+                    item.accelerator.as_deref(),
+                )?));
+            } else {
+                out.push(Box::new(MenuItem::with_id(
+                    app,
+                    id,
+                    label,
+                    enabled,
+                    item.accelerator.as_deref(),
+                )?));
+            }
         }
     }
     Ok(out)

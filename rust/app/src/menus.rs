@@ -221,6 +221,8 @@ fn item(id: impl Into<String>, label: impl Into<String>) -> MenuSpec {
         kind: None,
         enabled: None,
         submenu: None,
+        accelerator: None,
+        checked: None,
     }
 }
 
@@ -231,6 +233,8 @@ fn sep() -> MenuSpec {
         kind: Some("separator".into()),
         enabled: None,
         submenu: None,
+        accelerator: None,
+        checked: None,
     }
 }
 
@@ -259,6 +263,8 @@ fn sub(label: impl Into<String>, children: Vec<MenuSpec>) -> MenuSpec {
         kind: None,
         enabled: None,
         submenu: Some(tidy(children)),
+        accelerator: None,
+        checked: None,
     }
 }
 

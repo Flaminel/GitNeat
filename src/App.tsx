@@ -1,6 +1,11 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AskpassReply, AskpassRequest, ExternalEditor, gitneat } from "./api";
+import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
+import { MenuBar } from "./components/MenuBar";
 import { NewTab } from "./components/NewTab";
+import { TabsList } from "./components/TabsList";
+import { AppMenu, matchAccel, menuAccels } from "./keymap";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { samePath } from "./repo";
 import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings, SubmoduleAutoUpdate } from "./RepoView";
@@ -39,6 +44,7 @@ const NO_EDITOR_MESSAGE = "There is no external editor configured in your settin
 const RECENT_LIMIT = 100;
 const REPO_PATH_WARN_LIMIT = 5;
 const ZOOMS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+const PANEL_IDS = ["left-panel", "details-panel"];
 const SUPPORT_URL = "https://github.com/Flaminel/GitNeat";
 
 function pressKey(code: string, shiftKey = false) {
@@ -88,6 +94,19 @@ export function App() {
   const [palette, setPalette] = useState<Domain | null>(null);
   const [repoModal, setRepoModal] = useState<RepoModalTab | null>(null);
   const [editors, setEditors] = useState<ExternalEditor[]>([]);
+  const [menus, setMenus] = useState<AppMenu[]>([]);
+  const [shortcuts, setShortcuts] = useState(false);
+  const [tabsList, setTabsList] = useState(false);
+  const [panels, setPanels] = useState<{ left: boolean; details: boolean } | null>(null);
+  const mac = gitneat().platform === "darwin";
+
+  useEffect(() => {
+    void gitneat().appMenu().then(setMenus);
+  }, []);
+
+  useEffect(() => {
+    void gitneat().setPanelChecks(panels && panels.left, panels && panels.details);
+  }, [panels]);
 
   useEffect(() => {
     gitneat()
@@ -356,7 +375,7 @@ export function App() {
     const actions: Record<string, () => unknown> = {
       "new-tab": newTab,
       "close-tab": () => state.active !== MANAGEMENT && state.tabs.length && closeTabs((i) => i !== state.active),
-      "reopen-tab": reopen,
+      "reopen-tab": () => reopen(),
       clone: clone,
       init: init,
       open: openDialog,
@@ -367,6 +386,11 @@ export function App() {
       undo: () => pressKey("KeyZ"),
       redo: () => pressKey("KeyZ", true),
       "left-panel": () => pressKey("KeyJ"),
+      "details-panel": () => pressKey("KeyK"),
+      fullscreen: () => gitneat().toggleFullscreen(),
+      exit: () => getCurrentWindow().close(),
+      shortcuts: () => setShortcuts((s) => !s),
+      "tabs-list": () => setTabsList((s) => !s),
       "zoom-in": () => stepZoom(1),
       "zoom-out": () => stepZoom(-1),
       "zoom-reset": () => update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } })),
@@ -395,62 +419,32 @@ export function App() {
     [],
   );
 
+  const accels = useMemo(() => menuAccels(menus), [menus]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!state) {
         return;
       }
-      if (e.ctrlKey && !e.metaKey && e.key === "Tab") {
+      const hit = accels.find((a) => matchAccel(a.accel, e));
+      if (hit && !PANEL_IDS.includes(hit.id)) {
         e.preventDefault();
-        selectTab(e.shiftKey ? -1 : 1);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.code === "KeyO") {
-        e.preventDefault();
-        runMenu("repo-management");
-        return;
-      }
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) {
-        return;
-      }
-      const key = e.key.toLowerCase();
-      let id = "";
-      if (key === "t") {
-        id = e.shiftKey ? "reopen-tab" : "new-tab";
-      } else if (key === "w" && state.tabs.length) {
-        id = "close-tab";
-      } else if (/^[1-9]$/.test(key)) {
-        id = `tab:${key}`;
-      } else if (key === "=" || key === "+") {
-        id = "zoom-in";
-      } else if (key === "-") {
-        id = "zoom-out";
-      } else if (key === "0") {
-        id = "zoom-reset";
-      } else if (key === "p" && !e.shiftKey) {
-        id = "palette";
-      } else if (key === "e" && e.shiftKey) {
-        id = "external-editor";
-      } else if (key === "o" && e.shiftKey) {
+        runMenu(hit.id);
+      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === "KeyO") {
         e.preventDefault();
         setPalette("openRepo");
-      }
-      if (id) {
-        e.preventDefault();
-        runMenu(id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const reopen = () =>
+  const reopen = (index = 0) =>
     update((s) => {
-      const [tab, ...rest] = s.closed;
+      const tab = s.closed[index];
       if (!tab) {
         return s;
       }
-      return { ...s, tabs: [...s.tabs, tab], active: s.tabs.length, closed: rest };
+      return { ...s, tabs: [...s.tabs, tab], active: s.tabs.length, closed: s.closed.filter((_, i) => i !== index) };
     });
 
   const clone = () => setRepoModal("clone");
@@ -488,6 +482,7 @@ export function App() {
   return (
     <LayoutContext.Provider value={layoutStore}>
       <div className={`app${state.settings.toolbarLabels ? "" : " no-tool-labels"}`}>
+        {!mac && <MenuBar menus={menus} checks={panels ? { "left-panel": panels.left, "details-panel": panels.details } : {}} run={runMenu} />}
         <Tabs
           tabs={state.tabs}
           active={state.active}
@@ -501,7 +496,26 @@ export function App() {
           favorites={state.favorites}
           onRename={(i) => void renameRepo(state.tabs[i].path!)}
           onFavorite={(i) => toggleFavorite(state.tabs[i].path!)}
-          onReopen={reopen}
+          onReopen={() => reopen()}
+          tabsListOpen={tabsList}
+          onTabsList={() => setTabsList((s) => !s)}
+          tabsList={
+            <TabsList
+              tabs={state.tabs}
+              closed={state.closed}
+              aliases={state.aliases}
+              onSelect={(i) => {
+                setTabsList(false);
+                update((s) => ({ ...s, active: i }));
+              }}
+              onClose={(i) => closeTabs((j) => j !== i)}
+              onReopen={(i) => {
+                setTabsList(false);
+                reopen(i);
+              }}
+              onDismiss={() => setTabsList(false)}
+            />
+          }
           onMove={(from, to) =>
             update((s) => {
               const tabs = [...s.tabs];
@@ -554,6 +568,7 @@ export function App() {
             aliases={state.aliases}
             onViewAll={newTab}
             onPalette={() => setPalette("top")}
+            onPanels={setPanels}
           />
         ) : (
           <NewTab
@@ -580,6 +595,7 @@ export function App() {
           />
         )}
         {repoModal && <RepoModal start={repoModal} defaultBranch={state.settings.defaultBranch} onClose={() => setRepoModal(null)} onOpen={openTab} />}
+        {shortcuts && <KeyboardShortcuts onClose={() => setShortcuts(false)} />}
         <StatusBar zoom={zoom} />
       </div>
     </LayoutContext.Provider>

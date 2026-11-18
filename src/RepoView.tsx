@@ -63,6 +63,7 @@ interface Props {
   aliases: Record<string, string>;
   onViewAll(): void;
   onPalette(): void;
+  onPanels(panels: { left: boolean; details: boolean } | null): void;
 }
 
 interface Cached {
@@ -89,7 +90,7 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll, onPalette }: Props) {
+export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll,onPalette, onPanels }: Props) {
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
   const cached = cache.get(path);
@@ -355,6 +356,11 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
     });
     return () => setRepoApi(null);
   });
+
+  useEffect(() => {
+    onPanels({ left: !leftCollapsed, details: !rightCollapsed });
+  }, [leftCollapsed, rightCollapsed, onPanels]);
+  useEffect(() => () => onPanels(null), [onPanels]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

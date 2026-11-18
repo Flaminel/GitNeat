@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { AskpassRequest, CloneProgress, GitNeatApi } from "./api";
 
 function platform(): string {
@@ -82,6 +83,12 @@ export function tauriApi(): GitNeatApi {
     },
     askpassReply: (request, reply) => invoke("askpass_reply", { request, reply }),
     setZoom: (factor) => getCurrentWebview().setZoom(factor),
+    appMenu: () => invoke("app_menu"),
+    setPanelChecks: (left, details) => invoke("set_panel_checks", { left, details }),
+    toggleFullscreen: async () => {
+      const win = getCurrentWindow();
+      await win.setFullscreen(!(await win.isFullscreen()));
+    },
   };
 }
 

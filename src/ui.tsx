@@ -13,7 +13,7 @@ export interface Field {
   ref?: boolean;
 }
 
-export type MenuItem = "-" | "" | false | null | undefined | { label: string; id?: string; run?: () => unknown; enabled?: boolean; submenu?: MenuItem[] };
+export type MenuItem = "-" | "" | false | null | undefined | { label: string; id?: string; run?: () => unknown; enabled?: boolean; submenu?: MenuItem[]; accelerator?: string; checked?: boolean };
 
 type RealItem = Exclude<MenuItem, "" | false | null | undefined>;
 
@@ -84,6 +84,8 @@ export async function showMenu(items: MenuItem[]): Promise<void> {
           id: item.run ? id : undefined,
           enabled: item.enabled,
           submenu: item.submenu ? toSpec(item.submenu) : undefined,
+          accelerator: item.accelerator,
+          checked: item.checked,
         };
       });
   const chosen = await gitneat().menu(toSpec(items));
