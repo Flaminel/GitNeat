@@ -5,9 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
 import type { GitResult } from "../src/api";
+import type { Ctx } from "../src/actions";
 import type { DiffSource } from "../src/repo";
 import { parseDiff } from "./reference/diff";
-import { loadAllFiles, loadBlame, loadCommit, loadDiff, loadFileHistory, loadSides } from "./reference/repo";
+import { cloneRepo, initRepo, loadAllFiles, loadBlame, loadCommit, loadDiff, loadFileHistory, loadHeadMessage, loadMerge, loadSides } from "./reference/repo";
 
 const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
@@ -37,13 +38,22 @@ async function readFile(cwd: string, rel: string): Promise<string | null> {
   }
 }
 
-(globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit, readFile } };
+async function writeTemp(content: string): Promise<string> {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gitneat-"));
+  const file = path.join(dir, "data");
+  await fs.promises.writeFile(file, content);
+  return file;
+}
+
+(globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit, readFile, writeTemp } };
 
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false"];
 let root = "";
 let example = "";
+let actionExample = "";
 let compared = 0;
 let failed = 0;
+const perName: Record<string, number> = {};
 
 function g(cwd: string, ...args: string[]): string {
   return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C" } });
@@ -148,6 +158,74 @@ const fixtures: Record<string, () => string> = {
     gTry(dir, "merge", "side");
     return dir;
   },
+  conflictkinds: () => {
+    const dir = init("conflictkinds");
+    commit(dir, "mod.txt", "one\ntwo\nthree\n", "base mod");
+    commit(dir, "gone.txt", "g\n", "base gone");
+    commit(dir, "kept.txt", "k\n", "base kept");
+    commit(dir, "img.bin", Buffer.from([0, 1, 2]), "base bin");
+    commit(dir, "win.txt", "a\r\nb\r\nc\r\n", "base crlf");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "mod.txt", "one\nside\nthree\nfour\n", "side mod");
+    g(dir, "rm", "-q", "kept.txt");
+    commit(dir, "gone.txt", "g side\n", "side gone");
+    commit(dir, "img.bin", Buffer.from([0, 9, 9]), "side bin");
+    commit(dir, "both.txt", "side add\n", "side add");
+    commit(dir, "win.txt", "a\r\nside\r\nc\r\n", "side crlf");
+    commit(dir, "extra.txt", "e\n", "side extra");
+    g(dir, "checkout", "-q", "main");
+    commit(dir, "mod.txt", "one\nmain\nthree\n", "main mod");
+    g(dir, "rm", "-q", "gone.txt");
+    g(dir, "commit", "-q", "-m", "main gone");
+    commit(dir, "kept.txt", "k main\n", "main kept");
+    commit(dir, "img.bin", Buffer.from([0, 7, 7]), "main bin");
+    commit(dir, "both.txt", "main add\n", "main add");
+    commit(dir, "win.txt", "a\r\nmain\r\nc\r\n", "main crlf");
+    g(dir, "update-ref", "refs/remotes/origin/feature", "side");
+    gTry(dir, "merge", "side~1");
+    return dir;
+  },
+  remotemerge: () => {
+    const dir = init("remotemerge");
+    commit(dir, "a.txt", "base\n", "base");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "a.txt", "side\n", "side change");
+    g(dir, "checkout", "-q", "main");
+    commit(dir, "a.txt", "main\n", "main change");
+    g(dir, "update-ref", "refs/remotes/origin/feature", "side");
+    g(dir, "branch", "-q", "-D", "side");
+    gTry(dir, "merge", "origin/feature");
+    return dir;
+  },
+  picking: () => {
+    const dir = init("picking");
+    commit(dir, "a.txt", "base\n", "base");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "a.txt", "side\n", "side change");
+    g(dir, "checkout", "-q", "main");
+    commit(dir, "a.txt", "main\n", "main change");
+    gTry(dir, "cherry-pick", "side");
+    return dir;
+  },
+  rebasing: () => {
+    const dir = init("rebasing");
+    commit(dir, "a.txt", "base\n", "base");
+    g(dir, "checkout", "-q", "-b", "side");
+    commit(dir, "a.txt", "side\n", "side change");
+    g(dir, "checkout", "-q", "main");
+    commit(dir, "a.txt", "main\n", "main change");
+    gTry(dir, "rebase", "side");
+    return dir;
+  },
+  reverting: () => {
+    const dir = init("reverting");
+    commit(dir, "a.txt", "base\n", "base");
+    commit(dir, "a.txt", "changed\n", "change");
+    commit(dir, "a.txt", "changed again\n", "change again");
+    gTry(dir, "revert", "--no-edit", "HEAD~1");
+    return dir;
+  },
+  empty: () => init("empty"),
   history: () => {
     const dir = init("history");
     for (let i = 0; i < 230; i++) {
@@ -169,6 +247,8 @@ const loaders: Record<string, (a: Record<string, unknown>) => Promise<unknown>> 
   loadSides: (a) => loadSides(a.cwd as string, a.source as DiffSource, a.file as string, a.orig as string | undefined),
   loadBlame: (a) => loadBlame(a.cwd as string, a.file as string, a.rev as string | undefined),
   loadFileHistory: (a) => loadFileHistory(a.cwd as string, a.file as string, a.limit as number | undefined),
+  loadMerge: (a) => loadMerge({ cwd: a.cwd, data: { operation: a.operation } } as unknown as Ctx, a.file as string),
+  loadHeadMessage: (a) => loadHeadMessage(a.cwd as string),
 };
 
 async function reference(call: Call): Promise<unknown> {
@@ -236,6 +316,15 @@ async function calls(dir: string): Promise<Call[]> {
     }
     add("loadBlame", { file: e.path });
   }
+  for (const e of statusEntries(dir)) {
+    if (e.index === "U" || e.work === "U" || (e.index === "A" && e.work === "A") || (e.index === "D" && e.work === "D")) {
+      for (const operation of [null, "merge", "rebase", "cherry-pick", "revert"]) {
+        add("loadMerge", { file: e.path, operation });
+      }
+    }
+  }
+  add("loadMerge", { file: "missing.txt", operation: "merge" });
+  add("loadHeadMessage", {});
   add("loadCommit", { sha: "nope" });
   add("loadAllFiles", { sha: "nope" });
   add("loadBlame", { file: "missing.txt" });
@@ -247,14 +336,14 @@ async function calls(dir: string): Promise<Call[]> {
 
 type BlameRow = { sha: string; time: number };
 
-function alignUncommitted(actual: unknown, expected: unknown): void {
+function alignUncommitted(actual: unknown, expected: unknown, slack: number): void {
   const a = (actual as { ok?: BlameRow[] }).ok;
   const e = (expected as { ok?: BlameRow[] }).ok;
   if (!a || !e || a.length !== e.length) {
     return;
   }
   a.forEach((row, i) => {
-    if (/^0{40}$/.test(row.sha) && row.sha === e[i].sha && Math.abs(row.time - e[i].time) <= 2) {
+    if (/^0{40}$/.test(row.sha) && row.sha === e[i].sha && row.time >= e[i].time && row.time - e[i].time <= slack) {
       row.time = e[i].time;
     }
   });
@@ -266,15 +355,17 @@ before(
       return;
     }
     root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-loaders-")));
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders"], { cwd: rustDir, stdio: "inherit" });
-    example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "loaders.exe" : "loaders");
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
+    const exe = process.platform === "win32" ? ".exe" : "";
+    example = path.join(rustDir, "target", "debug", "examples", `loaders${exe}`);
+    actionExample = path.join(rustDir, "target", "debug", "examples", `action${exe}`);
   },
   { timeout: 600000 },
 );
 
 after(() => {
   if (enabled) {
-    console.log(`loaders: ${compared} comparisons, ${failed} of them errors`);
+    console.log(`loaders: ${compared} comparisons, ${failed} of them errors`, perName);
   }
   if (root) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -286,19 +377,82 @@ for (const [name, build] of Object.entries(fixtures)) {
     const dir = build();
     const list = await calls(dir);
     const expected: unknown[] = [];
+    const started = Date.now();
     for (const call of list) {
       expected.push(await reference(call));
     }
     const out = execFileSync(example, [], { input: JSON.stringify(list), encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
     const actual = JSON.parse(out) as unknown[];
+    const slack = Math.ceil((Date.now() - started) / 1000) + 1;
     assert.equal(actual.length, list.length);
     list.forEach((call, i) => {
       if (call.name === "loadBlame") {
-        alignUncommitted(actual[i], expected[i]);
+        alignUncommitted(actual[i], expected[i], slack);
       }
       assert.deepStrictEqual(actual[i], expected[i], `${name} / ${call.name} / ${JSON.stringify({ ...call.args, cwd: undefined })}`);
       compared += 1;
       failed += "err" in (expected[i] as object) ? 1 : 0;
+      const kind = (expected[i] as { ok?: { kind?: string } }).ok?.kind;
+      const key = call.name === "loadMerge" ? `${call.name}:${kind ?? "err"}` : call.name;
+      perName[key] = (perName[key] ?? 0) + 1;
     });
   });
 }
+
+async function settle(fn: () => Promise<unknown>): Promise<unknown> {
+  try {
+    return { ok: await fn() };
+  } catch (e) {
+    return { err: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function rustAction(cwd: string, name: string, args: unknown): unknown {
+  return JSON.parse(execFileSync(actionExample, [cwd, name, JSON.stringify(args)], { encoding: "utf8" }));
+}
+
+function repoState(dir: string): string {
+  return ["log --all --format=%H%x00%P%x00%s", "branch -a", "config --get remote.origin.url", "symbolic-ref HEAD"]
+    .map((cmd) => {
+      try {
+        return g(dir, ...cmd.split(" "));
+      } catch {
+        return "<fail>";
+      }
+    })
+    .join("\n--\n");
+}
+
+test("clone and init: rust equals ts", { skip: !enabled, timeout: 120000 }, async () => {
+  const src = init("clone-src");
+  commit(src, "a.txt", "a\n", "first");
+  g(src, "checkout", "-q", "-b", "topic");
+  commit(src, "b.txt", "b\n", "topic work");
+  g(src, "checkout", "-q", "main");
+  const cases: { name: string; ts: () => Promise<unknown>; rust: () => unknown; dirs: [string, string] }[] = [];
+  const ts = path.join(root, "clone-ts");
+  const rs = path.join(root, "clone-rs");
+  cases.push({ name: "clone", ts: () => cloneRepo(root, src, ts), rust: () => rustAction(root, "clone", { url: src, target: rs }), dirs: [ts, rs] });
+  cases.push({ name: "clone again", ts: () => cloneRepo(root, src, ts), rust: () => rustAction(root, "clone", { url: src, target: rs }), dirs: [ts, rs] });
+  const missing = path.join(root, "no-such-repo");
+  cases.push({
+    name: "clone missing",
+    ts: () => cloneRepo(root, missing, path.join(root, "missing-ts")),
+    rust: () => rustAction(root, "clone", { url: missing, target: path.join(root, "missing-ts") }),
+    dirs: [path.join(root, "missing-ts"), path.join(root, "missing-ts")],
+  });
+  const its = path.join(root, "init-ts");
+  const irs = path.join(root, "init-rs");
+  fs.mkdirSync(its);
+  fs.mkdirSync(irs);
+  cases.push({ name: "init", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
+  cases.push({ name: "init again", ts: () => initRepo(its), rust: () => rustAction(irs, "init", {}), dirs: [its, irs] });
+  for (const c of cases) {
+    const expected = JSON.parse(JSON.stringify(await settle(c.ts)).split(c.dirs[0]).join("<dir>"));
+    const actual = JSON.parse(JSON.stringify(c.rust()).split(c.dirs[1]).join("<dir>"));
+    assert.deepStrictEqual(actual, expected, c.name);
+    assert.equal(repoState(c.dirs[1]), repoState(c.dirs[0]), `${c.name} state`);
+    compared += 1;
+    failed += "err" in (expected as object) ? 1 : 0;
+  }
+});

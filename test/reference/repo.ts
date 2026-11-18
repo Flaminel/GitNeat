@@ -1,4 +1,7 @@
+import type { Ctx } from "../../src/actions";
 import { gitneat } from "../../src/api";
+import type { Segment } from "../../src/merge";
+import { parseMerge } from "./merge";
 import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, FileChange, Operation, Ref, RepoData, Remote, StatusEntry, Stash, Worktree } from "../../src/repo";
 
 export class GitError extends Error {}
@@ -357,3 +360,45 @@ export async function loadBlame(cwd: string, file: string, rev?: string): Promis
 export async function loadFileHistory(cwd: string, file: string, limit = 200): Promise<Commit[]> {
   return parseLog(await git(cwd, ["log", "--follow", `-n${limit}`, `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`, "--", file]));
 }
+
+type Loaded =
+  | { kind: "text"; segments: Segment[]; bName: string }
+  | { kind: "binary" }
+  | { kind: "delete"; missing: "a" | "b" };
+
+export async function bLabel(cwd: string, op: Ctx["data"]["operation"]): Promise<string> {
+  const heads = { merge: "MERGE_HEAD", "cherry-pick": "CHERRY_PICK_HEAD", revert: "REVERT_HEAD", rebase: "REBASE_HEAD" };
+  const ref = op ? heads[op] : null;
+  if (!ref) {
+    return "B";
+  }
+  const r = await gitneat().git(cwd, op === "merge" ? ["name-rev", "--name-only", ref] : ["rev-parse", "--short", ref]);
+  return r.code === 0 && r.stdout.trim() ? r.stdout.trim().replace(/^remotes\//, "").replace(/[~^].*$/, "") : "B";
+}
+
+export async function loadMerge(ctx: Ctx, path: string): Promise<Loaded> {
+  const show = (n: number) => gitneat().git(ctx.cwd, ["show", `:${n}:${path}`]);
+  const [base, a, b] = await Promise.all([show(1), show(2), show(3)]);
+  if (a.code !== 0 || b.code !== 0) {
+    return { kind: "delete", missing: a.code !== 0 ? "a" : "b" };
+  }
+  if (a.stdout.includes("\0") || b.stdout.includes("\0")) {
+    return { kind: "binary" };
+  }
+  const [ours, root, theirs] = await Promise.all([a.stdout, base.code === 0 ? base.stdout : "", b.stdout].map((t) => gitneat().writeTemp(t)));
+  const merged = await gitneat().git(ctx.cwd, ["merge-file", "-p", "--diff3", "-L", "A", "-L", "base", "-L", "B", ours, root, theirs]);
+  if (merged.code < 0 || merged.code > 127) {
+    throw new Error(merged.stderr.trim() || "git merge-file failed");
+  }
+  return { kind: "text", segments: parseMerge(merged.stdout), bName: await bLabel(ctx.cwd, ctx.data.operation) };
+}
+
+export async function loadHeadMessage(cwd: string): Promise<{ summary: string; description: string }> {
+  const r = await gitneat().git(cwd, ["show", "-s", "--format=%B", "HEAD"]);
+  const [s, ...rest] = r.stdout.trim().split("\n");
+  return { summary: s, description: rest.join("\n").trim() };
+}
+
+export const cloneRepo = (parent: string, url: string, target: string): Promise<string> => git(parent, ["clone", "--", url, target]);
+
+export const initRepo = (dir: string): Promise<string> => git(dir, ["init"]);
