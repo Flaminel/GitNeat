@@ -26,7 +26,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: Repository tabs are React state in `src/App.tsx`. GitNeat has one `BrowserWindow`.
 - Reason: The user asked for tabs, not windows. One renderer keeps tab switches fast and makes shared state simple.
-- Limits: Only the active tab is mounted. A tab switch reloads that repository from git.
+- Limits: Only the active tab is mounted. A tab switch reloads that repository from git, but first shows its last loaded state (D49).
 - Evidence: Source also keeps one live repository per window. It saves a store snapshot for each repository path and restores it on a tab switch (see `docs/EVIDENCE.md` section 4.1).
 
 ## D5. Native context menus
@@ -299,3 +299,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The Tauri command `git` and `GitNeatApi.git` are removed. The webview reaches git only through the named commands and actions in `rust/app`.
 - Reason: After D47, no code in `src/` called the `git` command. The command let the webview run `git` with any arguments. This entry supersedes the channel of D2 and D3 and the limit of D3.
 - Rules: `test/reference/api.ts` adds `git` and `GitResult` to the API type for the TS reference. The comparison tests mock `window.gitneat.git` with Node. `git::blocked` stays, because `actions::raw` checks each git call with it.
+
+## D49. A tab switch shows the last loaded state of the repository
+
+- Decision: `src/RepoView.tsx` keeps a cache in the module, with one entry for each repository path. An entry holds the `RepoData`, the selected commit, the multi-select, and the undo and redo stacks. When a tab mounts, its state starts from the entry, and `load()` then refreshes the repository in the background.
+- Reason: On a slow Windows laptop, a tab switch showed "Loading…" until git returned. Source also restores a store snapshot for each repository path on a tab switch, and then refreshes from disk (see `docs/EVIDENCE.md` section 4.1).
+- Rules: `RepoView` writes the entry on each change of these values. `src/App.tsx` calls `forgetRepos` when the tab list changes. It removes the entries of closed tabs. The open diff, the rebase modal, the graph scroll position and the file watcher are not cached. Source does not cache the diff, the modals or the graph scroll either.
+- Limits: Until `load()` returns, the tab shows the state from its last visit. An action in that time uses this data. Each open tab keeps one `RepoData` in memory, a few MB for 2000 commits. A tab that is reopened after it was closed loads from git again.
