@@ -155,12 +155,20 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let help = submenu(
         app,
         "Help",
-        &[&item(
-            app,
-            "support-docs",
-            "View Support Documentation",
-            None,
-        )?],
+        &[
+            &item(
+                app,
+                "palette",
+                "Open Command Palette",
+                Some("CmdOrCtrl+P"),
+            )?,
+            &item(
+                app,
+                "support-docs",
+                "View Support Documentation",
+                None,
+            )?,
+        ],
     )?;
 
     Menu::with_items(app, &[&app_menu, &file, &edit, &view, &window, &help])

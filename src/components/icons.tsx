@@ -64,6 +64,7 @@ export const Icon = {
   stashTool: svg(<path d="M2 9v4.5h12V9 M8 2v7 M5 6l3 3 3-3" />, 20),
   popTool: svg(<path d="M2 9v4.5h12V9 M8 9V2 M5 5l3-3 3 3" />, 20),
   terminal: svg(<path d="M2.5 4l4 4-4 4 M8 12.5h6" />, 20),
+  paletteTool: svg(<path d="M3 13L11 5 M10 2.5v3 M8.5 4h3 M13 8v2.5 M11.75 9.25h2.5 M4 3v2 M3 4h2" />, 20),
   searchTool: svg(<path d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10z M10.5 10.5L14 14" />, 20),
   sort: svg(<path d="M4 2.5v11 M2 11.5l2 2 2-2 M9 3h4l-4 4.5h4 M9 9.5h4 M9 13h4" />),
   plus: svg(<path d="M8 3v10 M3 8h10" />),

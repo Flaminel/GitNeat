@@ -10,6 +10,7 @@ import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
+import { setRepoApi } from "./paletteCommands";
 import { Commit, Lanes, loadCommits, loadRepo, RepoData, samePath } from "./repo";
 import { canLoadMore, pageSize, showsFooter } from "./commitLimit";
 import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
@@ -53,6 +54,7 @@ interface Props {
   favorites: string[];
   aliases: Record<string, string>;
   onViewAll(): void;
+  onPalette(): void;
 }
 
 interface Cached {
@@ -79,7 +81,7 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll }: Props) {
+export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll, onPalette }: Props) {
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
   const cached = cache.get(path);
@@ -293,6 +295,36 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   };
 
   useEffect(() => {
+    if (!ctx) {
+      return;
+    }
+    setRepoApi({
+      ctx,
+      undo,
+      redo,
+      canUndo: undoStack.length > 0,
+      canRedo: redoStack.length > 0,
+      select: (sha) => {
+        setOpenFile(null);
+        setMulti([]);
+        setSelected(sha);
+      },
+      showWip: () => {
+        setOpenFile(null);
+        setMulti([]);
+        setSelected(WIP);
+      },
+      openFile: (file) => {
+        setMulti([]);
+        setOpenFile(file);
+      },
+      toggleLeft: () => setLeftCollapsed(!leftCollapsed),
+      openInTool,
+    });
+    return () => setRepoApi(null);
+  });
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (!(e.metaKey || e.ctrlKey) || e.altKey || !ctx || target.closest("input, textarea, select, .monaco-editor")) {
@@ -417,6 +449,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         redoLabel={redoStack[redoStack.length - 1]?.label}
         onUndo={undo}
         onRedo={redo}
+        onPalette={onPalette}
       />
       {(data.operation === "cherry-pick" || data.operation === "revert") && (
         <div className="op-banner">

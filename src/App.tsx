@@ -5,6 +5,9 @@ import { repoName, Tab, Tabs } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
 import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings } from "./RepoView";
+import { Palette } from "./components/Palette";
+import { Domain, EMPTY_FRECENCY, parseFrecency } from "./palette";
+import { AppApi } from "./paletteCommands";
 import { Field, Layout, LayoutContext, legacyLayout, Ui, useUi } from "./ui";
 import pkg from "../package.json";
 
@@ -71,6 +74,7 @@ export function App() {
   const ui = useUi();
   const [state, setState] = useState<State | null>(null);
   const loaded = useRef(false);
+  const [palette, setPalette] = useState<Domain | null>(null);
 
   useEffect(() => {
     gitneat()
@@ -272,6 +276,7 @@ export function App() {
       "previous-tab": () => selectTab(-1),
       tab: () => update((s) => ({ ...s, active: Math.min(Number(index) - 1, s.tabs.length - 1) })),
       favorite: () => state.favorites[Number(index) - 1] && openTab(state.favorites[Number(index) - 1]),
+      palette: () => setPalette((p) => (p ? null : "top")),
       preferences,
       "repo-preferences": repoPreferences,
       "support-docs": () => gitneat().openExternal(SUPPORT_URL),
@@ -319,6 +324,11 @@ export function App() {
         id = "zoom-out";
       } else if (key === "0") {
         id = "zoom-reset";
+      } else if (key === "p" && !e.shiftKey) {
+        id = "palette";
+      } else if (key === "o" && e.shiftKey) {
+        e.preventDefault();
+        setPalette("openRepo");
       }
       if (id) {
         e.preventDefault();
@@ -373,6 +383,18 @@ export function App() {
   }
 
   const activePath = state.tabs[state.active]?.path;
+  const paletteApp: AppApi = {
+    newTab,
+    clone,
+    init,
+    closeTab: () => closeTabs((i) => i !== state.active),
+    preferences,
+    zoom: (step) => (step ? stepZoom(step) : update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } }))),
+    openRepo: openTab,
+    recent: state.recent,
+    favorites: state.favorites,
+    aliases: state.aliases,
+  };
   return (
     <LayoutContext.Provider value={layoutStore}>
       <div className="app">
@@ -416,6 +438,7 @@ export function App() {
             favorites={state.favorites}
             aliases={state.aliases}
             onViewAll={newTab}
+            onPalette={() => setPalette("top")}
           />
         ) : (
           <NewTab
@@ -430,6 +453,15 @@ export function App() {
             onAlias={(p) => void renameRepo(p)}
             onRemoveRecent={(p) => update((s) => ({ ...s, recent: s.recent.filter((r) => r !== p) }))}
             onRemoveAllRecent={() => update((s) => ({ ...s, recent: [] }))}
+          />
+        )}
+        {palette && (
+          <Palette
+            start={palette}
+            app={paletteApp}
+            frecency={parseFrecency(state.layout["palette.frecency"] ?? JSON.stringify(EMPTY_FRECENCY))}
+            setFrecency={(next) => setLayout("palette.frecency", JSON.stringify(next))}
+            onClose={() => setPalette(null)}
           />
         )}
         <StatusBar zoom={zoom} />

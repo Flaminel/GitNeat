@@ -49,6 +49,10 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
+| `src/palette.ts` | Command palette logic: fuzzy score, frecency (D95), rank, item builders and availability rules |
+| `src/paletteCommands.ts` | Palette command list and the domain item loaders. `RepoView` registers the open repository with `setRepoApi`. |
+| `src/components/Palette.tsx` | Command palette dialog (D95) |
+| `test/palette.test.ts` | Tests for `src/palette.ts` |
 | `src/commitLimit.ts` | Page size, load more rule and footer rule for the commit settings (D84) |
 | `src/leftPanel.ts` | Left panel section sizes: bounds, push rule and handle rules (D67) |
 | `src/styles.css` | Theme colors and all styles |
@@ -106,6 +110,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change a repository shortcut (D59) | The keydown handler in `src/RepoView.tsx` |
 | Change a tab shortcut | The keydown handler in `src/App.tsx` |
 | Change the open in diff or merge tool items or Cmd+D (D92) | `rust/app/src/actions/tools.rs`, `file_menu` in `rust/app/src/menus.rs`, `openDiffTool` in `src/actions.ts`, `openInTool` in `src/RepoView.tsx` |
+| Add or change a command palette command or domain (D95) | `buildCommands` and `domainItems` in `src/paletteCommands.ts`, ranking in `src/palette.ts`, the dialog in `src/components/Palette.tsx` |
 | Change a credential or passphrase prompt (D90) | `askCredentials` in `src/App.tsx`, the prompt parse in `rust/app/src/askpass.rs` |
 
 ## Environment variables

@@ -16,6 +16,7 @@ interface Props {
   redoLabel?: string;
   onUndo(): void;
   onRedo(): void;
+  onPalette(): void;
 }
 
 function ToolButton(props: { label: string; icon: React.ReactNode; onClick(): void; disabled?: boolean; badge?: number; onMenu?(): void; title?: string }) {
@@ -43,7 +44,7 @@ const PULL_OPTIONS = A.PULL_OPTIONS;
 
 const detachedText = (label: string) => `${label} is not available when in a detached HEAD state`;
 
-export function Toolbar({ ctx, recent, favorites, aliases, onViewAll, undoLabel, redoLabel, onUndo, onRedo }: Props) {
+export function Toolbar({ ctx, recent, favorites, aliases, onViewAll, undoLabel, redoLabel, onUndo, onRedo, onPalette }: Props) {
   const data = ctx.data;
   const current = data.refs.find((r) => r.current);
   const locals = data.refs.filter((r) => r.kind === "local");
@@ -119,6 +120,7 @@ export function Toolbar({ ctx, recent, favorites, aliases, onViewAll, undoLabel,
       </div>
       <div className="busy">
         {ctx.ui.busy && <span className="spinner">{ctx.ui.busy}…</span>}
+        <ToolButton label="Actions" icon={Icon.paletteTool} onClick={onPalette} title={`Command Palette (${gitneat().platform === "darwin" ? "⌘" : "Ctrl"} + P)`} />
         <ToolButton
           label="Search"
           icon={Icon.searchTool}

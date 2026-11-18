@@ -2382,3 +2382,96 @@ a.sha {
   color: var(--text-dim);
   opacity: 0.8;
 }
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+  z-index: 20;
+}
+
+.palette {
+  width: 600px;
+  max-width: calc(100vw - 32px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.palette-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-deep);
+}
+
+.palette-control input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.palette-chip {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--selected);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.palette-loading {
+  color: var(--text-faint);
+}
+
+.palette-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.palette-item.selected {
+  background: var(--selected);
+}
+
+.palette-prefix {
+  color: var(--text-faint);
+}
+
+.palette-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.palette-label b,
+.palette-alias b {
+  color: var(--accent);
+}
+
+.palette-alias {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
