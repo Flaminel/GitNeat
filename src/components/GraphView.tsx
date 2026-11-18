@@ -5,7 +5,9 @@ import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
 const LANE = 22;
-const PAD = 29;
+const GUTTER = 28;
+const ZONE_MARGIN = 3;
+const ARC = 8;
 export const LANE_COLORS = 10;
 export const WIP = "WIP";
 
@@ -26,18 +28,28 @@ interface Props {
   wipCount: number;
 }
 
-const laneX = (i: number) => PAD + i * LANE;
+const laneX = (i: number) => GUTTER + i * LANE + LANE / 2;
 
 function path(s: Segment): string {
-  const y1 = s.y1 === "top" ? 0 : ROW_HEIGHT / 2;
-  const y2 = s.y2 === "mid" ? ROW_HEIGHT / 2 : ROW_HEIGHT;
+  const mid = ROW_HEIGHT / 2;
+  const y1 = s.y1 === "top" ? 0 : mid;
+  const y2 = s.y2 === "mid" ? mid : ROW_HEIGHT;
   const x1 = laneX(s.x1);
   const x2 = laneX(s.x2);
   if (x1 === x2) {
     return `M${x1} ${y1}V${y2}`;
   }
-  const ym = (y1 + y2) / 2;
-  return `M${x1} ${y1}C${x1} ${ym} ${x2} ${ym} ${x2} ${y2}`;
+  const d = Math.sign(x2 - x1);
+  let out = `M${x1} ${y1}`;
+  if (s.y1 === "top") {
+    out += `V${mid - ARC}A${ARC} ${ARC} 0 0 ${d > 0 ? 0 : 1} ${x1 + d * ARC} ${mid}`;
+  }
+  if (s.y2 === "bottom") {
+    out += `H${x2 - d * ARC}A${ARC} ${ARC} 0 0 ${d > 0 ? 1 : 0} ${x2} ${mid + ARC}V${ROW_HEIGHT}`;
+  } else {
+    out += `H${x2}`;
+  }
+  return out;
 }
 
 function initials(name: string): string {
@@ -130,7 +142,8 @@ const RowView = memo(function RowView(props: {
   dim: boolean;
 }) {
   const { commit, row, pills } = props;
-  const color = `var(--lane-${row.color % LANE_COLORS})`;
+  const lane = `--lane-${row.color % LANE_COLORS}`;
+  const color = `var(${lane})`;
   const cx = laneX(row.col);
   const cy = ROW_HEIGHT / 2;
   const isWip = commit.sha === WIP;
@@ -138,8 +151,12 @@ const RowView = memo(function RowView(props: {
   const first = pills[0];
   return (
     <div
-      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
-      style={{ top: props.index * ROW_HEIGHT, ["--row-color" as string]: color }}
+      className={`row${props.selected || props.inMulti ? " selected" : ""}${isWip ? " wip" : ""}${commit.stash ? " stash" : ""}${props.isHead ? " head" : ""}${props.dim ? " dim" : ""}${props.dateLabel ? " date-break" : ""}`}
+      style={{ top: props.index * ROW_HEIGHT, ["--row-color" as string]: color,
+        ["--row-bg25" as string]: `var(${lane}-bg25)`,
+        ["--row-bg45" as string]: `var(${lane}-bg45)`,
+        ["--row-bg50" as string]: `var(${lane}-bg50)`,
+        ["--tint-x" as string]: `${props.refsWidth + cx}px` }}
       onMouseDown={(e) => {
         if (e.button === 0) {
           props.onSelect(commit.sha, e.metaKey || e.ctrlKey ? "toggle" : e.shiftKey ? "range" : undefined);
@@ -191,27 +208,28 @@ const RowView = memo(function RowView(props: {
       </div>
       <div className="cell graph" style={{ width: props.graphWidth }}>
         <svg width={props.graphWidth} height={ROW_HEIGHT}>
-          {first && <line x1={0} y1={cy} x2={cx} y2={cy} stroke={color} strokeWidth={2} />}
+          {first && <line x1={0} y1={cy} x2={cx} y2={cy} stroke={color} strokeWidth={props.isHead ? 2 : 1} strokeOpacity={props.isHead ? 1 : 0.25} />}
           {row.segments.map((s, i) => (
             <path
               key={i}
               d={path(s)}
               stroke={`var(--lane-${s.color % LANE_COLORS})`}
               strokeWidth={2}
+              strokeLinejoin="round"
               fill="none"
-              strokeDasharray={isWip && s.y1 === "mid" ? "3 3" : undefined}
+              strokeDasharray={isWip && s.y1 === "mid" ? "2" : undefined}
             />
           ))}
           {isWip ? (
-            <circle cx={cx} cy={cy} r={8} fill="var(--bg)" stroke={color} strokeWidth={2} strokeDasharray="3 2" />
+            <circle cx={cx} cy={cy} r={10} fill="var(--bg)" stroke={color} strokeWidth={2} strokeDasharray="2" />
           ) : commit.stash ? (
-            <rect x={cx - 7} y={cy - 7} width={14} height={14} rx={3} fill="var(--bg)" stroke={color} strokeWidth={2} strokeDasharray="3 2" />
+            <rect x={cx - 10} y={cy - 10} width={20} height={20} fill="var(--bg)" stroke={color} strokeWidth={2} strokeDasharray="2" />
           ) : isMerge ? (
-            <circle cx={cx} cy={cy} r={5} fill={color} />
+            <circle cx={cx} cy={cy} r={6} fill={color} />
           ) : (
             <g>
-              <circle cx={cx} cy={cy} r={11.5} fill={color} />
-              <circle cx={cx} cy={cy} r={9.5} fill="var(--avatar-bg)" />
+              <circle cx={cx} cy={cy} r={11} fill={color} />
+              <circle cx={cx} cy={cy} r={9} fill="var(--avatar-bg)" />
               <text x={cx} y={cy + 3} textAnchor="middle" className="avatar-text">
                 {initials(commit.author)}
               </text>
@@ -260,7 +278,7 @@ export function GraphView(props: Props) {
 
   const autoGraphWidth = useMemo(() => {
     const lanes = props.rows.reduce((max, r) => Math.max(max, r.width), 1);
-    return Math.min(PAD * 2 + (lanes - 1) * LANE, 360);
+    return Math.min(lanes * LANE + 2 * GUTTER + 2 * ZONE_MARGIN, 360);
   }, [props.rows]);
   const graphWidth = graphUser > 0 ? graphUser : autoGraphWidth;
 
@@ -346,15 +364,15 @@ export function GraphView(props: Props) {
     <div className="graph-view">
       <div className="graph-header">
         <div style={{ width: refsWidth }} className="col-head">
-          BRANCH / TAG
+          Branch / Tag
           <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={60} max={600} />
         </div>
         <div style={{ width: graphWidth }} className="col-head" onDoubleClick={() => setGraphUser(-1)}>
-          GRAPH
+          Graph
           <Splitter className="col-resize" value={graphWidth} set={setGraphUser} min={30} max={800} />
         </div>
         <div className="col-head">
-          COMMIT MESSAGE
+          Commit message
           {query !== null && (
             <span className="graph-search">
               {Icon.search}

@@ -42,6 +42,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The first parent continues in the lane of the commit. Other parents reuse an existing lane or take the first free lane. Lanes that point to the same commit meet at the row of that commit. Lane slots are not compacted, so a lane keeps its position and color.
 - Limits: Colors follow the lane slot, not the branch name. A reused slot can show a new color for a different branch.
 - Superseded in part by D20: the color is now the column index.
+- Superseded in part by D57: the edges use the Source arc shape, and the lane x moved.
 - Evidence: Source also uses a 28 px row and SVG lane edges (see `docs/EVIDENCE.md` section 3).
 
 ## D7. Commit limit
@@ -355,3 +356,12 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Before this change, the write emptied the file and then wrote it again. A crash during the write lost the tabs, the recent list, the prefs and the layout.
 - Rules: A `tokio::sync::Mutex` lets only one write run at a time, so two `store_set` calls do not write the same temporary file together.
 - Limits: The rename does not call `fsync`. After a power loss, the operating system can keep the old file or an empty file.
+
+## D57. Graph geometry follows Source
+
+- Decision: `src/components/GraphView.tsx` draws each edge between two lanes as a vertical stub, an arc of radius 8 and a horizontal run at the row middle. The lane x is `28 + col * 22 + 11`. The automatic graph width is `lanes * 22 + 62`, with the 360 px cap kept.
+- Rules: Each row has a band in the lane color from the node center to the right end, at 10 % (50 % when selected). Hover adds `rgba(77,136,255,.1)` over the full row. The ref connector is 1 px at 25 % opacity, and 2 px at 100 % on the HEAD row. Pills use the opaque `--lane-N-bg25`, `-bg45` (hover) and `-bg50` (current or selected) tints, radius 2 and padding 5 px.
+- Nodes: the commit ring is 22 px with an 18 px avatar. The merge dot is 12 px. The stash node is a 22 px square with a dotted border. The WIP node is a 22 px circle with a dotted border. A stash message is italic and dim.
+- Header: 26 px with 12 px labels in sentence case. The message cell has no divider. The date label is 10 px with radius 2 at `right: 0`.
+- Reason: `docs/EVIDENCE.md` sections 3 and 13.
+- Limits: The selected row no longer has the blue `--selected` background. The 50 % lane band marks it. The commit description after the subject and the `--text-dimmed` color of search misses are not done. No side by side screenshot was taken: the screen was locked during T05.

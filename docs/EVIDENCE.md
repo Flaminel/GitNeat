@@ -123,6 +123,22 @@ Left-panel header menu toggles sections ("Show/Hide all ...", "Maximize this sec
 - **Observed (canvas)**: canvas is used only for the scroll-marker minimap (`createElement("canvas",{className:"graph-scroll-markers"})`, `GRAPH_SCROLL_MARKER_LANES = 3`) and to convert avatars to dataURLs (`id="gk-graph-avatar-canvas"`). **Inferred**: not a canvas/WebGL graph; DOM + per-row inline SVG.
 - **Observed constants** (`dist/domain/graph/GraphConstants.d.ts`): `GRAPH_ROW_HEIGHT = 28`, `GRAPH_ROW_INNER_HEIGHT = 22`, `GRAPH_HEADER_ROW_HEIGHT = 26` (`HEADER_ROW_HEIGHT = 22`), `COMMIT_ZONE_MARGIN_TOP/BOTTOM = 3`, `COMMIT_ZONE_EDGE_ARC_PADDING = 3`, `COMMIT_ZONE_DEFAULT_VIEWPORT_WIDTH_MIN = 56`, author avatar outer diameter 22, `REF_ZONE_TEXT_HEIGHT = 18`, `REF_ZONE_MAX_REFS_TO_RENDER = 100`, `COMMIT_NODE_MIN_ALPHA = 0.5`, `OPACITY_FACTOR_BY_THEME {dark, light}`, `DEFAULT_AVATAR_BACKGROUND_COLOR = "#199489"`. CSS var `--graph-row-height` exists in `DEFAULT_CSS_VARIABLES`.
 - **Observed (palette, 10 lanes)** from R (two copies of the dark default variable map, offsets 6863525 and 6913195): `--graph-color-0..9` = `#15a0bf #0669f7 #8e00c2 #c517b6 #d90171 #cd0101 #f25d2e #f2ca33 #7bd938 #2ece9d` (also mirrored as `--column-N-color`, `--num-columns-supported: 10`). Derived tints per lane: `-f10`/`-f50` (rgba alpha 0.1/0.5 of the base), and opaque dark backgrounds `-bg50 / -bg45 / -bg25 / -bg15`, e.g. lane 0: `#195f71 / #195969 / #1a3f4a / #1b323a`; lane 1: `#11448d / #124082 / #173158 / #192943`.
+- **Observed (lane tints, app.asar dark map at byte offset 82444490)**: `-f10` and `-f50` are `rgba` of the lane color at alpha 0.1 and 0.5. The opaque tints are:
+
+| Lane | `-bg25` | `-bg45` | `-bg50` |
+| --- | --- | --- | --- |
+| 0 | `#1a3f4a` | `#195969` | `#195f71` |
+| 1 | `#173158` | `#124082` | `#11448d` |
+| 2 | `#39174b` | `#4f116b` | `#550f73` |
+| 3 | `#461c48` | `#681b65` | `#711b6d` |
+| 4 | `#4b1737` | `#711146` | `#7b104a` |
+| 5 | `#48171b` | `#6c1114` | `#751012` |
+| 6 | `#522e26` | `#7c3a28` | `#873e29` |
+| 7 | `#524927` | `#7c6b2a` | `#87742b` |
+| 8 | `#344d28` | `#47722c` | `#4c7c2e` |
+| 9 | `#214a42` | `#246d5a` | `#257660` |
+
+- **Observed**: in the same map, `--app__bg0` is `#1C1E23` and `--text-dimmed` is `rgba(255,255,255,0.2)`.
 - **Inferred**: lane index = column modulo 10; selected/hover rows use the `-bgNN` tints. Light theme uses a different alpha factor via `OPACITY_FACTOR_BY_THEME`.
 - Graph exports (`dist/index.d.ts`): default `GraphContainer`; named `DndComponent`, `ScrollbarContainer`, everything from `components/graph/GraphContainer` and `types`. Package has ~992 files incl. its nested node_modules; dist file list is in section 3 of this doc's evidence (above).
 
@@ -264,6 +280,8 @@ Source: `node_modules/@source/source-components/dist/index.js` (P, byte offsets)
 | Dimmed row | The text color becomes `--text-dimmed`, with a 0.2 s transition. | `opacity: .3` on the row. |
 | Row height | 28, inner 22, zone margins 3 (P 333310). | 28. Same. |
 | Palette | Section 3. | Same (D18). The `-f10`, `-f50`, `-bg25`, `-bg45` and `-bg50` tints are missing. |
+
+On 2026-11-18, task T05 applied the edge shape, lane x, zone width, row tint, ref connector, pill, node, header, message cell and date label values to GitNeat (D57). The right column shows the state before T05.
 
 Not found: the label CSS of the header, the internals of `GraphAvatar`, and the default visibility of the author, date and sha columns.
 

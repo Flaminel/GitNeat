@@ -27,6 +27,36 @@
   --lane-7: #f2ca33;
   --lane-8: #7bd938;
   --lane-9: #2ece9d;
+  --lane-0-bg25: #1a3f4a;
+  --lane-0-bg45: #195969;
+  --lane-0-bg50: #195f71;
+  --lane-1-bg25: #173158;
+  --lane-1-bg45: #124082;
+  --lane-1-bg50: #11448d;
+  --lane-2-bg25: #39174b;
+  --lane-2-bg45: #4f116b;
+  --lane-2-bg50: #550f73;
+  --lane-3-bg25: #461c48;
+  --lane-3-bg45: #681b65;
+  --lane-3-bg50: #711b6d;
+  --lane-4-bg25: #4b1737;
+  --lane-4-bg45: #711146;
+  --lane-4-bg50: #7b104a;
+  --lane-5-bg25: #48171b;
+  --lane-5-bg45: #6c1114;
+  --lane-5-bg50: #751012;
+  --lane-6-bg25: #522e26;
+  --lane-6-bg45: #7c3a28;
+  --lane-6-bg50: #873e29;
+  --lane-7-bg25: #524927;
+  --lane-7-bg45: #7c6b2a;
+  --lane-7-bg50: #87742b;
+  --lane-8-bg25: #344d28;
+  --lane-8-bg45: #47722c;
+  --lane-8-bg50: #4c7c2e;
+  --lane-9-bg25: #214a42;
+  --lane-9-bg45: #246d5a;
+  --lane-9-bg50: #257660;
   --row-h: 28px;
   color-scheme: dark;
 }
@@ -673,10 +703,9 @@ body.resizing-row * {
 
 .graph-header {
   display: flex;
-  height: 24px;
+  height: 26px;
   border-bottom: 1px solid var(--border);
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
   color: var(--text-faint);
   flex-shrink: 0;
 }
@@ -722,14 +751,16 @@ body.resizing-row * {
   display: flex;
   align-items: center;
   cursor: default;
+  --tint: color-mix(in srgb, var(--row-color) 10%, transparent);
+  background: linear-gradient(to right, transparent var(--tint-x), var(--tint) var(--tint-x));
 }
 
 .row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(rgba(77, 136, 255, 0.1), rgba(77, 136, 255, 0.1)), linear-gradient(to right, transparent var(--tint-x), var(--tint) var(--tint-x));
 }
 
 .row.selected {
-  background: var(--selected);
+  --tint: color-mix(in srgb, var(--row-color) 50%, transparent);
 }
 
 .cell {
@@ -752,9 +783,13 @@ body.resizing-row * {
 .cell.message {
   flex: 1;
   min-width: 0;
-  padding: 0 10px;
-  border-left: 1px solid var(--border);
+  padding: 0 10px 0 8px;
   gap: 8px;
+}
+
+.row.stash .cell.message {
+  font-style: italic;
+  color: var(--text-dim);
 }
 
 .cell.message > span:first-child {
@@ -771,21 +806,31 @@ body.resizing-row * {
   gap: 5px;
   max-width: 190px;
   height: 22px;
-  padding: 0 6px;
-  border-radius: 3px;
+  padding: 0 5px;
+  border-radius: 2px;
   color: #fff;
-  background: color-mix(in srgb, var(--row-color) 25%, var(--bg));
+  background: var(--row-bg25);
   font-size: 12px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.pill.current {
-  background: color-mix(in srgb, var(--row-color) 50%, var(--bg));
+.pill:hover {
+  background: var(--row-bg45);
 }
 
+.pill.current,
 .row.selected .pill {
-  background: color-mix(in srgb, var(--row-color) 50%, var(--bg));
+  background: var(--row-bg50);
+}
+
+.pill.current .pill-label {
+  font-weight: 500;
+}
+
+.pill .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .pill.more {
@@ -800,9 +845,15 @@ body.resizing-row * {
 
 .pill-line {
   flex: 1;
-  height: 2px;
+  height: 1px;
   min-width: 4px;
   background: var(--row-color);
+  opacity: 0.25;
+}
+
+.row.head .pill-line {
+  height: 2px;
+  opacity: 1;
 }
 
 .icon {
@@ -819,15 +870,15 @@ body.resizing-row * {
 
 .date-pill {
   position: absolute;
-  right: 8px;
+  right: 0;
   top: -8px;
   z-index: 1;
   line-height: 15px;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
   background: var(--panel-2);
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0 6px;
 }
 
