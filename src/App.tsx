@@ -65,13 +65,11 @@ export function App() {
   const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? fn(s) : s)), []);
 
   const layout = state?.layout;
-  const layoutStore = useMemo(
-    () => ({
-      layout: layout ?? {},
-      set: (key: string, value: number | boolean | string) => update((s) => ({ ...s, layout: { ...s.layout, [key]: value } })),
-    }),
-    [layout, update],
+  const setLayout = useCallback(
+    (key: string, value: number | boolean | string) => update((s) => ({ ...s, layout: { ...s.layout, [key]: value } })),
+    [update],
   );
+  const layoutStore = useMemo(() => ({ layout: layout ?? {}, set: setLayout }), [layout, setLayout]);
 
   const openTab = useCallback(
     (path: string) =>

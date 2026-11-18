@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { gitneat, MenuSpec } from "./api";
 
 export interface Field {
@@ -256,49 +256,31 @@ export function legacyLayout(): Layout {
   return out;
 }
 
-export function useStored<T extends number | boolean | string>(key: string, initial: T, valid: (v: unknown) => boolean = (v) => typeof v === typeof initial): [T, (v: T) => void] {
-  const store = useContext(LayoutContext);
-  const saved = store.layout[key];
-  const [value, setValue] = useState<T>(() => (valid(saved) ? (saved as T) : initial));
-  const pending = useRef<{ timer: ReturnType<typeof setTimeout>; value: T } | null>(null);
-  const storeRef = useRef(store);
-  storeRef.current = store;
-  useEffect(
-    () => () => {
-      if (pending.current) {
-        clearTimeout(pending.current.timer);
-        storeRef.current.set(key, pending.current.value);
-      }
-    },
-    [key],
-  );
+export function useStored<T extends number | boolean | string>(key: string, initial: T, valid: (v: unknown) => boolean = (v) => typeof v === typeof initial): [T, (v: T, save?: boolean) => void] {
+  const { layout, set: store } = useContext(LayoutContext);
+  const [value, setValue] = useState<T>(() => (valid(layout[key]) ? (layout[key] as T) : initial));
   const set = useCallback(
-    (v: T) => {
+    (v: T, save = true) => {
       setValue(v);
-      if (pending.current) {
-        clearTimeout(pending.current.timer);
+      if (save) {
+        store(key, v);
       }
-      const timer = setTimeout(() => {
-        pending.current = null;
-        storeRef.current.set(key, v);
-      }, 250);
-      pending.current = { timer, value: v };
     },
-    [key],
+    [key, store],
   );
   return [value, set];
 }
 
-export function useStoredWidth(key: string, initial: number): [number, (n: number) => void] {
+export function useStoredWidth(key: string, initial: number): [number, (n: number, save?: boolean) => void] {
   const [value, set] = useStored(key, initial, (v) => typeof v === "number" && v > 0);
-  return [value, useCallback((n: number) => set(Math.round(n)), [set])];
+  return [value, useCallback((n: number, save?: boolean) => set(Math.round(n), save), [set])];
 }
 
 export const useStoredFlag = (key: string, initial: boolean): [boolean, (b: boolean) => void] => useStored<boolean>(key, initial);
 
 export function Splitter(props: {
   value: number;
-  set(n: number): void;
+  set(n: number, save?: boolean): void;
   min: number;
   max: number;
   invert?: boolean;
@@ -310,12 +292,17 @@ export function Splitter(props: {
     const pos = (ev: MouseEvent | React.MouseEvent) => (props.vertical ? ev.clientY : ev.clientX);
     const x0 = pos(e);
     const w0 = props.value;
+    let last = w0;
     const mode = props.vertical ? "resizing-row" : "resizing";
     const move = (ev: MouseEvent) => {
       const dx = (pos(ev) - x0) * (props.invert ? -1 : 1);
-      props.set(Math.max(props.min, Math.min(props.max, w0 + dx)));
+      last = Math.max(props.min, Math.min(props.max, w0 + dx));
+      props.set(last, false);
     };
     const up = () => {
+      if (last !== w0) {
+        props.set(last);
+      }
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
       document.body.classList.remove(mode);
