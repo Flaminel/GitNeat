@@ -10,7 +10,7 @@ import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
-import { Commit, loadOperation, loadRepo, OperationInfo, RepoData, samePath } from "./repo";
+import { Commit, loadRepo, RepoData, samePath } from "./repo";
 import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
@@ -54,16 +54,6 @@ export function forgetRepos(open: string[]) {
 
 function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
-}
-
-function operationText(operation: NonNullable<RepoData["operation"]>, info: OperationInfo | null): string {
-  if (info && operation === "merge") {
-    return `Merging ${info.from} into ${info.to}`;
-  }
-  if (info && operation === "rebase") {
-    return `Rebasing ${info.from} onto ${info.to}`;
-  }
-  return `A ${operation} is in progress.`;
 }
 
 export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent }: Props) {
@@ -241,19 +231,6 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const operation = data?.operation ?? null;
-  const [opInfo, setOpInfo] = useState<OperationInfo | null>(null);
-  useEffect(() => {
-    setOpInfo(null);
-    if (operation && data) {
-      let live = true;
-      void loadOperation(data.cwd, operation).then((info) => live && setOpInfo(info));
-      return () => {
-        live = false;
-      };
-    }
-  }, [operation, data?.cwd, data?.head]);
-
   useEffect(() => {
     if (!held.current) {
       setShown(selected);
@@ -330,16 +307,15 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
         onUndo={undo}
         onRedo={redo}
       />
-      {data.operation && (
+      {(data.operation === "cherry-pick" || data.operation === "revert") && (
         <div className="op-banner">
           <span>
-            {operationText(data.operation, opInfo)}
+            A {data.operation} is in progress.
             {data.status.some((e) => e.index === "U" || e.work === "U") ? " Resolve the conflicts and stage the files." : ""}
           </span>
           <button className="primary" onClick={() => A.continueOperation(ctx, data.operation)}>
             Continue {data.operation}
           </button>
-          {data.operation === "rebase" && !data.status.some((e) => e.index !== " " && e.index !== "?" && e.index !== "U") && <button onClick={() => A.skipOperation(ctx)}>Skip Commit</button>}
           <button className="danger" onClick={() => A.abortOperation(ctx, data.operation)}>
             Abort {data.operation}
           </button>

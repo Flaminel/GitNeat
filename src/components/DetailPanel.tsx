@@ -4,7 +4,7 @@ import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
 import { showMenu, Splitter, useStoredWidth } from "../ui";
-import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, StatusEntry } from "../repo";
+import { CommitDetail, DiffSource, FileChange, loadAllFiles, loadCommit, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
 
@@ -341,6 +341,20 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const unstaged = status.filter((e) => (e.work !== " " || e.index === "?") && statusCode(e, false) !== "U");
   const staged = status.filter((e) => e.index !== " " && e.index !== "?" && statusCode(e, true) !== "U");
 
+  const operation = ctx.data.operation === "merge" || ctx.data.operation === "rebase" ? ctx.data.operation : null;
+  const [opInfo, setOpInfo] = useState<OperationInfo | null>(null);
+  useEffect(() => {
+    setOpInfo(null);
+    if (!operation) {
+      return;
+    }
+    let live = true;
+    void loadOperation(ctx.cwd, operation).then((info) => live && setOpInfo(info));
+    return () => {
+      live = false;
+    };
+  }, [operation, ctx.cwd, ctx.data.head]);
+
   useEffect(() => {
     if (amend && !summary && ctx.data.head) {
       loadHeadMessage(ctx.cwd).then((m) => {
@@ -359,7 +373,6 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   };
 
-  const skipCommit = ctx.data.operation === "rebase" && !staged.length && !amend;
   const canCommit = !!summary.trim() && (staged.length > 0 || amend);
   const commitKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
@@ -381,12 +394,26 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   return (
     <div className="detail wip-detail">
       <div className="detail-head">
-        {ctx.data.status.length} file changes on <b>{ctx.data.branch ?? "detached HEAD"}</b>
+        {operation && conflicted.length > 0 ? (
+          <span>
+            <span className="detached-icon">⚠</span>
+            {operation === "rebase" ? "Rebase conflicts detected" : "Merge conflicts detected"}
+          </span>
+        ) : (
+          <span>
+            {ctx.data.status.length} file changes on <b>{ctx.data.branch ?? "detached HEAD"}</b>
+          </span>
+        )}
         <span className="segmented small">
           <button className={!tree ? "on" : ""} onClick={() => setTree(false)}>☰</button>
           <button className={tree ? "on" : ""} onClick={() => setTree(true)}>⊞</button>
         </span>
       </div>
+      {operation && conflicted.length > 0 && opInfo && opInfo.from && opInfo.to && (
+        <div className="conflicts-header">
+          {operation === "rebase" ? `Rebasing ${opInfo.from} onto ${opInfo.to}` : `Merging ${opInfo.from} into ${opInfo.to}`}
+        </div>
+      )}
       {!ctx.data.branch && ctx.data.head && ctx.data.operation !== "rebase" && (
         <div className="detached-warning" title="If you checkout another branch or commit, you might lose any commits created in a detached HEAD state">
           <span className="detached-icon">⚠</span>
@@ -456,26 +483,47 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
           />
         </div>
       </div>
-      <div className="commit-box">
-        <div className="commit-box-head">
-          <span>Commit</span>
-          <label className="check">
-            <input type="checkbox" checked={amend} disabled={!ctx.data.head} onChange={(e) => setAmend(e.target.checked)} /> Amend
-          </label>
+      {operation ? (
+        <div className="commit-box">
+          <button
+            className="commit-btn"
+            disabled={operation === "merge" && !staged.length}
+            onClick={() => (staged.length ? A.continueOperation(ctx, operation) : A.skipOperation(ctx))}
+          >
+            {operation === "merge"
+              ? staged.length
+                ? "Commit and Merge"
+                : "No Changes to Merge"
+              : staged.length
+                ? "Continue Rebase"
+                : "Skip Commit"}
+          </button>
+          <button className="commit-btn danger" onClick={() => A.abortOperation(ctx, operation)}>
+            {operation === "merge" ? "Abort Merge" : "Abort Rebase"}
+          </button>
         </div>
-        <div className="summary-row">
-          <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={commitKey} />
-          <SummaryCounter value={summary} />
+      ) : (
+        <div className="commit-box">
+          <div className="commit-box-head">
+            <span>Commit</span>
+            <label className="check">
+              <input type="checkbox" checked={amend} disabled={!ctx.data.head} onChange={(e) => setAmend(e.target.checked)} /> Amend
+            </label>
+          </div>
+          <div className="summary-row">
+            <input className="summary" placeholder="Commit summary" maxLength={200} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={commitKey} />
+            <SummaryCounter value={summary} />
+          </div>
+          <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={commitKey} />
+          <button
+            className="commit-btn"
+            disabled={!canCommit}
+            onClick={doCommit}
+          >
+            {!staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+          </button>
         </div>
-        <textarea className="description" placeholder="Description" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={commitKey} />
-        <button
-          className="commit-btn"
-          disabled={!skipCommit && !canCommit}
-          onClick={skipCommit ? () => A.skipOperation(ctx) : doCommit}
-        >
-          {skipCommit ? "Skip Commit" : !staged.length && !amend ? "Stage files/changes to commit" : amend ? "Amend previous commit" : `Commit changes to ${staged.length} file${staged.length === 1 ? "" : "s"}`}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

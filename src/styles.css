@@ -2125,3 +2125,13 @@ a.sha {
   margin: 0;
   color: var(--red);
 }
+
+.conflicts-header {
+  margin: 4px 8px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.commit-btn.danger {
+  margin-top: 6px;
+}

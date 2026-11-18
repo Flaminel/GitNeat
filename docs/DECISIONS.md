@@ -500,13 +500,14 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Limits: The reference push in `test/reference/actions.ts` mirrors the flow with `git` calls. The Pull scenario uses a branch that is only behind, because a diverged pull makes a merge commit whose message holds the temporary path.
 - Limits: No manual check in the app: the Tauri window was not started in this task.
 
-## D75. Operation banner with branch names, Skip and conflicts in the WIP panel
+## D75. Merge and rebase conflict panel, branch names and Skip Commit
 
-- Decision: The Tauri command `load_operation` returns `{from, to}` for the running operation. `RepoView` calls it when the operation or HEAD changes. The banner reads "Merging {from} into {to}" or "Rebasing {from} onto {to}". A cherry-pick or a revert keeps "A {operation} is in progress."
-- Rules: For a merge, `from` is `name-rev` of `MERGE_HEAD` (the same label as the merge tool B pane) and `to` is the current branch. For a rebase, `from` is `head-name` and `to` is `name-rev` of `onto`, both read from `rebase-merge` or `rebase-apply`.
-- Decision: During a rebase with nothing staged, the commit button in the WIP panel reads "Skip Commit" and runs `rebase --skip` through the action `skipOperation`. The banner shows the same button under the same condition.
-- Decision: The WIP panel has a "Conflicted Files ({n})" section above Unstaged Files, with "Mark all resolved". The action `markResolved` runs `git add -- {paths}`. Conflicted files leave the Unstaged section. During an operation, the Staged section reads "Resolved Files ({n})".
-- Reason: Source has `ConflictsHeader-Merging`, `ConflictsHeader-Rebasing`, the sections "Conflicted Files" and "Resolved Files" and `Folder-MarkConflictedFilesAsResolved` (`docs/EVIDENCE.md` sections 10 and 12). Task T20.
-- Limits: The evidence does not say if the banner also holds Skip. GitNeat shows it there as the task asks. A deleted-by-one-side conflict also uses `git add`, which keeps the file.
-- Limits: No manual check in the app: the Tauri window was not started in this task. The Rust test `operation_info_names_branches` covers a conflicted merge and a conflicted rebase.
-
+- Decision: Source has no banner above the panes. It shows everything in the right panel. GitNeat does the same for a merge and a rebase. The old banner stays only for a cherry-pick and a revert, because the evidence has no flow for them.
+- Decision: If conflicted files exist, the WIP header reads "Merge conflicts detected" or "Rebase conflicts detected" with a warning icon, in place of "N file changes on {branch}". A line below reads "Merging {from} into {to}" or "Rebasing {from} onto {to}".
+- Decision: The Tauri command `load_operation` returns `{from, to}`. For a merge, `from` is `name-rev` of `MERGE_HEAD` and `to` is the current branch. For a rebase, `from` is the short name in `rebase-merge/head-name` and `to` is the first 6 characters of `rebase-merge/onto`. The line hides if a name is empty.
+- Decision: During a merge, the commit area has "Commit and Merge" (staged files exist) or a disabled "No Changes to Merge", and "Abort Merge". During a rebase, it has "Continue Rebase" (staged files exist) or "Skip Commit", and "Abort Rebase". "Skip Commit" runs `rebase --skip` (action `skipOperation`).
+- Decision: A "Conflicted Files ({n})" section sits above Unstaged Files, with "Mark all resolved". The action `markResolved` runs `git add -- {paths}`. Conflicted files leave the Unstaged section. During an operation, the Staged section reads "Resolved Files ({n})".
+- Reason: `ConflictsHeader-Merging`, `ConflictsHeader-Rebasing`, `RightPanel-*ConflictsDetected`, `CommitAndMergeButtonLabel`, `DisabledMergeButtonLabel`, `ContinueRebaseButtonLabel`, `SkipCommitButtonLabel`, `Abort*ButtonLabel` and `getGitRebaseBaseSha` (`docs/EVIDENCE.md` sections 10 and 12). Task T20.
+- Limits: Source keeps the commit message box during a merge. GitNeat hides it, and "Commit and Merge" uses the default merge message (`commit --no-edit`).
+- Limits: Source reads the merge base name from the HEAD branch shorthand. GitNeat shows the branch name, or the short sha if HEAD is detached.
+- Limits: No visual check in the app. The Tauri window started, but `screencapture` returned a black image. The Rust test `operation_info_names_branches` covers a conflicted merge and rebase.

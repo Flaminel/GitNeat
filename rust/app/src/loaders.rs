@@ -320,16 +320,8 @@ pub async fn load_operation(cwd: &str, op: Option<Operation>) -> OperationInfo {
             None => current_branch(cwd).await,
         };
         let to = match onto {
-            Some(sha) => {
-                let r = raw(cwd, &["name-rev", "--name-only", &sha], None, None).await;
-                let out = js_trim(&r.stdout);
-                if r.code == 0 && !out.is_empty() && out != "undefined" {
-                    short_name(out)
-                } else {
-                    sha.chars().take(7).collect()
-                }
-            }
-            None => "B".to_string(),
+            Some(sha) => sha.chars().take(6).collect(),
+            None => String::new(),
         };
         return OperationInfo { from, to };
     }
@@ -486,8 +478,14 @@ mod tests {
         sh(&dir, &["merge", "--abort"]);
         sh(&dir, &["checkout", "-q", "side"]);
         sh(&dir, &["rebase", "main"]);
+        let onto = std::process::Command::new("git")
+            .args(["rev-parse", "--short=6", "main"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let onto = String::from_utf8(onto.stdout).unwrap();
         let info = load_operation(cwd, Some(Operation::Rebase)).await;
-        assert_eq!((info.from.as_str(), info.to.as_str()), ("side", "main"));
+        assert_eq!((info.from.as_str(), info.to.as_str()), ("side", onto.trim()));
         sh(&dir, &["rebase", "--abort"]);
         let _ = std::fs::remove_dir_all(&dir);
     }

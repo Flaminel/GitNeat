@@ -89,7 +89,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change a panel width default | `useStoredWidth` calls in `src/RepoView.tsx` and `src/components/GraphView.tsx` |
 | Change left panel collapse or the rail | `leftCollapsed` in `src/RepoView.tsx`, the rail in `src/components/Sidebar.tsx`, `.rail` styles in `src/styles.css` |
 | Change the Pull options or the default pull mode (D63) | `PULL_OPTIONS` in `src/components/Toolbar.tsx` |
-| Change the operation banner text or Skip (D75) | `operationText` in `src/RepoView.tsx`, `load_operation` in `rust/app/src/loaders.rs` |
+| Change the merge and rebase panel text or buttons (D75) | `WipInfo` in `src/components/DetailPanel.tsx`, `load_operation` in `rust/app/src/loaders.rs` |
 | Change the Conflicted Files section (D75) | `WipInfo` in `src/components/DetailPanel.tsx`, `markResolved` in `rust/app/src/actions/history.rs` |
 | Change a repository shortcut (D59) | The keydown handler in `src/RepoView.tsx` |
 | Change a tab shortcut | The keydown handler in `src/App.tsx` |
