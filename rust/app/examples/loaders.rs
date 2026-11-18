@@ -42,6 +42,12 @@ async fn call(name: &str, input: &Value) -> Value {
             let limit = u32::try_from(limit).expect("limit");
             ok(loaders::load_file_history(&cwd, &file, limit).await)
         }
+        "loadMerge" => {
+            let op = input.get("operation").cloned().unwrap_or(Value::Null);
+            let op = serde_json::from_value(op).expect("operation json");
+            ok(loaders::load_merge(&cwd, &file, op).await)
+        }
+        "loadHeadMessage" => ok(Ok::<_, String>(loaders::load_head_message(&cwd).await)),
         other => panic!("unknown loader {other}"),
     }
 }

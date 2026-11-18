@@ -74,6 +74,7 @@ struct ResolveFile {
 
 pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
     Some(match name {
+        "init" => git(cwd, &["init"]).await.map(Value::String),
         "stashSave" => stash_save(cwd, args).await,
         "stashApply" => stash(cwd, "apply", args).await,
         "stashPop" => stash(cwd, "pop", args).await,

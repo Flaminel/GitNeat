@@ -1,7 +1,9 @@
 use crate::actions::{Res, git, raw};
-use crate::load::{value, values};
+use crate::commands::write_temp;
+use crate::load::{Operation, js_trim, value, values};
 use crate::paths;
 use diff::port::ParsedDiff;
+use merge::port::Typed;
 use repo::port::{BlameLine, read_blame, read_commit, read_log, read_name_status};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -207,4 +209,150 @@ pub async fn load_file_history(cwd: &str, file: &str, limit: u32) -> Res<Vec<Val
     let format = format!("--format=%H{FS}%P{FS}%an{FS}%ae{FS}%at{FS}%s{RS}");
     let out = git(cwd, &["log", "--follow", &limit_arg, &format, "--", file]).await?;
     Ok(values(&read_log(&out)))
+}
+
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    A,
+    B,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum MergeLoad {
+    Text {
+        segments: Vec<Value>,
+        #[serde(rename = "bName")]
+        b_name: String,
+    },
+    Binary,
+    Delete {
+        missing: Side,
+    },
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct HeadMessage {
+    pub summary: String,
+    pub description: String,
+}
+
+fn is_line_end(c: char) -> bool {
+    matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}')
+}
+
+fn short_name(text: &str) -> String {
+    let name = text.strip_prefix("remotes/").unwrap_or(text);
+    let cut = name
+        .char_indices()
+        .find(|(i, c)| matches!(c, '~' | '^') && !name[*i..].chars().any(is_line_end))
+        .map(|(i, _)| i);
+    match cut {
+        Some(i) => name[..i].to_string(),
+        None => name.to_string(),
+    }
+}
+
+async fn b_label(cwd: &str, op: Option<Operation>) -> String {
+    let Some(op) = op else {
+        return "B".to_string();
+    };
+    let (args, head) = match op {
+        Operation::Merge => (["name-rev", "--name-only"], "MERGE_HEAD"),
+        Operation::CherryPick => (["rev-parse", "--short"], "CHERRY_PICK_HEAD"),
+        Operation::Revert => (["rev-parse", "--short"], "REVERT_HEAD"),
+        Operation::Rebase => (["rev-parse", "--short"], "REBASE_HEAD"),
+    };
+    let r = raw(cwd, &[args[0], args[1], head], None, None).await;
+    let out = js_trim(&r.stdout);
+    if r.code == 0 && !out.is_empty() {
+        short_name(out)
+    } else {
+        "B".to_string()
+    }
+}
+
+pub async fn load_merge(cwd: &str, path: &str, op: Option<Operation>) -> Res<MergeLoad> {
+    let show = |n: u8| {
+        let spec = format!(":{n}:{path}");
+        async move { raw(cwd, &["show", &spec], None, None).await }
+    };
+    let (base, a, b) = tokio::join!(show(1), show(2), show(3));
+    if a.code != 0 || b.code != 0 {
+        let missing = if a.code != 0 { Side::A } else { Side::B };
+        return Ok(MergeLoad::Delete { missing });
+    }
+    if a.stdout.contains('\0') || b.stdout.contains('\0') {
+        return Ok(MergeLoad::Binary);
+    }
+    let root = if base.code == 0 {
+        base.stdout
+    } else {
+        String::new()
+    };
+    let (ours, root, theirs) =
+        tokio::join!(write_temp(a.stdout), write_temp(root), write_temp(b.stdout));
+    let (ours, root, theirs) = (ours?, root?, theirs?);
+    let merged = raw(
+        cwd,
+        &[
+            "merge-file",
+            "-p",
+            "--diff3",
+            "-L",
+            "A",
+            "-L",
+            "base",
+            "-L",
+            "B",
+            &ours,
+            &root,
+            &theirs,
+        ],
+        None,
+        None,
+    )
+    .await;
+    if merged.code < 0 || merged.code > 127 {
+        let text = js_trim(&merged.stderr);
+        return Err(if text.is_empty() {
+            "git merge-file failed".to_string()
+        } else {
+            text.to_string()
+        });
+    }
+    let segments = Typed::parse_segments(&merged.stdout)
+        .iter()
+        .map(|s| s.to_value())
+        .collect();
+    Ok(MergeLoad::Text {
+        segments,
+        b_name: b_label(cwd, op).await,
+    })
+}
+
+pub async fn load_head_message(cwd: &str) -> HeadMessage {
+    let r = raw(cwd, &["show", "-s", "--format=%B", "HEAD"], None, None).await;
+    let mut lines = js_trim(&r.stdout).split('\n');
+    let summary = lines.next().unwrap_or_default().to_string();
+    let rest: Vec<&str> = lines.collect();
+    HeadMessage {
+        summary,
+        description: js_trim(&rest.join("\n")).to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_name_cuts_suffix() {
+        assert_eq!(short_name("remotes/origin/main~2"), "origin/main");
+        assert_eq!(short_name("side^0"), "side");
+        assert_eq!(short_name("a~1\nb"), "a~1\nb");
+        assert_eq!(short_name("a~1\nb~2"), "a~1\nb");
+        assert_eq!(short_name("plain"), "plain");
+    }
 }

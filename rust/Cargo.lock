@@ -1587,6 +1587,7 @@ dependencies = [
  "gix",
  "gix-status",
  "graph",
+ "merge",
  "notify",
  "repo",
  "serde",

@@ -3,6 +3,12 @@ use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Deserialize)]
+struct CloneRepo {
+    url: String,
+    target: String,
+}
+
+#[derive(Deserialize)]
 struct FastForward {
     name: String,
     current: bool,
@@ -80,6 +86,7 @@ struct Name {
 
 pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
     Some(match name {
+        "clone" => clone(cwd, args).await,
         "fastForward" => fast_forward(cwd, args).await,
         "pullBranch" => pull_branch(cwd, args).await,
         "pull" => pull(cwd, args).await,
@@ -205,4 +212,11 @@ async fn remove_remote(cwd: &str, args: &Value) -> Res<Value> {
 async fn fetch_remote(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
     run(cwd, true, git(cwd, &["fetch", "--prune", &a.name])).await
+}
+
+async fn clone(cwd: &str, args: &Value) -> Res<Value> {
+    let a: CloneRepo = parse(args)?;
+    git(cwd, &["clone", "--", &a.url, &a.target])
+        .await
+        .map(Value::String)
 }

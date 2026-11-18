@@ -1,7 +1,8 @@
 use crate::actions;
 use crate::git::{self, GitResult};
+use crate::load::Operation;
 use crate::load::{self, RepoData};
-use crate::loaders::{self, DiffSides, DiffSource};
+use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::menus::{self, MenuKind};
 use crate::paths;
@@ -116,6 +117,16 @@ pub async fn load_blame(cwd: String, file: String, rev: Option<String>) -> Res<V
 #[tauri::command]
 pub async fn load_file_history(cwd: String, file: String, limit: Option<u32>) -> Res<Vec<Value>> {
     loaders::load_file_history(&cwd, &file, limit.unwrap_or(200)).await
+}
+
+#[tauri::command]
+pub async fn load_merge(cwd: String, path: String, operation: Option<Operation>) -> Res<MergeLoad> {
+    loaders::load_merge(&cwd, &path, operation).await
+}
+
+#[tauri::command]
+pub async fn load_head_message(cwd: String) -> HeadMessage {
+    loaders::load_head_message(&cwd).await
 }
 
 async fn pick_folder(window: &Window, create: bool) -> Option<PathBuf> {

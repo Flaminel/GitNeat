@@ -23,6 +23,7 @@ gix-status = "0.37.0"
 repo = { path = "../repo" }
 diff = { path = "../diff" }
 graph = { path = "../graph" }
+merge = { path = "../merge" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

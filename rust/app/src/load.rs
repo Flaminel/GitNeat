@@ -6,7 +6,7 @@ use repo::port::{
     Commit, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log, read_refs,
     read_status,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -14,7 +14,7 @@ const FS: &str = "\x1f";
 const RS: &str = "\x1e";
 const WIP: &str = "WIP";
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Operation {
     Rebase,
@@ -77,6 +77,10 @@ fn is_js_space(c: char) -> bool {
                 | '\u{3000}'
                 | '\u{feff}'
     )
+}
+
+pub(crate) fn js_trim(text: &str) -> &str {
+    text.trim_matches(is_js_space)
 }
 
 pub(crate) fn non_blank(text: &str) -> Option<String> {
