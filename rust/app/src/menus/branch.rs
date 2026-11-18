@@ -402,3 +402,37 @@ pub(super) async fn ref_menu(
     };
     Ok(branch_groups(env, &group, &info, false, panel))
 }
+
+pub(super) fn refs_menu(env: &Env, fulls: &[String]) -> Vec<MenuSpec> {
+    let picked: Vec<&RefIn> = env
+        .refs
+        .iter()
+        .filter(|r| fulls.contains(&r.full))
+        .collect();
+    let n = picked.len();
+    let count = |test: &dyn Fn(&RefIn) -> bool| picked.iter().filter(|r| test(r)).count();
+    let hidden = count(&|r| env.hidden.contains(&r.full));
+    let soloed = count(&|r| env.solo.contains(&r.full));
+    let delete = picked
+        .iter()
+        .all(|r| r.current != Some(true))
+        .then(|| item("deleteMany", format!("Delete {n} local branches")));
+    groups(vec![
+        delete.into_iter().collect(),
+        flat(vec![
+            (hidden > 0).then(|| item("showMany", format!("Show {n} branches"))),
+            (hidden < n).then(|| item("hideMany", format!("Hide {n} branches"))),
+            (soloed < n).then(|| item("soloMany", format!("Solo {n} branches"))),
+            (soloed > 0).then(|| item("unsoloMany", format!("Stop soloing {n} branches"))),
+        ]),
+    ])
+}
+
+pub(super) fn folder_menu(name: &str, count: usize) -> Vec<MenuSpec> {
+    let label = if count == 1 {
+        format!("Delete 1 branch in folder \"{name}\"")
+    } else {
+        format!("Delete {count} branches in folder \"{name}\"")
+    };
+    vec![item("deleteFolder", label)]
+}

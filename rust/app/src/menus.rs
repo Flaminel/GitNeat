@@ -21,6 +21,8 @@ pub enum MenuKind {
     File,
     Drop,
     Multi,
+    Refs,
+    Folder,
 }
 
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -187,6 +189,19 @@ struct MultiArgs {
     shas: Vec<String>,
     #[serde(default)]
     wip: bool,
+}
+
+#[derive(Deserialize)]
+struct RefsArgs {
+    #[serde(flatten)]
+    env: Env,
+    fulls: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct FolderArgs {
+    name: String,
+    count: usize,
 }
 
 fn has(value: &Option<String>) -> bool {
@@ -672,6 +687,14 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
             let a: MultiArgs = actions::parse(args)?;
             multi_menu(cwd, &a.env, &a.shas, a.wip).await?
         }
+        MenuKind::Refs => {
+            let a: RefsArgs = actions::parse(args)?;
+            branch::refs_menu(&a.env, &a.fulls)
+        }
+        MenuKind::Folder => {
+            let a: FolderArgs = actions::parse(args)?;
+            branch::folder_menu(&a.name, a.count)
+        }
     };
     Ok(Some(tidy(items)))
 }
@@ -815,6 +838,55 @@ mod tests {
         assert_eq!(
             labels(&wip_menu()),
             ["Stash all changes", "-", "Discard all changes"]
+        );
+    }
+    fn refs_labels(hidden: &[&str], solo: &[&str], current: &str) -> Vec<String> {
+        let refs: Vec<Value> = ["a", "b", "c"]
+            .iter()
+            .map(|n| {
+                json!({"kind": "local", "name": n, "full": format!("refs/heads/{n}"), "sha": "1", "current": *n == current})
+            })
+            .collect();
+        let env: Env = serde_json::from_value(json!({
+            "head": "1", "branch": "x", "refs": refs, "hidden": hidden, "solo": solo
+        }))
+        .unwrap();
+        let fulls: Vec<String> = ["a", "b"].iter().map(|n| format!("refs/heads/{n}")).collect();
+        labels(&tidy(branch::refs_menu(&env, &fulls)))
+    }
+
+    #[test]
+    fn multi_ref_menu_follows_the_source_rules() {
+        assert_eq!(
+            refs_labels(&[], &[], ""),
+            ["Delete 2 local branches", "-", "Hide 2 branches", "Solo 2 branches"]
+        );
+        assert_eq!(
+            refs_labels(&["refs/heads/a"], &["refs/heads/b"], ""),
+            [
+                "Delete 2 local branches",
+                "-",
+                "Show 2 branches",
+                "Hide 2 branches",
+                "Solo 2 branches",
+                "Stop soloing 2 branches"
+            ]
+        );
+        assert_eq!(
+            refs_labels(&["refs/heads/a", "refs/heads/b"], &[], "a"),
+            ["Show 2 branches", "Solo 2 branches"]
+        );
+    }
+
+    #[test]
+    fn folder_menu_counts_branches() {
+        assert_eq!(
+            labels(&branch::folder_menu("feat", 1)),
+            ["Delete 1 branch in folder \"feat\""]
+        );
+        assert_eq!(
+            labels(&branch::folder_menu("feat/x", 3)),
+            ["Delete 3 branches in folder \"feat/x\""]
         );
     }
 }

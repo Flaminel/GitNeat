@@ -103,6 +103,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the Preferences dialog, auto-fetch or the commit settings (D84) | `preferences` in `src/App.tsx`, the auto-fetch effect and `loadMore` in `src/RepoView.tsx`, `src/commitLimit.ts` |
 | Change the submodule menu, status or actions (D97) | `submodule_menu` in `rust/app/src/menus.rs`, `rust/app/src/actions/submodule.rs`, the submodule functions in `src/actions.ts`, the SUBMODULES section in `src/components/Sidebar.tsx` |
 | Change a drag and drop action | `dropMenu` in `src/menus.ts` |
+| Change the left panel selection, the multi menu or the folder menu (D98) | `clickRef` and `menuRef` in `src/components/Sidebar.tsx`, `refsMenu` and `folderMenu` in `src/menus.ts`, `refs_menu` and `folder_menu` in `rust/app/src/menus/branch.rs`, `deleteBranches` in `src/actions.ts` |
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
 | Change the commit description in the graph | `describe` in `rust/repo/src/port.rs`, `descMenu` in `src/components/GraphView.tsx`, `.message-body` in `src/styles.css` (D58) |
 | Change hunk view syntax or bracket colors | `renderModelLine` in `src/components/DiffView.tsx`, `.bracket-*` in `src/styles.css` |

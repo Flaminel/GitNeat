@@ -505,6 +505,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
             setOpenSections={(list) => setPrefs({ openSections: list })}
             sectionYs={prefs.sectionYsByKey ?? {}}
             setSectionYs={(ys) => setPrefs({ sectionYsByKey: ys })}
+            selectedSha={selected}
           />
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}
@@ -551,7 +552,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
                     : M.commitMenu(ctx, c)
               }
               onRefMenu={(r) => M.refMenu(ctx, r)}
-              onRefDrop={(source, target) => M.dropMenu(ctx, source, target)}
+              onRefDrop={(source, target) => M.canDrop(ctx, source, target) && M.dropMenu(ctx, source, target)}
               onRefOpen={(r) => A.openRef(ctx, r)}
             />
           )}

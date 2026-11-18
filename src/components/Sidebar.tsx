@@ -20,6 +20,7 @@ interface Props {
   setOpenSections(sections: string[]): void;
   sectionYs: Record<string, number>;
   setSectionYs(ys: Record<string, number>): void;
+  selectedSha: string | null;
 }
 
 interface TreeNode {
@@ -43,6 +44,16 @@ function buildTree(refs: Ref[], strip = 0): TreeNode {
     node.ref = ref;
   }
   return root;
+}
+
+function sortedEntries(node: TreeNode): [string, TreeNode][] {
+  return [...node.children.entries()].sort(([a], [b]) =>
+    a.replace("\0", "").localeCompare(b.replace("\0", ""), undefined, { numeric: true }),
+  );
+}
+
+function orderedRefs(node: TreeNode): Ref[] {
+  return sortedEntries(node).flatMap(([, child]) => (child.ref && child.children.size === 0 ? [child.ref] : orderedRefs(child)));
 }
 
 function Section(props: {
@@ -115,8 +126,12 @@ export function Sidebar({
   setOpenSections,
   sectionYs,
   setSectionYs,
+  selectedSha,
 }: Props) {
   const [filter, setFilter] = useState("");
+  const [selection, setSelection] = useState<string[]>([]);
+  const [over, setOver] = useState<string | null>(null);
+  const asked = useRef<string | null>(null);
   const [submodules, setSubmodules] = useState<Submodule[]>([]);
   const closed = new Set(closedList);
   const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
@@ -158,6 +173,12 @@ export function Sidebar({
   const data = ctx.data;
 
   useEffect(() => {
+    if (selectedSha !== asked.current) {
+      setSelection([]);
+    }
+  }, [selectedSha]);
+
+  useEffect(() => {
     let live = true;
     gitneat()
       .loadSubmodules(data.cwd)
@@ -197,16 +218,84 @@ export function Sidebar({
     setClosed([...next]);
   };
 
+  const selected = selection.filter((full) => data.refs.some((r) => r.full === full && r.kind === "local"));
+
+  const askSelect = (sha: string) => {
+    asked.current = sha;
+    onSelectSha(sha);
+  };
+
+  const clickRef = (e: MouseEvent, ref: Ref) => {
+    const toggle = e.metaKey || e.ctrlKey;
+    if (ref.kind !== "local") {
+      if (!toggle && !e.shiftKey) {
+        setSelection([]);
+      }
+      askSelect(ref.sha);
+      return;
+    }
+    if (toggle) {
+      if (!selected.includes(ref.full)) {
+        askSelect(ref.sha);
+      }
+      setSelection(selected.includes(ref.full) ? selected.filter((f) => f !== ref.full) : [...selected, ref.full]);
+      return;
+    }
+    const anchor = selected[selected.length - 1];
+    if (e.shiftKey && anchor) {
+      askSelect(ref.sha);
+      if (selected.includes(ref.full)) {
+        return;
+      }
+      const order = orderedRefs(buildTree(locals)).map((r) => r.full);
+      const a = order.indexOf(anchor);
+      const b = order.indexOf(ref.full);
+      if (a < 0 || b < 0) {
+        setSelection([ref.full]);
+        return;
+      }
+      const range = order.slice(Math.min(a, b), Math.max(a, b) + 1).filter((f) => !selected.includes(f));
+      setSelection([...selected, ...range]);
+      return;
+    }
+    setSelection([ref.full]);
+    askSelect(ref.sha);
+  };
+
+  const menuRef = (ref: Ref) => {
+    if (ref.kind === "local" && selected.length > 1 && selected.includes(ref.full)) {
+      return M.refsMenu(ctx, data.refs.filter((r) => selected.includes(r.full)), () => setSelection([]));
+    }
+    return M.refMenu(ctx, ref, true);
+  };
+
   const renderRef = (ref: Ref, label: string, depth: number) => {
     const hidden = ctx.solo.length ? !ctx.solo.includes(ref.full) : ctx.hidden.includes(ref.full);
+    const branch = ref.kind !== "tag";
     return (
       <div
         key={ref.full}
-        className={`item${ref.current ? " current" : ""}${hidden ? " hidden-ref" : ""}`}
+        className={`item${ref.current ? " current" : ""}${hidden ? " hidden-ref" : ""}${selected.includes(ref.full) ? " selected-row" : ""}${over === ref.full ? " drop-over" : ""}`}
         style={{ paddingLeft: 26 + depth * 14 }}
-        onClick={() => onSelectSha(ref.sha)}
-        onDoubleClick={() => A.openRef(ctx, ref)}
-        onContextMenu={() => M.refMenu(ctx, ref, true)}
+        draggable={branch}
+        onDragStart={(e) => e.dataTransfer.setData("text/gitneat-ref", ref.full)}
+        onDragOver={(e) => {
+          if (branch && e.dataTransfer.types.includes("text/gitneat-ref")) {
+            e.preventDefault();
+            setOver(ref.full);
+          }
+        }}
+        onDragLeave={() => setOver(null)}
+        onDrop={(e) => {
+          const source = e.dataTransfer.getData("text/gitneat-ref");
+          setOver(null);
+          if (branch && source && M.canDrop(ctx, source, ref)) {
+            M.dropMenu(ctx, source, ref);
+          }
+        }}
+        onClick={(e) => clickRef(e, ref)}
+        onDoubleClick={(e) => !(e.metaKey || e.ctrlKey || e.shiftKey) && A.openRef(ctx, ref)}
+        onContextMenu={() => menuRef(ref)}
       >
         <span
           className={`gutter${ref.current ? " checked" : hidden ? " off" : ""}`}
@@ -230,22 +319,28 @@ export function Sidebar({
     );
   };
 
-  const renderTree = (node: TreeNode, depth: number, prefix: string): ReactNode[] =>
-    [...node.children.entries()]
-      .sort(([a], [b]) => a.replace("\0", "").localeCompare(b.replace("\0", ""), undefined, { numeric: true }))
+  const renderTree = (node: TreeNode, depth: number, prefix: string, path = ""): ReactNode[] =>
+    sortedEntries(node)
       .map(([key, child]) => {
         if (child.ref && child.children.size === 0) {
           return renderRef(child.ref, child.name, depth);
         }
         const id = `${prefix}/${key}`;
+        const folderPath = path ? `${path}/${child.name}` : child.name;
+        const inFolder = prefix.startsWith("local") ? data.refs.filter((r) => r.kind === "local" && r.full.startsWith(`refs/heads/${folderPath}/`)) : [];
         return (
           <div key={id}>
-            <div className="item folder" style={{ paddingLeft: 26 + depth * 14 }} onClick={() => toggleFolder(id)}>
+            <div
+              className="item folder"
+              style={{ paddingLeft: 26 + depth * 14 }}
+              onClick={() => toggleFolder(id)}
+              onContextMenu={inFolder.length ? () => M.folderMenu(ctx, folderPath, inFolder) : undefined}
+            >
               <span className={`chevron${isClosed(id) ? "" : " open"}`}>›</span>
               <span className="item-icon">{Icon.folder}</span>
               <span className="item-name">{child.name}</span>
             </div>
-            {!isClosed(id) && renderTree(child, depth + 1, id)}
+            {!isClosed(id) && renderTree(child, depth + 1, id, folderPath)}
           </div>
         );
       });

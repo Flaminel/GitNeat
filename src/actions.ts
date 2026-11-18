@@ -333,6 +333,36 @@ export async function deleteBranch(ctx: Ctx, ref: Ref, alsoRemote = false): Prom
   );
 }
 
+export async function deleteBranches(ctx: Ctx, refs: Ref[], folder?: string): Promise<boolean> {
+  const n = refs.length;
+  const message = folder
+    ? `This is a destructive operation, are you sure you want to delete ${n === 1 ? "1 local branch" : `${n} local branches`} in "${folder}"?`
+    : `This is a destructive operation, are you sure you want to delete ${n} local branches?`;
+  if (!(await ctx.ui.confirm("Delete branches", message, "Delete", true))) {
+    return false;
+  }
+  const deleted: string[] = [];
+  const ok = await ctx.ui.task(
+    "Delete branches",
+    async () => {
+      for (const ref of refs) {
+        try {
+          await act(ctx.cwd, "deleteBranch", { name: ref.name, upstream: ref.upstream, alsoRemote: false, force: true });
+          deleted.push(ref.name);
+        } catch {
+          continue;
+        }
+      }
+    },
+    failTitle("Delete branches"),
+  );
+  if (ok && deleted.length) {
+    ctx.ui.toast(deleted.length === 1 ? `Deleted: ${deleted[0]}` : `Deleted ${deleted.length} branches`);
+  }
+  ctx.refresh();
+  return true;
+}
+
 export async function deleteRemoteBranch(ctx: Ctx, remoteBranch: string): Promise<void> {
   const ok = await ctx.ui.confirm("Delete remote branch", `Delete ${remoteBranch} on the remote?`, "Delete", true);
   if (ok) {

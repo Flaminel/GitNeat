@@ -636,6 +636,20 @@ body.resizing-row * {
   color: #fff;
 }
 
+.item.selected-row {
+  background: var(--selected);
+  color: #fff;
+}
+
+.item.drop-over {
+  outline: 1px dashed var(--selected-strong);
+  outline-offset: -1px;
+}
+
+.item[draggable="true"] {
+  cursor: grab;
+}
+
 .item.hidden-ref .item-name {
   color: var(--text-faint);
 }

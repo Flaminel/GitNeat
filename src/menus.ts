@@ -3,7 +3,7 @@ import { Ctx } from "./actions";
 import { gitneat } from "./api";
 import { Commit, commitWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Submodule, Worktree } from "./repo";
 
-type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "submodule" | "file" | "drop" | "multi";
+type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "submodule" | "file" | "drop" | "multi" | "refs" | "folder";
 
 type Handlers = Record<string, () => unknown>;
 
@@ -259,6 +259,11 @@ export function fileMenu(
   });
 }
 
+export function canDrop(ctx: Ctx, sourceFull: string, target: Ref): boolean {
+  const source = ctx.data.refs.find((r) => r.full === sourceFull);
+  return !!source && source.sha !== target.sha && (source.kind === "local" || target.kind === "local");
+}
+
 export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<void> {
   const source = ctx.data.refs.find((r) => r.full === sourceFull);
   if (!source) {
@@ -275,6 +280,25 @@ export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<voi
     fastForward: () => A.fastForward(ctx, target, source.name),
     pushTo: () => A.pushTo(ctx, source.name, remote, rest.join("/")),
   });
+}
+
+export function refsMenu(ctx: Ctx, refs: Ref[], done: () => void): Promise<void> {
+  const fulls = refs.map((r) => r.full);
+  return present(ctx, "refs", { ...env(ctx), fulls }, {
+    deleteMany: async () => {
+      if (await A.deleteBranches(ctx, refs)) {
+        done();
+      }
+    },
+    showMany: () => ctx.setHidden(fulls, false),
+    hideMany: () => ctx.setHidden(fulls, true),
+    soloMany: () => ctx.setSolo(fulls, true),
+    unsoloMany: () => ctx.setSolo(fulls, false),
+  });
+}
+
+export function folderMenu(ctx: Ctx, name: string, refs: Ref[]): Promise<void> {
+  return present(ctx, "folder", { name, count: refs.length }, { deleteFolder: () => A.deleteBranches(ctx, refs, name) });
 }
 
 export function multiMenu(ctx: Ctx, commits: Commit[], wip = false): Promise<void> {
