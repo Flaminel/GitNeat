@@ -35,6 +35,7 @@ interface DialogRequest {
   fields: Field[];
   ok: string;
   danger?: boolean;
+  choices?: Choice[];
   resolve: (values: Record<string, string> | null) => void;
 }
 
@@ -45,9 +46,16 @@ interface Toast {
   kind: "error" | "info";
 }
 
+export interface Choice {
+  label: string;
+  value: string;
+  danger?: boolean;
+}
+
 export interface Ui {
   prompt(title: string, fields: Field[], ok?: string): Promise<Record<string, string> | null>;
   confirm(title: string, message: string, ok?: string, danger?: boolean): Promise<boolean>;
+  choose(title: string, message: string, choices: Choice[]): Promise<string | null>;
   toast(text: string, kind?: "error" | "info", title?: string): void;
   task(label: string, fn: () => Promise<unknown>, title?: string): Promise<boolean>;
   busy: string | null;
@@ -109,6 +117,14 @@ export function UiProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const choose = useCallback(
+    (title: string, message: string, choices: Choice[]) =>
+      new Promise<string | null>((resolve) =>
+        setDialog({ title, message, fields: [], ok: "", choices, resolve: (v) => resolve(v ? v.choice : null) }),
+      ),
+    [],
+  );
+
   const task = useCallback(
     async (label: string, fn: () => Promise<unknown>, title = `${label} Failed`) => {
       setBusy(label);
@@ -125,7 +141,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
     [toast],
   );
 
-  const ui = useMemo(() => ({ prompt, confirm, toast, task, busy }), [prompt, confirm, toast, task, busy]);
+  const ui = useMemo(() => ({ prompt, confirm, choose, toast, task, busy }), [prompt, confirm, choose, toast, task, busy]);
 
   return (
     <UiContext.Provider value={ui}>
@@ -246,9 +262,17 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
           <button type="button" onClick={() => finish(null)}>
             Cancel
           </button>
-          <button type="submit" className={request.danger ? "danger" : "primary"} autoFocus={request.fields.length === 0}>
-            {request.ok}
-          </button>
+          {request.choices ? (
+            request.choices.map((c) => (
+              <button key={c.value} type="button" className={c.danger ? "danger" : "primary"} onClick={() => finish({ choice: c.value })}>
+                {c.label}
+              </button>
+            ))
+          ) : (
+            <button type="submit" className={request.danger ? "danger" : "primary"} autoFocus={request.fields.length === 0}>
+              {request.ok}
+            </button>
+          )}
         </div>
       </form>
     </div>

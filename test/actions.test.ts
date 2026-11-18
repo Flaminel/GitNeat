@@ -51,6 +51,7 @@ interface Scenario {
   run: (ctx: Ctx, d: Dirs, h: Harness) => Promise<unknown>;
   prompt?: Record<string, string> | null | ((d: Dirs) => Record<string, string>);
   confirm?: boolean | ((title: string) => boolean);
+  choice?: string | null;
   expect?: RegExp;
 }
 
@@ -354,9 +355,11 @@ S("push-no-branch", (d) => {
   g(d.repo, "checkout", "-q", "--detach");
 }, (ctx) => A.push(ctx), { expect: /Checkout a branch/ });
 S("push-no-remotes", base, (ctx) => A.push(ctx), { expect: /no remotes/ });
-S("push-rejected-stale-yes", (d) => diverged(d, false), (ctx) => A.push(ctx), { expect: /Push rejected/ });
-S("push-rejected-fetched-yes", (d) => diverged(d, true), (ctx) => A.push(ctx), { expect: /Push rejected/ });
-S("push-rejected-no", (d) => diverged(d, true), (ctx) => A.push(ctx), { confirm: false, expect: /Push rejected/ });
+S("push-rejected-stale-force", (d) => diverged(d, false), (ctx) => A.push(ctx), { choice: "force", expect: /Push rejected/ });
+S("push-rejected-fetched-force", (d) => diverged(d, true), (ctx) => A.push(ctx), { choice: "force", expect: /Push rejected/ });
+S("push-rejected-force-declined", (d) => diverged(d, true), (ctx) => A.push(ctx), { choice: "force", confirm: false, expect: /Push rejected/ });
+S("push-rejected-pull", behind, (ctx) => A.push(ctx), { choice: "pull", expect: /Push rejected/ });
+S("push-rejected-cancel", (d) => diverged(d, true), (ctx) => A.push(ctx), { expect: /Push rejected/ });
 S("push-error", (d) => {
   remote(d);
   commit(d.repo, "l.txt", "l\n", "local work");
@@ -629,6 +632,10 @@ function makeUi(s: Scenario, d: Dirs, h: Harness): Ctx["ui"] {
     confirm: async (title, message, ok, danger) => {
       h.log.push(`confirm ${title} | ${message} | ${ok} | ${danger}`);
       return typeof s.confirm === "function" ? s.confirm(title) : (s.confirm ?? true);
+    },
+    choose: async (title, message, choices) => {
+      h.log.push(`choose ${title} | ${message} | ${choices.map((c) => c.label).join(",")}`);
+      return s.choice === undefined ? null : s.choice;
     },
     toast: (text, kind) => {
       if (kind === "error") {

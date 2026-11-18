@@ -9,8 +9,21 @@ const short = (sha: string) => sha.slice(0, 7);
 const confirmForceDelete = (ctx: Ctx, name: string) =>
   ctx.ui.confirm("Branch not merged", `${name} is not fully merged. Delete anyway?`, "Force delete", true);
 
-const confirmForcePush = (ctx: Ctx) =>
-  ctx.ui.confirm("Push rejected", "The remote has commits that your branch does not have. Force push with lease?", "Force push", true);
+type PushChoice = "force" | "pull" | null;
+
+async function choosePushAction(ctx: Ctx): Promise<PushChoice> {
+  const choice = await ctx.ui.choose("Push rejected", "The remote has commits that your branch does not have.", [
+    { label: "Pull", value: "pull" },
+    { label: "Force Push", value: "force", danger: true },
+  ]);
+  if (choice === "pull") {
+    return "pull";
+  }
+  if (choice === "force" && (await ctx.ui.confirm("Force push", "Force push with lease? This can overwrite commits on the remote.", "Force push", true))) {
+    return "force";
+  }
+  return null;
+}
 
 async function headState(cwd: string): Promise<HeadState> {
   const [head, branch] = await Promise.all([
@@ -260,6 +273,7 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
     }
     args = ["push", "-u", v.remote, `${name}:${v.branch}`];
   }
+  let choice: PushChoice = null;
   await run(ctx, "Push", async () => {
     try {
       await g(ctx, args);
@@ -267,12 +281,15 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
       if (!(error instanceof GitError) || !/rejected|non-fast-forward|fetch first/.test(error.message)) {
         throw error;
       }
-      const force = await confirmForcePush(ctx);
-      if (force) {
+      choice = await choosePushAction(ctx);
+      if (choice === "force") {
         await g(ctx, [...args.slice(0, 1), "--force-with-lease", ...args.slice(1)]);
       }
     }
   });
+  if (choice === "pull") {
+    await pull(ctx, "ff");
+  }
 }
 
 export const pushTo = (ctx: Ctx, local: string, remote: string, branch: string) =>

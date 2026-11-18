@@ -98,8 +98,21 @@ async function forceable(ctx: Ctx, name: string, args: object, kind: string, ask
 const confirmForceDelete = (ctx: Ctx, name: string) =>
   ctx.ui.confirm("Branch not merged", `${name} is not fully merged. Delete anyway?`, "Force delete", true);
 
-const confirmForcePush = (ctx: Ctx) =>
-  ctx.ui.confirm("Push rejected", "The remote has commits that your branch does not have. Force push with lease?", "Force push", true);
+type PushChoice = "force" | "pull" | null;
+
+async function choosePushAction(ctx: Ctx): Promise<PushChoice> {
+  const choice = await ctx.ui.choose("Push rejected", "The remote has commits that your branch does not have.", [
+    { label: "Pull", value: "pull" },
+    { label: "Force Push", value: "force", danger: true },
+  ]);
+  if (choice === "pull") {
+    return "pull";
+  }
+  if (choice === "force" && (await ctx.ui.confirm("Force push", "Force push with lease? This can overwrite commits on the remote.", "Force push", true))) {
+    return "force";
+  }
+  return null;
+}
 
 export async function undo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
   const ok = await ctx.ui.task(`Undo ${entry.label}`, () => act(ctx.cwd, "undo", { entry }));
@@ -264,7 +277,16 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
     }
     answer = { remote: v.remote, branch: v.branch };
   }
-  await runNative(ctx, "Push", () => forceable(ctx, "push", { name, remote, upstream: ref?.upstream, answer }, "force-push", () => confirmForcePush(ctx)));
+  let choice: PushChoice = null;
+  await runNative(ctx, "Push", () =>
+    forceable(ctx, "push", { name, remote, upstream: ref?.upstream, answer }, "force-push", async () => {
+      choice = await choosePushAction(ctx);
+      return choice === "force";
+    }),
+  );
+  if (choice === "pull") {
+    await pull(ctx, "ff");
+  }
 }
 
 export const pushTo = (ctx: Ctx, local: string, remote: string, branch: string) => go(ctx, "Push", "pushTo", { local, remote, branch });

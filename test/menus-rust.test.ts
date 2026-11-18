@@ -353,6 +353,10 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
       log.push(`confirm ${title} | ${message}`);
       return false;
     },
+    choose: async (title, message) => {
+      log.push(`choose ${title} | ${message}`);
+      return null;
+    },
     toast: (text, kind) => {
       log.push(`toast ${kind ?? "info"} ${text}`);
     },
