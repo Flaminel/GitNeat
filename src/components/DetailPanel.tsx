@@ -4,7 +4,7 @@ import { Ctx } from "../actions";
 import { gitneat } from "../api";
 import * as M from "../menus";
 import { showMenu, Splitter, useStoredWidth } from "../ui";
-import { CommitDetail, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
+import { CommitDetail, CompareFile, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadCompare, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
 
@@ -19,6 +19,7 @@ export interface OpenFile {
 interface Props {
   ctx: Ctx;
   sha: string;
+  multi: string[];
   openFile: OpenFile | null;
   onOpenFile(file: OpenFile): void;
   onSelectSha(sha: string): void;
@@ -118,6 +119,160 @@ function Avatar({ name }: { name: string }) {
   return <div className="avatar">{text}</div>;
 }
 
+function FileSummary({ files }: { files: FileChange[] }) {
+  const counts = files.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.status]: (acc[f.status] ?? 0) + 1 }), {});
+  return (
+    <div className="file-summary">
+      {counts.M && <span><b className="modified">✎</b> {counts.M} modified</span>}
+      {counts.A && <span><b className="added">+</b> {counts.A} added</span>}
+      {counts.D && <span><b className="deleted">−</b> {counts.D} deleted</span>}
+      {counts.R && <span><b className="renamed">→</b> {counts.R} renamed</span>}
+    </div>
+  );
+}
+
+function FileToolbar(props: {
+  desc: boolean;
+  setDesc(value: boolean): void;
+  tree: boolean;
+  setTree(value: boolean): void;
+  showAll?: boolean;
+  setShowAll?(value: boolean): void;
+}) {
+  return (
+    <div className="file-toolbar">
+      <button className="icon-btn sort-btn" title={props.desc ? "Sort A to Z" : "Sort Z to A"} onClick={() => props.setDesc(!props.desc)}>
+        {Icon.sort}
+      </button>
+      <div className="segmented">
+        <button className={!props.tree ? "on" : ""} onClick={() => props.setTree(false)}>
+          ☰ Path
+        </button>
+        <button className={props.tree ? "on" : ""} onClick={() => props.setTree(true)}>
+          ⊞ Tree
+        </button>
+      </div>
+      {props.setShowAll && (
+        <label className="check">
+          <input type="checkbox" checked={props.showAll} onChange={(e) => props.setShowAll?.(e.target.checked)} /> View all files
+        </label>
+      )}
+    </div>
+  );
+}
+
+function compareSource(f: CompareFile): DiffSource {
+  if (f.untracked) {
+    return { kind: "unstaged", untracked: true };
+  }
+  return f.head ? { kind: "commit", sha: f.head, parent: f.base } : { kind: "worktree", base: f.base };
+}
+
+function compareTitle(count: number, wip: boolean): string {
+  if (count === 1) {
+    return "Viewing diff between a commit and the WIP";
+  }
+  const suffix = wip ? " and the WIP" : "";
+  return count === 2 ? `Viewing diff between 2 commits${suffix}` : `Viewing merged diff of ${count} commits${suffix}`;
+}
+
+function CompareInfo({ ctx, multi, openFile, onOpenFile }: Props) {
+  const [loaded, setLoaded] = useState<{ key: string; files: CompareFile[] } | null>(null);
+  const [failed, setFailed] = useState<{ key: string; message: string } | null>(null);
+  const [tree, setTree] = useState(false);
+  const [desc, setDesc] = useState(false);
+  const wip = multi.includes(WIP);
+  const shas = multi.filter((s) => s !== WIP);
+  const key = JSON.stringify([shas, wip]);
+  const cards = ctx.data.commits.filter((c) => shas.includes(c.sha));
+
+  useEffect(() => {
+    let live = true;
+    loadCompare(ctx.cwd, shas, wip).then(
+      (files) => live && setLoaded({ key, files }),
+      (e) => live && setFailed({ key, message: e instanceof Error ? e.message : String(e) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [ctx.cwd, ctx.data, key]);
+
+  const files = loaded?.key === key ? loaded.files : null;
+  const error = failed?.key === key ? failed.message : null;
+  const sorted = [...(files ?? [])].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
+  const byPath = new Map(sorted.map((f) => [f.path, f]));
+  const same = (a: DiffSource, b: DiffSource) => JSON.stringify(a) === JSON.stringify(b);
+
+  return (
+    <div className="detail">
+      <div className="detail-head">
+        {shas.length === 1 ? (
+          <>
+            commit: <b className="sha">{shas[0].slice(0, 6)}</b>
+          </>
+        ) : (
+          `${shas.length} commits selected`
+        )}
+      </div>
+      <div className="multi-commit-section">
+        <div className="multi-commit-title">{compareTitle(shas.length, wip)}</div>
+        <div className="multi-commits">
+          {wip && (
+            <div className="multi-commit">
+              <Avatar name="WIP" />
+              <div className="multi-commit-text">
+                <div className="author-name">Working directory</div>
+                <div className="author-date">{ctx.data.status.length} changes</div>
+              </div>
+            </div>
+          )}
+          {cards.map((c) => (
+            <div key={c.sha} className="multi-commit">
+              <Avatar name={c.author} />
+              <div className="multi-commit-text">
+                <div className="author-name" title={c.email || undefined}>{c.author}</div>
+                <div className="author-date">
+                  {formatDate(c.time)} <b className="sha">{c.sha.slice(0, 6)}</b>
+                </div>
+                <div className="multi-commit-subject" title={c.subject}>{c.subject}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {error && <div className="detail-empty">{error}</div>}
+      {!files && !error && <div className="detail-empty">Loading…</div>}
+      {files && (
+        <>
+          <FileSummary files={files} />
+          <FileToolbar desc={desc} setDesc={setDesc} tree={tree} setTree={setTree} />
+          <div className="files">
+            <FileList
+              files={sorted}
+              tree={tree}
+              isOpen={(p) => {
+                const f = byPath.get(p);
+                return Boolean(f && openFile?.path === p && same(openFile.source, compareSource(f)));
+              }}
+              onOpen={(p) => {
+                const f = byPath.get(p);
+                if (f) {
+                  onOpenFile({ source: compareSource(f), path: p, orig: f.orig });
+                }
+              }}
+              onMenu={(p) => {
+                const f = byPath.get(p);
+                const source = f && compareSource(f);
+                return M.fileMenu(ctx, p, undefined, undefined, undefined, (view) => f && onOpenFile({ source: compareSource(f), path: p, orig: f.orig, view }), source);
+              }}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -164,7 +319,6 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
     return <div className="detail-empty">{loadError ?? "Loading…"}</div>;
   }
   const [subject, ...body] = detail.message.split("\n");
-  const counts = detail.files.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.status]: (acc[f.status] ?? 0) + 1 }), {});
   const source: DiffSource = { kind: "commit", sha: detail.sha, parent: detail.parents[0] };
   const changed = new Map(detail.files.map((f) => [f.path, f]));
   const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
@@ -301,28 +455,8 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           })}
         </div>
       )}
-      <div className="file-summary">
-        {counts.M && <span><b className="modified">✎</b> {counts.M} modified</span>}
-        {counts.A && <span><b className="added">+</b> {counts.A} added</span>}
-        {counts.D && <span><b className="deleted">−</b> {counts.D} deleted</span>}
-        {counts.R && <span><b className="renamed">→</b> {counts.R} renamed</span>}
-      </div>
-      <div className="file-toolbar">
-        <button className="icon-btn sort-btn" title={desc ? "Sort A to Z" : "Sort Z to A"} onClick={() => setDesc(!desc)}>
-          {Icon.sort}
-        </button>
-        <div className="segmented">
-          <button className={!tree ? "on" : ""} onClick={() => setTree(false)}>
-            ☰ Path
-          </button>
-          <button className={tree ? "on" : ""} onClick={() => setTree(true)}>
-            ⊞ Tree
-          </button>
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> View all files
-        </label>
-      </div>
+      <FileSummary files={detail.files} />
+      <FileToolbar desc={desc} setDesc={setDesc} tree={tree} setTree={setTree} showAll={showAll} setShowAll={setShowAll} />
       <div className="files">
         <FileList
           files={files}
@@ -652,5 +786,6 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
 }
 
 export function DetailPanel(props: Props) {
-  return <section className="right-panel">{props.sha === WIP ? <WipInfo {...props} /> : <CommitInfo {...props} />}</section>;
+  const body = props.multi.length > 1 ? <CompareInfo {...props} /> : props.sha === WIP ? <WipInfo {...props} /> : <CommitInfo {...props} />;
+  return <section className="right-panel">{body}</section>;
 }

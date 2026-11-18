@@ -103,6 +103,12 @@ export interface FileChange {
   orig?: string;
 }
 
+export interface CompareFile extends FileChange {
+  base: string;
+  head: string;
+  untracked: boolean;
+}
+
 export interface CommitDetail {
   sha: string;
   parents: string[];
@@ -135,9 +141,11 @@ export const loadCommits = (cwd: string, hidden: string[], solo: string[], skip:
 
 export const loadCommit = (cwd: string, sha: string): Promise<CommitDetail> => gitneat().loadCommit(cwd, sha);
 
+export const loadCompare = (cwd: string, shas: string[], wip: boolean): Promise<CompareFile[]> => gitneat().loadCompare(cwd, shas, wip);
+
 export const loadAllFiles = (cwd: string, sha: string): Promise<string[]> => gitneat().loadAllFiles(cwd, sha);
 
-export type DiffSource = { kind: "commit"; sha: string; parent?: string } | { kind: "staged" } | { kind: "unstaged"; untracked: boolean };
+export type DiffSource = { kind: "commit"; sha: string; parent?: string } | { kind: "staged" } | { kind: "unstaged"; untracked: boolean } | { kind: "worktree"; base: string };
 
 export const loadDiff = (cwd: string, source: DiffSource, file: string, ignoreWhitespace = false, orig?: string): Promise<ParsedDiff> =>
   gitneat().loadDiff(cwd, source, file, ignoreWhitespace, orig);

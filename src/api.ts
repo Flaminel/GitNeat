@@ -1,5 +1,5 @@
 import type { ParsedDiff } from "./diff";
-import type { BlameLine, Commit, CommitDetail, CommitPage, Lanes, DiffSides, DiffSource, ImageSides, FileHistoryPage, HeadMessage, MergeLoad, Operation, OperationInfo, RepoData } from "./repo";
+import type { BlameLine, Commit, CommitDetail, CommitPage, CompareFile, Lanes, DiffSides, DiffSource, ImageSides, FileHistoryPage, HeadMessage, MergeLoad, Operation, OperationInfo, RepoData } from "./repo";
 
 export interface MenuSpec {
   label?: string;
@@ -31,6 +31,7 @@ export interface GitNeatApi {
   loadCommits(cwd: string, hidden: string[], solo: string[], skip: number, limit: number, lanes: Lanes): Promise<CommitPage>;
   loadCommit(cwd: string, sha: string): Promise<CommitDetail>;
   loadAllFiles(cwd: string, sha: string): Promise<string[]>;
+  loadCompare(cwd: string, shas: string[], wip: boolean): Promise<CompareFile[]>;
   loadDiff(cwd: string, source: DiffSource, file: string, ignoreWhitespace: boolean, orig?: string): Promise<ParsedDiff>;
   loadSides(cwd: string, source: DiffSource, file: string, orig?: string): Promise<DiffSides>;
   loadImages(cwd: string, source: DiffSource, file: string, orig?: string): Promise<ImageSides>;

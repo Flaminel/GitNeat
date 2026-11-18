@@ -1,8 +1,7 @@
 use super::{Res, parse, raw};
+use crate::loaders::EMPTY_TREE;
 use serde::Deserialize;
 use serde_json::{Value, json};
-
-const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 #[cfg(windows)]
 const NULL_DEVICE: &str = "NUL";
@@ -14,6 +13,7 @@ struct DiffTool {
     path: String,
     sha: Option<String>,
     parent: Option<String>,
+    base: Option<String>,
     #[serde(default)]
     staged: bool,
     #[serde(default)]
@@ -86,6 +86,9 @@ async fn open_diff_tool(cwd: &str, args: &Value) -> Res<Value> {
     }
     if a.staged {
         return run_tool(cwd, &["difftool", "-y", "--cached", "--", &a.path], false).await;
+    }
+    if let Some(base) = a.base.as_deref() {
+        return run_tool(cwd, &["difftool", "-y", base, "--", &a.path], false).await;
     }
     let Some(sha) = a.sha.as_deref() else {
         return run_tool(cwd, &["difftool", "-y", "--", &a.path], false).await;

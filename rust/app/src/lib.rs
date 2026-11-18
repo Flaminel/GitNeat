@@ -87,6 +87,7 @@ pub fn run() {
             commands::load_commits,
             commands::load_commit,
             commands::load_all_files,
+            commands::load_compare,
             commands::load_diff,
             commands::load_sides,
             commands::load_images,

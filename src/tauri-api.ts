@@ -20,6 +20,7 @@ export function tauriApi(): GitNeatApi {
     loadCommits: (cwd, hidden, solo, skip, limit, lanes) => invoke("load_commits", { cwd, hidden, solo, skip, limit, lanes }),
     loadCommit: (cwd, sha) => invoke("load_commit", { cwd, sha }),
     loadAllFiles: (cwd, sha) => invoke("load_all_files", { cwd, sha }),
+  loadCompare: (cwd, shas, wip) => invoke("load_compare", { cwd, shas, wip }),
     loadDiff: (cwd, source, file, ignoreWhitespace, orig) => invoke("load_diff", { cwd, source, file, ignoreWhitespace, orig }),
     loadSides: (cwd, source, file, orig) => invoke("load_sides", { cwd, source, file, orig }),
     loadImages: (cwd, source, file, orig) => invoke("load_images", { cwd, source, file, orig }),

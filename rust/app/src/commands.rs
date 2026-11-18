@@ -77,6 +77,15 @@ pub async fn load_commit(cwd: String, sha: String) -> Res<Value> {
 }
 
 #[tauri::command]
+pub async fn load_compare(
+    cwd: String,
+    shas: Vec<String>,
+    wip: bool,
+) -> Res<Vec<loaders::CompareFile>> {
+    loaders::load_compare(&cwd, &shas, wip).await
+}
+
+#[tauri::command]
 pub async fn load_all_files(cwd: String, sha: String) -> Res<Vec<String>> {
     loaders::load_all_files(&cwd, &sha).await
 }

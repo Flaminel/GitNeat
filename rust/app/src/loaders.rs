@@ -28,6 +28,22 @@ pub enum DiffSource {
         #[serde(default)]
         untracked: bool,
     },
+    Worktree {
+        base: String,
+    },
+}
+
+pub const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct CompareFile {
+    pub path: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orig: Option<String>,
+    pub base: String,
+    pub head: String,
+    pub untracked: bool,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -93,6 +109,195 @@ pub async fn load_commit(cwd: &str, sha: &str) -> Res<Value> {
     Ok(out)
 }
 
+struct Pending {
+    base: String,
+    head: String,
+    first: String,
+    last: String,
+    orig: Option<String>,
+}
+
+struct Step {
+    base: String,
+    head: String,
+    files: Vec<repo::port::FileChange>,
+}
+
+async fn name_status(cwd: &str, args: &[&str]) -> Res<Vec<repo::port::FileChange>> {
+    Ok(read_name_status(&git(cwd, args).await?))
+}
+
+async fn untracked_files(cwd: &str) -> Res<Vec<String>> {
+    let out = git(cwd, &["ls-files", "--others", "--exclude-standard", "-z"]).await?;
+    Ok(out
+        .split('\0')
+        .filter(|p| !p.is_empty())
+        .map(String::from)
+        .collect())
+}
+
+pub async fn load_compare(cwd: &str, shas: &[String], wip: bool) -> Res<Vec<CompareFile>> {
+    if shas.is_empty() || (shas.len() == 1 && !wip) {
+        return Err("Select at least two commits to compare".into());
+    }
+    let mut args = vec!["show", "-s", "--format=%H %ct %P"];
+    args.extend(shas.iter().map(String::as_str));
+    let listing = git(cwd, &args).await?;
+    let mut commits: Vec<(String, i64, Option<String>)> = listing
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split(' ');
+            let sha = parts.next()?.to_string();
+            let time = parts.next()?.parse().ok()?;
+            Some((sha, time, parts.next().map(String::from)))
+        })
+        .collect();
+    commits.sort_by_key(|c| c.1);
+    let direct = |changes: Vec<repo::port::FileChange>, base: &str, head: &str| {
+        changes
+            .into_iter()
+            .map(|c| CompareFile {
+                path: c.path.unwrap_or_default(),
+                status: c.status,
+                orig: c.orig.flatten(),
+                base: base.to_string(),
+                head: head.to_string(),
+                untracked: false,
+            })
+            .collect::<Vec<_>>()
+    };
+    if commits.len() == 2 && !wip {
+        let (older, newer) = (commits[0].0.as_str(), commits[1].0.as_str());
+        let changes =
+            name_status(cwd, &["diff", "--name-status", "-M", "-z", older, newer]).await?;
+        return Ok(direct(changes, older, newer));
+    }
+    let extra = if wip {
+        untracked_files(cwd).await?
+    } else {
+        Vec::new()
+    };
+    let mut out = if commits.len() == 1 {
+        let sha = commits[0].0.as_str();
+        direct(
+            name_status(cwd, &["diff", "--name-status", "-M", "-z", sha]).await?,
+            sha,
+            "",
+        )
+    } else {
+        let mut steps: Vec<Step> = Vec::new();
+        for (sha, _, parents) in &commits {
+            let parent = parents.clone().unwrap_or_default();
+            let (base, files) = if parent.is_empty() {
+                let args = [
+                    "diff-tree",
+                    "-r",
+                    "-M",
+                    "--name-status",
+                    "-z",
+                    "--root",
+                    sha.as_str(),
+                ];
+                (EMPTY_TREE.to_string(), name_status(cwd, &args).await?)
+            } else {
+                let args = [
+                    "diff-tree",
+                    "-r",
+                    "-M",
+                    "--name-status",
+                    "-z",
+                    parent.as_str(),
+                    sha.as_str(),
+                ];
+                (parent.clone(), name_status(cwd, &args).await?)
+            };
+            steps.push(Step {
+                base,
+                head: sha.clone(),
+                files,
+            });
+        }
+        if wip {
+            let files = name_status(cwd, &["diff", "--name-status", "-M", "-z", "HEAD"]).await?;
+            steps.push(Step {
+                base: "HEAD".into(),
+                head: String::new(),
+                files,
+            });
+        }
+        let mut order: Vec<String> = Vec::new();
+        let mut pending: std::collections::HashMap<String, Pending> =
+            std::collections::HashMap::new();
+        for step in steps {
+            for change in step.files {
+                let path = change.path.unwrap_or_default();
+                let origin = change.orig.flatten();
+                let lookup = origin.clone().unwrap_or_else(|| path.clone());
+                let entry = match pending.remove(&lookup) {
+                    Some(mut e) => {
+                        order.retain(|p| p != &lookup);
+                        e.head = step.head.clone();
+                        e.last = change.status.clone();
+                        if e.orig.is_none() {
+                            e.orig = origin;
+                        }
+                        e
+                    }
+                    None => Pending {
+                        base: step.base.clone(),
+                        head: step.head.clone(),
+                        first: change.status.clone(),
+                        last: change.status.clone(),
+                        orig: origin,
+                    },
+                };
+                order.push(path.clone());
+                pending.insert(path, entry);
+            }
+        }
+        order
+            .into_iter()
+            .filter_map(|path| {
+                let e = pending.remove(&path)?;
+                if e.first == "A" && e.last == "D" {
+                    return None;
+                }
+                let status = if e.last == "D" {
+                    "D"
+                } else if e.first == "A" {
+                    "A"
+                } else if e.orig.is_some() {
+                    "R"
+                } else {
+                    "M"
+                };
+                Some(CompareFile {
+                    path,
+                    status: status.into(),
+                    orig: if status == "R" { e.orig } else { None },
+                    base: e.base,
+                    head: e.head,
+                    untracked: false,
+                })
+            })
+            .collect()
+    };
+    for path in extra {
+        if !out.iter().any(|f| f.path == path) {
+            out.push(CompareFile {
+                path,
+                status: "A".into(),
+                orig: None,
+                base: String::new(),
+                head: String::new(),
+                untracked: true,
+            });
+        }
+    }
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(out)
+}
+
 pub async fn load_all_files(cwd: &str, sha: &str) -> Res<Vec<String>> {
     let out = git(cwd, &["ls-tree", "-r", "-z", "--name-only", sha]).await?;
     Ok(out
@@ -155,6 +360,14 @@ pub async fn load_diff(
             args.extend(["--", file]);
             git(cwd, &args).await?
         }
+        DiffSource::Worktree { base } => {
+            let mut args = vec!["diff", "-M"];
+            args.extend(ws);
+            args.push(base.as_str());
+            args.push("--");
+            args.extend(&paths);
+            git(cwd, &args).await?
+        }
     };
     Ok(ParsedDiff::parse(&text))
 }
@@ -213,6 +426,10 @@ pub async fn load_sides(
             };
             tokio::join!(index, read_text(cwd, file, roots))
         }
+        DiffSource::Worktree { base } => tokio::join!(
+            show_blob(cwd, format!("{base}:{before}")),
+            read_text(cwd, file, roots)
+        ),
     };
     let binary = original.contains('\0') || modified.contains('\0');
     DiffSides {
@@ -308,6 +525,10 @@ pub async fn load_images(
             };
             tokio::join!(index, disk_image(cwd, file, roots, mime))
         }
+        DiffSource::Worktree { base } => tokio::join!(
+            blob_image(cwd, format!("{base}:{before}"), mime),
+            disk_image(cwd, file, roots, mime)
+        ),
     };
     ImageSides { original, modified }
 }
@@ -663,6 +884,119 @@ mod tests {
         assert!(live.original.is_some());
         let text = load_images(cwd, &source, "a.txt", None, &roots).await;
         assert!(text.original.is_none() && text.modified.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn compare_loads_files_between_commits_and_worktree() {
+        let dir = std::env::temp_dir().join(format!("gitneat-cmp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        sh(&dir, &["init", "-q", "-b", "main"]);
+        let at = |n: &str| format!("2020-01-0{n}T00:00:00");
+        let commit = |msg: &str, day: &str| {
+            let date = at(day);
+            let status = std::process::Command::new("git")
+                .args(["commit", "-q", "-m", msg])
+                .env("GIT_AUTHOR_DATE", &date)
+                .env("GIT_COMMITTER_DATE", &date)
+                .current_dir(&dir)
+                .status()
+                .unwrap();
+            assert!(status.success());
+        };
+        let rev = |spec: &str| {
+            let out = std::process::Command::new("git")
+                .args(["rev-parse", spec])
+                .current_dir(&dir)
+                .output()
+                .unwrap();
+            String::from_utf8(out.stdout).unwrap().trim().to_string()
+        };
+        std::fs::write(dir.join("a"), "1\n").unwrap();
+        std::fs::write(dir.join("gone"), "x\n").unwrap();
+        sh(&dir, &["add", "."]);
+        commit("one", "1");
+        std::fs::write(dir.join("a"), "2\n").unwrap();
+        std::fs::write(dir.join("b"), "b\n").unwrap();
+        sh(&dir, &["add", "."]);
+        commit("two", "2");
+        std::fs::write(dir.join("c"), "c\n").unwrap();
+        sh(&dir, &["rm", "-q", "gone"]);
+        sh(&dir, &["add", "."]);
+        commit("three", "3");
+        std::fs::write(dir.join("b"), "b2\n").unwrap();
+        sh(&dir, &["rm", "-q", "c"]);
+        sh(&dir, &["add", "."]);
+        commit("four", "4");
+        let (one, two, three, four) = (rev("HEAD~3"), rev("HEAD~2"), rev("HEAD~1"), rev("HEAD"));
+        let cwd = dir.to_str().unwrap();
+        let shas = |list: &[&String]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let pair = load_compare(cwd, &shas(&[&four, &two]), false)
+            .await
+            .unwrap();
+        let summary: Vec<(&str, &str)> = pair
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str()))
+            .collect();
+        assert_eq!(summary, [("b", "M"), ("gone", "D")]);
+        assert!(pair.iter().all(|f| f.base == two && f.head == four));
+        let merged = load_compare(cwd, &shas(&[&four, &three, &two]), false)
+            .await
+            .unwrap();
+        let summary: Vec<(&str, &str)> = merged
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str()))
+            .collect();
+        assert_eq!(summary, [("a", "M"), ("b", "A"), ("gone", "D")]);
+        let b = merged.iter().find(|f| f.path == "b").unwrap();
+        assert_eq!(
+            (b.base.as_str(), b.head.as_str()),
+            (one.as_str(), four.as_str())
+        );
+        std::fs::write(dir.join("a"), "3\n").unwrap();
+        std::fs::write(dir.join("fresh"), "f\n").unwrap();
+        let live = load_compare(cwd, &shas(&[&two]), true).await.unwrap();
+        let summary: Vec<(&str, &str, bool)> = live
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str(), f.untracked))
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("a", "M", false),
+                ("b", "M", false),
+                ("fresh", "A", true),
+                ("gone", "D", false)
+            ]
+        );
+        let diff = load_diff(
+            cwd,
+            &DiffSource::Worktree { base: two.clone() },
+            "a",
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(!diff.hunks.is_empty());
+        let sides = load_sides(
+            cwd,
+            &DiffSource::Worktree { base: two.clone() },
+            "a",
+            None,
+            &[cwd.to_string()],
+        )
+        .await;
+        assert_eq!(
+            (sides.original.as_str(), sides.modified.as_str()),
+            ("2\n", "3\n")
+        );
+        let mixed = load_compare(cwd, &shas(&[&three, &four]), true)
+            .await
+            .unwrap();
+        assert!(mixed.iter().any(|f| f.path == "a" && f.head.is_empty()));
+        assert!(load_compare(cwd, &shas(&[&one]), false).await.is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

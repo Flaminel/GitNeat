@@ -118,7 +118,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
       lanes.current = next.lanes;
       setHasMore(canLoadMore(settings.lazyLoad, next.commits.filter((c) => !c.stash).length, limit.current));
       setData(next);
-      setMulti((list) => list.filter((sha) => next.commits.some((c) => c.sha === sha)));
+      setMulti((list) => list.filter((sha) => (sha === WIP ? next.status.length > 0 : next.commits.some((c) => c.sha === sha))));
       setSelected((s) => (s && s !== WIP && !next.commits.some((c) => c.sha === s) ? next.head : s));
       setError(null);
       setRefreshKey((k) => k + 1);
@@ -367,15 +367,22 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   }
 
   const select = (sha: string, mode?: SelectMode) => {
-    const selectable = (c: Commit) => c.sha !== WIP && !c.stash;
-    if (mode && selected && sha !== WIP) {
+    if (mode && selected) {
+      let next: string[];
       if (mode === "toggle") {
         const base = multi.length ? multi : [selected];
-        setMulti(base.includes(sha) ? base.filter((x) => x !== sha) : [...base, sha]);
+        next = base.includes(sha) ? base.filter((x) => x !== sha) : [...base, sha];
       } else {
         const a = commits.findIndex((c) => c.sha === selected);
         const b = commits.findIndex((c) => c.sha === sha);
-        setMulti(commits.slice(Math.min(a, b), Math.max(a, b) + 1).filter(selectable).map((c) => c.sha));
+        next = commits.slice(Math.min(a, b), Math.max(a, b) + 1).filter((c) => !c.stash).map((c) => c.sha);
+      }
+      setOpenFile(null);
+      if (next.length < 2) {
+        setMulti([]);
+        setSelected(next[0] ?? selected);
+      } else {
+        setMulti(next);
       }
       return;
     }
@@ -468,7 +475,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
                 c.sha === WIP
                   ? M.wipMenu(ctx)
                   : multi.length > 1 && multi.includes(c.sha)
-                    ? M.multiMenu(ctx, commits.filter((x) => multi.includes(x.sha)))
+                    ? M.multiMenu(ctx, commits.filter((x) => x.sha !== WIP && multi.includes(x.sha)))
                     : M.commitMenu(ctx, c)
               }
               onRefMenu={(r) => M.refMenu(ctx, r)}
@@ -481,7 +488,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
           <>
             <Splitter value={rightWidth} set={setRightWidth} min={260} max={900} invert />
             <div className="pane" style={{ width: rightWidth }}>
-              <DetailPanel ctx={ctx} sha={shown ?? selected} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />
+              <DetailPanel ctx={ctx} sha={shown ?? selected} multi={multi} openFile={openFile} onOpenFile={setOpenFile} onSelectSha={select} />
             </div>
           </>
         )}

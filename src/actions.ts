@@ -831,7 +831,9 @@ export const openDiffTool = (ctx: Ctx, path: string, source: DiffSource) => {
       ? { path, sha: source.sha, parent: source.parent }
       : source.kind === "staged"
         ? { path, staged: true }
-        : { path, untracked: source.untracked };
+        : source.kind === "worktree"
+          ? { path, base: source.base }
+          : { path, untracked: source.untracked };
   return openInTool(ctx, "Failed to open diff tool", "openDiffTool", args);
 };
 
