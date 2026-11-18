@@ -34,6 +34,8 @@ interface Cached {
   multi: string[];
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];
+  closed: string[];
+  openSections: string[];
 }
 
 const cache = new Map<string, Cached>();
@@ -62,6 +64,8 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [undoStack, setUndoStack] = useState<UndoEntry[]>(cached?.undoStack ?? []);
   const [redoStack, setRedoStack] = useState<UndoEntry[]>(cached?.redoStack ?? []);
+  const [closed, setClosed] = useState<string[]>(cached?.closed ?? []);
+  const [openSections, setOpenSections] = useState<string[]>(cached?.openSections ?? ["LOCAL", "REMOTE"]);
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
@@ -236,9 +240,9 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
 
   useEffect(() => {
     if (data) {
-      cache.set(path, { data, selected, multi, undoStack, redoStack });
+      cache.set(path, { data, selected, multi, undoStack, redoStack, closed, openSections });
     }
-  }, [path, data, selected, multi, undoStack, redoStack]);
+  }, [path, data, selected, multi, undoStack, redoStack, closed, openSections]);
 
   if (error && !data) {
     return <div className="repo-error">{error}</div>;
@@ -299,6 +303,10 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
             showAll={() => setPrefs({ hidden: [], solo: [] })}
             collapsed={leftCollapsed}
             setCollapsed={setLeftCollapsed}
+            closed={closed}
+            setClosed={setClosed}
+            openSections={openSections}
+            setOpenSections={setOpenSections}
           />
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}

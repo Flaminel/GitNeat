@@ -13,6 +13,10 @@ interface Props {
   showAll(): void;
   collapsed: boolean;
   setCollapsed(collapsed: boolean): void;
+  closed: string[];
+  setClosed(closed: string[]): void;
+  openSections: string[];
+  setOpenSections(sections: string[]): void;
 }
 
 interface TreeNode {
@@ -71,15 +75,25 @@ const STASH_REF = "refs/stash";
 
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
-export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: Props) {
+export function Sidebar({
+  ctx,
+  onSelectSha,
+  showAll,
+  collapsed,
+  setCollapsed,
+  closed: closedList,
+  setClosed,
+  openSections,
+  setOpenSections,
+}: Props) {
   const [filter, setFilter] = useState("");
-  const [closed, setClosed] = useState<Set<string>>(new Set());
-  const [openSections, setOpenSections] = useState<string[]>(["LOCAL", "REMOTE"]);
+  const closed = new Set(closedList);
   const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
   const sectionProps = (title: string) => ({
     open: openSections.includes(title),
     grow: title === lastOpen,
-    toggle: () => setOpenSections((list) => (list.includes(title) ? list.filter((x) => x !== title) : [...list, title])),
+    toggle: () =>
+      setOpenSections(openSections.includes(title) ? openSections.filter((x) => x !== title) : [...openSections, title]),
   });
 
   useEffect(() => {
@@ -120,7 +134,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
     } else {
       next.add(key);
     }
-    setClosed(next);
+    setClosed([...next]);
   };
 
   const renderRef = (ref: Ref, label: string, depth: number) => {
@@ -196,7 +210,7 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
             className="rail-item"
             title={item.title}
             onClick={() => {
-              setOpenSections((list) => (list.includes(item.title) ? list : [...list, item.title]));
+              setOpenSections(openSections.includes(item.title) ? openSections : [...openSections, item.title]);
               setCollapsed(false);
             }}
           >

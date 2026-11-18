@@ -423,3 +423,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source has Hide all on each section header (see `docs/EVIDENCE.md` section 11). Follow-up of task T11 (D64).
 - Rules: The saved prefs and the `loadRepo` call keep their shape. Solo mode does not change the stash rows.
 - Limits: The Stashes list in the left panel still shows every stash, with no dimmed state. No manual check in the app: the screen was locked during T11.
+
+## D66. Collapsed folders and open sections stay per repository
+
+- Decision: `src/RepoView.tsx` holds the collapsed folder keys and the open section names of the left panel. It passes them to `Sidebar` as props. The tab cache of D49 stores both lists.
+- Reason: Source stores the collapsed folders for each repository (see `docs/EVIDENCE.md` section 11). Task T12.
+- Rules: The cache entry gets the fields `closed` and `openSections`. The defaults are no collapsed folder and the sections LOCAL and REMOTE open.
+- Limits: The lists live in memory only. An app restart or a closed tab resets them. No manual check in the app.
