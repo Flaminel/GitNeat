@@ -239,6 +239,11 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         refresh: () => void load(),
         openTab,
         openRebase: (base, entries) => setRebase({ base, entries }),
+        compareWip: (sha) => {
+          setSelected(sha);
+          setMulti([sha, WIP]);
+          setOpenFile(null);
+        },
         toggleHidden: (full) => setPrefs({ hidden: toggle(prefs.hidden, full), solo: prefs.solo }),
         setHidden: (fulls, hide) =>
           setPrefs({

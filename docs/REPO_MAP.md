@@ -108,7 +108,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the commit description in the graph | `describe` in `rust/repo/src/port.rs`, `descMenu` in `src/components/GraphView.tsx`, `.message-body` in `src/styles.css` (D58) |
 | Change hunk view syntax or bracket colors | `renderModelLine` in `src/components/DiffView.tsx`, `.bracket-*` in `src/styles.css` |
 | Change the image diff or its overlay (D91) | `ImageView` in `src/components/DiffView.tsx`, `load_images` in `rust/app/src/loaders.rs`, `.diff-image-*` in `src/styles.css` |
-| Change the compare view of several commits (D93) | `CompareInfo` in `src/components/DetailPanel.tsx`, `select` in `src/RepoView.tsx`, `load_compare` in `rust/app/src/loaders.rs` |
+| Change the compare view of several commits, or the compare against the working directory item (D93, D99) | `CompareInfo` in `src/components/DetailPanel.tsx`, `select` and `compareWip` in `src/RepoView.tsx`, `compare_actions` in `rust/app/src/menus/branch.rs`, `load_compare` in `rust/app/src/loaders.rs` |
 | Change the diff toolbar or modes | `DiffView` in `src/components/DiffView.tsx` |
 | Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
 | Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |

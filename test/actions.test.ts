@@ -773,6 +773,7 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
     openRebase: (b, e) => {
       h.log.push(`openRebase ${JSON.stringify([b, e])}`);
     },
+    compareWip: () => undefined,
     toggleHidden: () => undefined,
     setHidden: () => undefined,
     setSolo: () => undefined,

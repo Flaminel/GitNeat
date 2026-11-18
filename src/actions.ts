@@ -19,6 +19,7 @@ export interface Ctx {
   refresh(): void;
   openTab(path: string): void;
   openRebase(base: string | null, entries: TodoEntry[]): void;
+  compareWip(sha: string): void;
   toggleHidden(full: string): void;
   setHidden(fulls: string[], hide: boolean): void;
   setSolo(fulls: string[], on: boolean): void;

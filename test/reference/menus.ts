@@ -29,6 +29,10 @@ function env(ctx: Ctx, shas: string[] = []) {
   };
 }
 
+function compareActions(ctx: Ctx, sha: string): MenuItem[] {
+  return ctx.data.status.length ? [{ id: "compareWip", label: "Compare commit against working directory", run: () => ctx.compareWip(sha) }] : [];
+}
+
 async function present(_cwd: string, _kind: MenuKind, _args: object, build: () => MenuItem[] | Promise<MenuItem[]>): Promise<void> {
   await showMenu(await build());
 }
@@ -253,7 +257,8 @@ export async function commitMenu(ctx: Ctx, commit: Commit): Promise<void> {
     const info = await rangeInfo(ctx.cwd, commit.sha);
     const found = refGroups(ctx.data.refs.filter((r) => r.sha === commit.sha && r.kind !== "tag"));
     if (found.length === 1) {
-      return [...branchGroups(ctx, found[0], info, false), "-", ...tagActions(ctx, commit.sha)];
+      const compare = compareActions(ctx, commit.sha);
+      return [...branchGroups(ctx, found[0], info, false), ...(compare.length ? (["-", ...compare] as MenuItem[]) : []), "-", ...tagActions(ctx, commit.sha)];
     }
     return groups(
       [{ id: "checkoutCommit", label: "Checkout this commit", run: () => A.checkoutCommit(ctx, commit.sha) }],
@@ -262,6 +267,7 @@ export async function commitMenu(ctx: Ctx, commit: Commit): Promise<void> {
       rebaseActions(ctx, commit, info),
       found.map((g, i) => ({ label: g[0].name, submenu: scoped(branchGroups(ctx, g, info, true), `g${i}:`) })),
       found.length === 0 ? copyActions(ctx, commit.sha) : [],
+      compareActions(ctx, commit.sha),
       tagActions(ctx, commit.sha),
     );
   });

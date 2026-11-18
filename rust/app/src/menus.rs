@@ -117,6 +117,8 @@ struct CommitArgs {
     #[serde(flatten)]
     env: Env,
     commit: CommitRow,
+    #[serde(default)]
+    wip: bool,
 }
 
 #[derive(Deserialize)]
@@ -643,7 +645,7 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
     let items = match kind {
         MenuKind::Commit => {
             let a: CommitArgs = actions::parse(args)?;
-            branch::commit_menu(cwd, &a.env, &a.commit).await?
+            branch::commit_menu(cwd, &a.env, &a.commit, a.wip).await?
         }
         MenuKind::Ref => {
             let a: RefArgs = actions::parse(args)?;

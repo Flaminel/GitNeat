@@ -384,6 +384,9 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
     openRebase: (b, e) => {
       log.push(`openRebase ${JSON.stringify([b, e])}`);
     },
+    compareWip: (sha) => {
+      log.push(`compareWip ${sha}`);
+    },
     toggleHidden: (full) => {
       log.push(`toggleHidden ${full}`);
     },

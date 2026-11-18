@@ -277,6 +277,7 @@ Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offse
 - `ConfirmationMessage-WouldYouLikeToDeleteTagFromAllRemotes`="The tag was deleted locally. Would you also like to delete tags named \"{0}\" from your remote repos?"
 - `PromptForRemoveWorktree-RemoveWorktreeRequiresForce`="Removing this worktree requires force, which is destructive and cannot be undone. Do you want to complete the removal?" The button is `ForceRemoveWorktreeButtonLabel`="Force Remove Worktree". The error is `Error-RemoveWorktreeFailed`="Failed to remove worktree".
 - `ContextMenu-CompareAgainstWorkingCopy`="Compare commit against working directory".
+- Observed (T42): the item opens the multi-commit compare of one commit and the WIP (`getMultiCommitDiffHeader`, section 10). It has no separate view. The condition is in section 1.1, group Do.
 
 ## 11. Graph and left panel
 

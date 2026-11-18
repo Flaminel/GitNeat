@@ -131,8 +131,8 @@ export async function commitMenu(ctx: Ctx, commit: Commit): Promise<void> {
   await present(
     ctx,
     "commit",
-    { ...env(ctx, [commit.sha]), commit: { sha: commit.sha, parents: commit.parents.length } },
-    Object.assign(commitHandlers(ctx, commit), ...found.map((g, i) => prefixed(branchHandlers(ctx, g), found.length === 1 ? "" : `g${i}:`))),
+    { ...env(ctx, [commit.sha]), commit: { sha: commit.sha, parents: commit.parents.length }, wip: ctx.data.status.length > 0 },
+    Object.assign({ compareWip: () => ctx.compareWip(commit.sha) }, commitHandlers(ctx, commit), ...found.map((g, i) => prefixed(branchHandlers(ctx, g), found.length === 1 ? "" : `g${i}:`))),
   );
 }
 

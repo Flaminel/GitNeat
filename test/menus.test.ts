@@ -63,6 +63,7 @@ function makeCtx(refs: Ref[]): Ctx {
     refresh: () => undefined,
     openTab: () => undefined,
     openRebase: () => undefined,
+    compareWip: () => undefined,
     toggleHidden: () => undefined,
     setHidden: () => undefined,
     setSolo: () => undefined,
@@ -76,6 +77,17 @@ function makeCtx(refs: Ref[]): Ctx {
 }
 
 const commit = (sha: string): Commit => ({ sha, parents: ["p".repeat(40)], author: "A", email: "a@x", time: 0, subject: "s" });
+
+test("commit menu offers the compare item only with a WIP row", async () => {
+  ancestorCode = 0;
+  const ctx = makeCtx([]);
+  ctx.data.status = [{ path: "a.txt", index: " ", worktree: "M" } as RepoData["status"][number]];
+  await M.commitMenu(ctx, commit(OLD));
+  const list = labels(shown);
+  assert.deepEqual(list.slice(-5), ["|", "Compare commit against working directory", "|", "Create tag here", "Create annotated tag here"]);
+  await M.commitMenu(makeCtx([]), commit(OLD));
+  assert.ok(!labels(shown).includes("Compare commit against working directory"));
+});
 
 test("commit menu for an older commit matches the Source order", async () => {
   ancestorCode = 0;

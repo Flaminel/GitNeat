@@ -348,11 +348,32 @@ fn same_sha_groups(env: &Env, sha: &str) -> Vec<Vec<RefIn>> {
     ref_groups(&refs)
 }
 
-pub(super) async fn commit_menu(cwd: &str, env: &Env, commit: &CommitRow) -> Res<Vec<MenuSpec>> {
+fn compare_actions(wip: bool) -> Vec<MenuSpec> {
+    if wip {
+        vec![item(
+            "compareWip",
+            "Compare commit against working directory",
+        )]
+    } else {
+        Vec::new()
+    }
+}
+
+pub(super) async fn commit_menu(
+    cwd: &str,
+    env: &Env,
+    commit: &CommitRow,
+    wip: bool,
+) -> Res<Vec<MenuSpec>> {
     let info = range_info(cwd, &commit.sha).await?;
     let found = same_sha_groups(env, &commit.sha);
     if let [only] = found.as_slice() {
         let mut out = branch_groups(env, only, &info, false, false);
+        let compare = compare_actions(wip);
+        if !compare.is_empty() {
+            out.push(sep());
+            out.extend(compare);
+        }
         out.push(sep());
         out.extend(tag_actions());
         return Ok(out);
@@ -381,6 +402,7 @@ pub(super) async fn commit_menu(cwd: &str, env: &Env, commit: &CommitRow) -> Res
         } else {
             Vec::new()
         },
+        compare_actions(wip),
         tag_actions(),
     ]))
 }
