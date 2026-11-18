@@ -197,24 +197,41 @@ export function worktreeMenu(ctx: Ctx, wt: Worktree): Promise<void> {
   });
 }
 
-export interface FileStash {
+export interface FileSelection {
   paths: string[];
   message: string;
+  stash: boolean;
   done(): void;
 }
 
-export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untracked: boolean }, stash?: FileStash): Promise<void> {
+export function fileMenu(
+  ctx: Ctx,
+  path: string,
+  wip?: { staged: boolean; untracked: boolean },
+  selection?: FileSelection,
+  stashed?: { ref: string; paths: string[]; origins: string[] },
+): Promise<void> {
   const abs = `${ctx.cwd}/${path}`;
-  const args = wip && stash ? { ...wip, stash: true, count: stash.paths.length } : wip;
-  return present(ctx, "file", { platform: gitneat().platform, path, wip: args }, {
-    stage: () => A.stageFile(ctx, path),
-    unstage: () => A.unstageFile(ctx, path),
-    discard: () => A.discardFile(ctx, path, !!wip?.untracked),
-    stashFile: async () => {
-      if (stash && (await A.stashPaths(ctx, stash.paths, stash.message))) {
-        stash.done();
-      }
-    },
+  const paths = selection?.paths ?? [path];
+  const args =
+    wip && selection
+      ? { ...wip, panel: true, stash: selection.stash, count: paths.length, ignore: !paths.some((p) => p.split("/").pop() === ".gitignore") }
+      : wip;
+  const finish = async (work: Promise<boolean>) => {
+    if ((await work) && selection) {
+      selection.done();
+    }
+  };
+  return present(ctx, "file", { platform: gitneat().platform, path, wip: args, stashApply: stashed?.paths.length ?? 0 }, {
+    stage: () => (selection ? finish(A.stageFiles(ctx, paths)) : A.stageFile(ctx, path)),
+    unstage: () => (selection ? finish(A.unstageFiles(ctx, paths)) : A.unstageFile(ctx, path)),
+    discard: () => (selection ? finish(A.discardFiles(ctx, paths, !!wip?.staged)) : A.discardFile(ctx, path, !!wip?.untracked)),
+    stashFile: () => finish(A.stashPaths(ctx, paths, selection?.message)),
+    ignoreFile: () => finish(A.ignoreFiles(ctx, paths)),
+    ignoreExtension: () => finish(A.ignoreExtension(ctx, path)),
+    ignoreFolder: () => finish(A.ignoreFolder(ctx, path)),
+    exportPatch: () => A.savePatchWork(ctx, paths),
+    applyStashed: () => (stashed ? A.stashApplyFiles(ctx, stashed.ref, [...stashed.paths, ...stashed.origins]) : undefined),
     openFile: () => gitneat().openPath(abs),
     showItem: () => gitneat().showItem(abs),
     copyFilePath: () => gitneat().copy(path),

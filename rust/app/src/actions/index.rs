@@ -43,6 +43,41 @@ struct Discard {
     path: String,
     untracked: bool,
     conflicted: bool,
+    #[serde(default)]
+    staged: bool,
+    #[serde(default)]
+    added: bool,
+    orig: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Paths {
+    paths: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UnstageMany {
+    paths: Vec<String>,
+    has_head: bool,
+}
+
+#[derive(Deserialize)]
+struct DiscardMany {
+    files: Vec<Discard>,
+}
+
+#[derive(Deserialize)]
+struct Ignore {
+    lines: Vec<String>,
+    untrack: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct StashFiles {
+    #[serde(rename = "ref")]
+    name: String,
+    paths: Vec<String>,
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq)]
@@ -104,6 +139,12 @@ pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
         "stashDrop" => stash(cwd, "drop", args).await,
         "stashEdit" => stash_edit(cwd, args).await,
         "stageFile" => stage_file(cwd, args).await,
+        "stageFiles" => stage_files(cwd, args).await,
+        "unstageFiles" => unstage_files(cwd, args).await,
+        "discardFiles" => discard_files(cwd, args).await,
+        "ignorePaths" => ignore_paths(cwd, args).await,
+        "workPatch" => work_patch(cwd, args).await,
+        "stashApplyFiles" => stash_apply_files(cwd, args).await,
         "stageAll" => run(cwd, true, git(cwd, &["add", "-A"])).await,
         "unstageFile" => unstage(cwd, args).await,
         "unstageAll" => unstage(cwd, args).await,
@@ -173,15 +214,127 @@ async fn unstage(cwd: &str, args: &Value) -> Res<Value> {
     }
 }
 
-async fn discard_file(cwd: &str, args: &Value) -> Res<Value> {
-    let a: Discard = parse(args)?;
+async fn discard_one(cwd: &str, a: &Discard) -> Res<String> {
     if a.untracked {
-        return run(cwd, true, git(cwd, &["clean", "-f", "--", &a.path])).await;
+        return git(cwd, &["clean", "-f", "--", &a.path]).await;
+    }
+    if a.staged && a.added {
+        return git(cwd, &["rm", "-f", "-q", "--", &a.path]).await;
+    }
+    if a.staged {
+        if let Some(orig) = a.orig.as_deref() {
+            git(cwd, &["rm", "-f", "-q", "--", &a.path]).await?;
+            return git(cwd, &["checkout", "HEAD", "--", orig]).await;
+        }
+        return git(cwd, &["checkout", "HEAD", "--", &a.path]).await;
     }
     if a.conflicted {
-        return run(cwd, true, git(cwd, &["checkout", "HEAD", "--", &a.path])).await;
+        return git(cwd, &["checkout", "HEAD", "--", &a.path]).await;
     }
-    run(cwd, true, git(cwd, &["checkout", "--", &a.path])).await
+    git(cwd, &["checkout", "--", &a.path]).await
+}
+
+async fn discard_file(cwd: &str, args: &Value) -> Res<Value> {
+    let a: Discard = parse(args)?;
+    run(cwd, true, discard_one(cwd, &a)).await
+}
+
+async fn discard_files(cwd: &str, args: &Value) -> Res<Value> {
+    let a: DiscardMany = parse(args)?;
+    run(cwd, true, async {
+        for file in &a.files {
+            discard_one(cwd, file).await?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+async fn stage_files(cwd: &str, args: &Value) -> Res<Value> {
+    let a: Paths = parse(args)?;
+    let mut list = vec!["add", "--"];
+    list.extend(a.paths.iter().map(String::as_str));
+    run(cwd, true, git(cwd, &list)).await
+}
+
+async fn unstage_files(cwd: &str, args: &Value) -> Res<Value> {
+    let a: UnstageMany = parse(args)?;
+    let mut list = if a.has_head {
+        vec!["reset", "-q", "HEAD", "--"]
+    } else {
+        vec!["rm", "--cached", "-r", "-q", "--"]
+    };
+    list.extend(a.paths.iter().map(String::as_str));
+    run(cwd, true, git(cwd, &list)).await
+}
+
+async fn ignore_paths(cwd: &str, args: &Value) -> Res<Value> {
+    let a: Ignore = parse(args)?;
+    run(cwd, true, async {
+        let file = std::path::Path::new(cwd).join(".gitignore");
+        let mut text = tokio::fs::read_to_string(&file).await.unwrap_or_default();
+        let mut changed = false;
+        for line in &a.lines {
+            if !text.lines().any(|existing| existing.trim() == line) {
+                if !text.is_empty() && !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push_str(line);
+                text.push('\n');
+                changed = true;
+            }
+        }
+        if changed {
+            tokio::fs::write(&file, text).await.map_err(|e| e.to_string())?;
+        }
+        if !a.untrack.is_empty() {
+            let mut list = vec!["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--"];
+            list.extend(a.untrack.iter().map(String::as_str));
+            git(cwd, &list).await?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+async fn work_patch(cwd: &str, args: &Value) -> Res<Value> {
+    let a: Paths = parse(args)?;
+    let base = match raw(cwd, &["rev-parse", "-q", "--verify", "HEAD"], None, None).await {
+        done if done.code == 0 => done.stdout.trim().to_string(),
+        _ => "4b825dc642cb6eb9a060e54bf8d69288fbee4904".to_string(),
+    };
+    let mut list = vec!["diff", "-M", base.as_str(), "--"];
+    list.extend(a.paths.iter().map(String::as_str));
+    let mut patch = git(cwd, &list).await?;
+    let mut others = vec!["ls-files", "--others", "--exclude-standard", "-z", "--"];
+    others.extend(a.paths.iter().map(String::as_str));
+    for file in git(cwd, &others).await?.split('\0').filter(|f| !f.is_empty()) {
+        patch.push_str(&raw(cwd, &["diff", "--no-index", "--", "/dev/null", file], None, None).await.stdout);
+    }
+    if patch.trim().is_empty() {
+        return Err("Working directory has no changes".to_string());
+    }
+    Ok(Value::String(patch))
+}
+
+async fn stash_apply_files(cwd: &str, args: &Value) -> Res<Value> {
+    let a: StashFiles = parse(args)?;
+    run(cwd, false, async {
+        let sha = git(cwd, &["rev-parse", &a.name]).await?.trim().to_string();
+        let untracked = format!("{sha}^3");
+        for path in &a.paths {
+            let tracked = raw(cwd, &["cat-file", "-e", &format!("{sha}:{path}")], None, None).await.code == 0;
+            let loose = !tracked && raw(cwd, &["cat-file", "-e", &format!("{untracked}:{path}")], None, None).await.code == 0;
+            if tracked || loose {
+                let source = if tracked { sha.as_str() } else { untracked.as_str() };
+                git(cwd, &["restore", &format!("--source={source}"), "--worktree", "--", path]).await?;
+            } else {
+                let _ = tokio::fs::remove_file(std::path::Path::new(cwd).join(path)).await;
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 async fn discard_all(cwd: &str) -> Res<Value> {

@@ -126,6 +126,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [desc, setDesc] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState<{ summary: string; description: string } | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
   const [messageHeight, setMessageHeight] = useStoredWidth("message", 130);
 
   useEffect(() => {
@@ -142,6 +143,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
     setAll(null);
     setLoadError(null);
     setEditing(null);
+    setPicked([]);
     loadCommit(ctx.cwd, sha).then(
       (d) => live && setDetail(d),
       (e) => live && setLoadError(e instanceof Error ? e.message : String(e)),
@@ -325,6 +327,21 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
           files={files}
           tree={tree}
           isOpen={(p) => openFile?.path === p && openFile.source.kind === "commit"}
+          picked={stash ? picked : undefined}
+          onPick={
+            stash
+              ? (p, range) => {
+                  const names = files.map((f) => f.path);
+                  if (range && picked.length) {
+                    const a = names.indexOf(picked[picked.length - 1]);
+                    const b = names.indexOf(p);
+                    setPicked(names.slice(Math.min(a, b), Math.max(a, b) + 1));
+                  } else {
+                    setPicked(picked.includes(p) ? picked.filter((x) => x !== p) : [...picked, p]);
+                  }
+                }
+              : undefined
+          }
           onOpen={(p) =>
             onOpenFile(
               extra.includes(p) && !changed.has(p)
@@ -332,7 +349,11 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
                 : { source, path: p, orig: changed.get(p)?.orig },
             )
           }
-          onMenu={(p) => M.fileMenu(ctx, p)}
+          onMenu={(p) => {
+            const chosen = picked.length > 1 && picked.includes(p) ? picked : [p];
+            const origins = [...changed.values()].filter((f) => f.orig && chosen.includes(f.path)).map((f) => f.orig as string);
+            return M.fileMenu(ctx, p, undefined, undefined, stash ? { ref: stash.ref, paths: chosen, origins } : undefined);
+          }}
         />
       </div>
     </div>
@@ -431,12 +452,10 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
     }
   };
   const pickedIn = (list: string[], isStaged: boolean) => (picked.staged === isStaged ? picked.paths.filter((x) => list.includes(x)) : []);
-  const stashArgs = (list: string[], isStaged: boolean, p: string): M.FileStash | undefined => {
-    if (ctx.data.operation === "merge") {
-      return undefined;
-    }
+  const selection = (list: string[], isStaged: boolean, p: string): M.FileSelection => {
     const chosen = pickedIn(list, isStaged);
     return {
+      stash: ctx.data.operation !== "merge",
       paths: chosen.length > 1 && chosen.includes(p) ? chosen : [p],
       message: description.trim() ? `${summary.trim()}\n\n${description.trim()}` : summary.trim(),
       done: () => {
@@ -522,7 +541,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             onOpen={(p) => open(p, false, unstaged.find((e) => e.path === p)?.index === "?")}
             picked={pickedIn(unstagedPaths, false)}
             onPick={pick(unstagedPaths, false)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" }, stashArgs(unstagedPaths, false, p))}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: unstaged.find((e) => e.path === p)?.index === "?" }, selection(unstagedPaths, false, p))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.stageFile(ctx, p); }}>
                 Stage File
@@ -546,7 +565,7 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
             onOpen={(p) => open(p, true, false)}
             picked={pickedIn(stagedPaths, true)}
             onPick={pick(stagedPaths, true)}
-            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false }, stashArgs(stagedPaths, true, p))}
+            onMenu={(p) => M.fileMenu(ctx, p, { staged: true, untracked: false }, selection(stagedPaths, true, p))}
             extra={(p) => (
               <button className="file-action" onClick={(e) => { e.stopPropagation(); A.unstageFile(ctx, p); }}>
                 Unstage File

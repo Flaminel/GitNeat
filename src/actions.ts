@@ -470,7 +470,7 @@ export async function stashSave(ctx: Ctx): Promise<void> {
   }
 }
 
-async function stashRestore(ctx: Ctx, ref: string, verb: "apply" | "pop"): Promise<boolean> {
+async function stashRestore(ctx: Ctx, ref: string, verb: "apply" | "pop", paths?: string[]): Promise<boolean> {
   const status = ctx.data.status;
   if (status.some((e) => e.index !== " " && e.index !== "?")) {
     ctx.ui.toast("Cannot apply stash while anything is staged. Stash, commit, or unstage first.", "error");
@@ -480,8 +480,13 @@ async function stashRestore(ctx: Ctx, ref: string, verb: "apply" | "pop"): Promi
   if (status.length > 0 && !(await ctx.ui.confirm(label, "You have uncommitted changes. Are you sure you want to apply the stash on top of your changes?", label, true))) {
     return false;
   }
+  if (paths) {
+    return go(ctx, "Apply stashed files", "stashApplyFiles", { ref, paths });
+  }
   return go(ctx, verb === "pop" ? "Pop stash" : "Apply stash", verb === "pop" ? "stashPop" : "stashApply", { ref });
 }
+
+export const stashApplyFiles = (ctx: Ctx, ref: string, paths: string[]) => stashRestore(ctx, ref, "apply", paths);
 
 export const stashApply = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "apply");
 export const stashPop = (ctx: Ctx, ref = "stash@{0}") => stashRestore(ctx, ref, "pop");
@@ -694,6 +699,83 @@ export async function discardFile(ctx: Ctx, path: string, untracked: boolean): P
   }
   const conflicted = ctx.data.status.some((e) => e.path === path && (e.index === "U" || e.work === "U"));
   await go(ctx, "Discard", "discardFile", { path, untracked, conflicted });
+}
+
+export const stageFiles = (ctx: Ctx, paths: string[]) => go(ctx, "Stage", "stageFiles", { paths });
+
+export const unstageFiles = (ctx: Ctx, paths: string[]) => go(ctx, "Unstage", "unstageFiles", { paths, hasHead: !!ctx.data.head });
+
+export async function discardFiles(ctx: Ctx, paths: string[], staged: boolean): Promise<boolean> {
+  const message =
+    paths.length === 1
+      ? `This will permanently discard changes to "${paths[0]}". Are you sure you want to continue?`
+      : "This will permanently discard changes to the selected files. Are you sure you want to continue?";
+  if (!(await ctx.ui.confirm("Discard changes", message, "Discard", true))) {
+    return false;
+  }
+  const files = paths.flatMap((path) => {
+    const entry = ctx.data.status.find((e) => e.path === path);
+    if (!entry) {
+      return [];
+    }
+    return [
+      {
+        path,
+        staged,
+        untracked: entry.index === "?",
+        added: staged && entry.index === "A",
+        conflicted: entry.index === "U" || entry.work === "U",
+        orig: staged ? entry.orig : undefined,
+      },
+    ];
+  });
+  return go(ctx, "Discard", "discardFiles", { files });
+}
+
+const escapeIgnore = (path: string) => path.replace(/([\\*?[\]])/g, "\\$1").replace(/^([#!])/, "\\$1");
+
+async function ignoreLines(ctx: Ctx, lines: string[], untrack: string[], tracked: boolean, message: string): Promise<boolean> {
+  const choices = [{ label: "Ignore", value: "ignore" }, ...(tracked ? [{ label: "Ignore and Stop Tracking", value: "untrack", danger: true }] : [])];
+  const answer = await ctx.ui.choose(message, choices);
+  if (!answer) {
+    return false;
+  }
+  return go(ctx, "Ignore", "ignorePaths", { lines, untrack: answer.choice === "untrack" ? untrack : [] });
+}
+
+const isTracked = (ctx: Ctx, paths: string[]) =>
+  ctx.data.status.some((e) => paths.includes(e.path) && e.index !== "?" && e.index !== "A" && e.work !== "D" && e.index !== "D");
+
+export function ignoreFiles(ctx: Ctx, paths: string[]): Promise<boolean> {
+  if (paths.some((p) => p.split("/").pop() === ".gitignore")) {
+    return Promise.resolve(false);
+  }
+  const message = paths.length === 1 ? `Ignore '${paths[0]}'?` : `Ignore ${paths.length} files?`;
+  return ignoreLines(ctx, paths.map(escapeIgnore), paths, isTracked(ctx, paths), message);
+}
+
+export function ignoreExtension(ctx: Ctx, path: string): Promise<boolean> {
+  const name = path.split("/").pop() ?? path;
+  const extension = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
+  if (!extension) {
+    return Promise.resolve(false);
+  }
+  return ignoreLines(ctx, [`*${extension}`], [`*${extension}`], isTracked(ctx, [path]), `Ignore '*${extension}'?`);
+}
+
+export function ignoreFolder(ctx: Ctx, path: string): Promise<boolean> {
+  const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+  if (!folder) {
+    return Promise.resolve(false);
+  }
+  return ignoreLines(ctx, [`${escapeIgnore(folder)}/`], [folder], isTracked(ctx, [path]), `Ignore '${folder}/'?`);
+}
+
+export async function savePatchWork(ctx: Ctx, paths: string[]): Promise<void> {
+  await ctx.ui.task("Create patch", async () => {
+    const patch = await act<string>(ctx.cwd, "workPatch", { paths });
+    await gitneat().saveFile(ctx.data.head ? `Changes-On-${ctx.data.head.slice(0, 7)}.patch` : "diff.patch", patch);
+  });
 }
 
 export async function discardAll(ctx: Ctx): Promise<void> {

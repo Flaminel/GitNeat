@@ -69,6 +69,10 @@ struct WipIn {
     stash: bool,
     #[serde(default)]
     count: usize,
+    #[serde(default)]
+    panel: bool,
+    #[serde(default)]
+    ignore: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -136,9 +140,14 @@ struct WorktreeArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct FileArgs {
     platform: String,
+    #[serde(default)]
+    path: String,
     wip: Option<WipIn>,
+    #[serde(default)]
+    stash_apply: usize,
 }
 
 #[derive(Deserialize)]
@@ -348,31 +357,103 @@ fn worktree_menu(cwd: &str, platform: &str, wt: &WorktreeIn) -> Vec<MenuSpec> {
     ])
 }
 
-fn file_menu(platform: &str, wip: Option<&WipIn>) -> Vec<MenuSpec> {
-    if let Some(w) = wip.filter(|w| w.count > 1) {
-        return w
-            .stash
-            .then(|| item("stashFile", format!("Stash {} files", w.count)))
-            .into_iter()
-            .collect();
+fn plural(count: usize, one: &str, many: &str) -> String {
+    if count == 1 {
+        one.to_string()
+    } else {
+        many.replace("{}", &count.to_string())
     }
-    let stage = match wip {
-        Some(w) => flat(vec![
+}
+
+fn ignore_items(path: &str, w: &WipIn) -> Vec<MenuSpec> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let extension = name.rfind('.').map(|i| &name[i..]).filter(|e| e.len() > 1);
+    let folder = path.rsplit_once('/').map(|(dir, _)| dir.rsplit('/').next().unwrap_or(dir));
+    if w.count > 1 {
+        return vec![item("ignoreFile", format!("Ignore {} files", w.count))];
+    }
+    let mut children = vec![item("ignoreFile", format!("Ignore '{name}'"))];
+    if let Some(e) = extension {
+        children.push(item("ignoreExtension", format!("All files with the extension '{e}'")));
+    }
+    if let Some(f) = folder {
+        children.push(item("ignoreFolder", format!("All files in '{f}/'")));
+    }
+    vec![sub("Ignore", children)]
+}
+
+fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
+    let open = vec![
+        item("openFile", "Open file"),
+        item("showItem", reveal_label(&a.platform)),
+    ];
+    if a.stash_apply > 0 {
+        return groups(vec![
+            vec![item(
+                "applyStashed",
+                plural(a.stash_apply, "Apply stashed file", "Apply {} files from stash"),
+            )],
+            open,
+            vec![item("copyFilePath", "Copy file path")],
+        ]);
+    }
+    let Some(w) = a.wip.as_ref() else {
+        return groups(vec![open, vec![item("copyFilePath", "Copy file path")]]);
+    };
+    if !w.panel {
+        let stage = flat(vec![
             (!w.staged).then(|| item("stage", "Stage")),
             w.staged.then(|| item("unstage", "Unstage")),
             (!w.staged).then(|| item("discard", "Discard changes")),
             w.stash.then(|| item("stashFile", "Stash file")),
-        ]),
-        None => Vec::new(),
+        ]);
+        return groups(vec![stage, open, vec![item("copyFilePath", "Copy file path")]]);
+    }
+    let many = w.count > 1;
+    let stage = if many {
+        if w.staged {
+            plural(w.count, "Unstage", "Unstage {} files")
+        } else {
+            plural(w.count, "Stage", "Stage {} files")
+        }
+    } else if w.staged {
+        "Unstage".to_string()
+    } else {
+        "Stage".to_string()
     };
-    groups(vec![
-        stage,
-        vec![
-            item("openFile", "Open file"),
-            item("showItem", reveal_label(platform)),
-        ],
-        vec![item("copyFilePath", "Copy file path")],
-    ])
+    let discard = if many {
+        format!("Discard {} files", w.count)
+    } else {
+        "Discard changes".to_string()
+    };
+    let stash = if many {
+        format!("Stash {} files", w.count)
+    } else {
+        "Stash file".to_string()
+    };
+    let changes = flat(vec![
+        Some(item(if w.staged { "unstage" } else { "stage" }, stage)),
+        Some(item("discard", discard)),
+    ]);
+    let mut changes = changes;
+    if w.ignore {
+        changes.extend(ignore_items(&a.path, w));
+    }
+    if w.stash {
+        changes.push(item("stashFile", stash));
+    }
+    let patch = if many {
+        format!("Create patch from changes in {} files", w.count)
+    } else {
+        "Create patch from file changes".to_string()
+    };
+    let mut tail = vec![open];
+    if !many {
+        tail.push(vec![item("copyFilePath", "Copy file path")]);
+    }
+    let mut list = vec![changes, vec![item("exportPatch", patch)]];
+    list.extend(tail);
+    groups(list)
 }
 
 fn drop_menu(env: &Env, source_full: &str, target: &RefIn) -> Option<Vec<MenuSpec>> {
@@ -469,7 +550,7 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
         }
         MenuKind::File => {
             let a: FileArgs = actions::parse(args)?;
-            file_menu(&a.platform, a.wip.as_ref())
+            file_menu(&a)
         }
         MenuKind::Drop => {
             let a: DropArgs = actions::parse(args)?;
