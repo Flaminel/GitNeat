@@ -3,7 +3,7 @@ import { hunkPatch, Hunk, linesInRange, linesPatch, ParsedDiff } from "../diff";
 import { gitneat } from "../api";
 import { languageFor, monaco } from "../monaco";
 import { BlameLine, Commit, DiffSides, loadBlame, loadDiff, loadFileHistory, loadSides } from "../repo";
-import { showMenu } from "../ui";
+import { showMenu, useStored } from "../ui";
 import { OpenFile, StatusIcon } from "./DetailPanel";
 import { relativeTime } from "./GraphView";
 
@@ -22,26 +22,6 @@ interface Props {
 }
 
 export const MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace";
-const MODE_KEY = "gitneat.diffMode";
-const WS_KEY = "gitneat.diffIgnoreWhitespace";
-const WRAP_KEY = "gitneat.diffWordWrap";
-
-function stored<T extends string>(key: string, fallback: T): T {
-  try {
-    return (localStorage.getItem(key) as T | null) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function store(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    return;
-  }
-}
-
 const I = {
   up: <path d="M8 13V3 M4 7l4-4 4 4" />,
   down: <path d="M8 3v10 M4 9l4 4 4-4" />,
@@ -573,10 +553,10 @@ function HistoryView(props: { cwd: string; file: OpenFile; onOpenInCommit(commit
 
 export function DiffView(props: Props) {
   const { cwd, file, onClose, refreshKey } = props;
-  const [mode, setMode] = useState<DiffMode>(() => stored<DiffMode>(MODE_KEY, "hunk"));
+  const [mode, setMode] = useStored<DiffMode>("diff.mode", "hunk", (v) => v === "hunk" || v === "inline" || v === "split");
   const [view, setView] = useState<View>("diff");
-  const [ignoreWs, setIgnoreWs] = useState(() => stored<string>(WS_KEY, "false") === "true");
-  const [wrap, setWrap] = useState(() => stored<string>(WRAP_KEY, "false") === "true");
+  const [ignoreWs, setIgnoreWs] = useStored<boolean>("diff.ignoreWhitespace", false);
+  const [wrap, setWrap] = useStored<boolean>("diff.wordWrap", false);
   const [diff, setDiff] = useState<ParsedDiff | null>(null);
   const [sides, setSides] = useState<DiffSides | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -631,7 +611,6 @@ export function DiffView(props: Props) {
   const pickMode = (m: DiffMode) => {
     setMode(m);
     setView("diff");
-    store(MODE_KEY, m);
   };
 
   const jump = (dir: 1 | -1) => {
@@ -798,7 +777,6 @@ export function DiffView(props: Props) {
               disabled={disabled}
               onClick={() => {
                 setIgnoreWs(!ignoreWs);
-                store(WS_KEY, String(!ignoreWs));
               }}
             />
             <TbButton
@@ -808,7 +786,6 @@ export function DiffView(props: Props) {
               disabled={binary}
               onClick={() => {
                 setWrap(!wrap);
-                store(WRAP_KEY, String(!wrap));
               }}
             />
           </span>

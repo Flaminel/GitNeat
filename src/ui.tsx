@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { gitneat, MenuSpec } from "./api";
 
 export interface Field {
@@ -219,51 +219,82 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
   );
 }
 
-export function useStoredWidth(key: string, initial: number): [number, (n: number) => void] {
-  const [value, setValue] = useState<number>(() => {
-    try {
-      const saved = Number(localStorage.getItem(`gitneat.width.${key}`));
-      return saved > 0 ? saved : initial;
-    } catch {
-      return initial;
-    }
-  });
-  const set = useCallback(
-    (n: number) => {
-      setValue(n);
-      try {
-        localStorage.setItem(`gitneat.width.${key}`, String(Math.round(n)));
-      } catch {
-        return;
+export type Layout = Record<string, number | boolean | string>;
+
+interface LayoutStore {
+  layout: Layout;
+  set(key: string, value: number | boolean | string): void;
+}
+
+export const LayoutContext = createContext<LayoutStore>({ layout: {}, set: () => undefined });
+
+const LEGACY_DIFF: Record<string, string> = {
+  "gitneat.diffMode": "diff.mode",
+  "gitneat.diffIgnoreWhitespace": "diff.ignoreWhitespace",
+  "gitneat.diffWordWrap": "diff.wordWrap",
+};
+
+export function legacyLayout(): Layout {
+  const out: Layout = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      const value = localStorage.getItem(key) ?? "";
+      if (key.startsWith("gitneat.width.") && Number(value) > 0) {
+        out[key.slice("gitneat.width.".length)] = Number(value);
+      } else if (key.startsWith("gitneat.flag.")) {
+        out[key.slice("gitneat.flag.".length)] = value === "1";
+      } else if (key === "gitneat.diffMode") {
+        out[LEGACY_DIFF[key]] = value;
+      } else if (LEGACY_DIFF[key]) {
+        out[LEGACY_DIFF[key]] = value === "true";
       }
+    }
+  } catch {
+    return out;
+  }
+  return out;
+}
+
+export function useStored<T extends number | boolean | string>(key: string, initial: T, valid: (v: unknown) => boolean = (v) => typeof v === typeof initial): [T, (v: T) => void] {
+  const store = useContext(LayoutContext);
+  const saved = store.layout[key];
+  const [value, setValue] = useState<T>(() => (valid(saved) ? (saved as T) : initial));
+  const pending = useRef<{ timer: ReturnType<typeof setTimeout>; value: T } | null>(null);
+  const storeRef = useRef(store);
+  storeRef.current = store;
+  useEffect(
+    () => () => {
+      if (pending.current) {
+        clearTimeout(pending.current.timer);
+        storeRef.current.set(key, pending.current.value);
+      }
+    },
+    [key],
+  );
+  const set = useCallback(
+    (v: T) => {
+      setValue(v);
+      if (pending.current) {
+        clearTimeout(pending.current.timer);
+      }
+      const timer = setTimeout(() => {
+        pending.current = null;
+        storeRef.current.set(key, v);
+      }, 250);
+      pending.current = { timer, value: v };
     },
     [key],
   );
   return [value, set];
 }
 
-export function useStoredFlag(key: string, initial: boolean): [boolean, (b: boolean) => void] {
-  const [value, setValue] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(`gitneat.flag.${key}`);
-      return saved === null ? initial : saved === "1";
-    } catch {
-      return initial;
-    }
-  });
-  const set = useCallback(
-    (b: boolean) => {
-      setValue(b);
-      try {
-        localStorage.setItem(`gitneat.flag.${key}`, b ? "1" : "0");
-      } catch {
-        return;
-      }
-    },
-    [key],
-  );
-  return [value, set];
+export function useStoredWidth(key: string, initial: number): [number, (n: number) => void] {
+  const [value, set] = useStored(key, initial, (v) => typeof v === "number" && v > 0);
+  return [value, useCallback((n: number) => set(Math.round(n)), [set])];
 }
+
+export const useStoredFlag = (key: string, initial: boolean): [boolean, (b: boolean) => void] => useStored<boolean>(key, initial);
 
 export function Splitter(props: {
   value: number;

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
 import { Tab, Tabs, tabTitle } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
 import { forgetRepos, RepoPrefs, RepoView } from "./RepoView";
-import { useUi } from "./ui";
+import { Layout, LayoutContext, legacyLayout, useUi } from "./ui";
 import pkg from "../package.json";
 
 interface State {
@@ -14,9 +14,10 @@ interface State {
   recent: string[];
   closed: Tab[];
   prefs: Record<string, RepoPrefs>;
+  layout: Layout;
 }
 
-const EMPTY: State = { tabs: [], active: 0, recent: [], closed: [], prefs: {} };
+const EMPTY: State = { tabs: [], active: 0, recent: [], closed: [], prefs: {}, layout: {} };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const NEW_TAB: Tab = {};
 
@@ -48,6 +49,9 @@ export function App() {
       .then((saved) => {
         loaded.current = true;
         const s = { ...EMPTY, ...(saved as Partial<State>) };
+        if (!(saved as Partial<State>).layout) {
+          s.layout = legacyLayout();
+        }
         setState(s.tabs.length ? s : { ...s, tabs: [NEW_TAB], active: 0 });
       });
   }, []);
@@ -59,6 +63,15 @@ export function App() {
   }, [state]);
 
   const update = useCallback((fn: (s: State) => State) => setState((s) => (s ? fn(s) : s)), []);
+
+  const layout = state?.layout;
+  const layoutStore = useMemo(
+    () => ({
+      layout: layout ?? {},
+      set: (key: string, value: number | boolean | string) => update((s) => ({ ...s, layout: { ...s.layout, [key]: value } })),
+    }),
+    [layout, update],
+  );
 
   const openTab = useCallback(
     (path: string) =>
@@ -170,45 +183,47 @@ export function App() {
 
   const activePath = state.tabs[state.active]?.path;
   return (
-    <div className="app">
-      <Tabs
-        tabs={state.tabs}
-        active={state.active}
-        canReopen={state.closed.length > 0}
-        onActivate={(i) => update((s) => ({ ...s, active: i }))}
-        onClose={(i) => closeTabs((j) => j !== i)}
-        onCloseOthers={(i) => closeTabs((j) => j === i)}
-        onCloseRight={(i) => closeTabs((j) => j <= i)}
-        onRename={async (i) => {
-          const v = await ui.prompt("Rename tab", [{ name: "title", label: "Tab name", value: tabTitle(state.tabs[i]) }], "Rename");
-          if (v) {
-            update((s) => ({ ...s, tabs: s.tabs.map((t, j) => (j === i ? { ...t, title: v.title.trim() || undefined } : t)) }));
+    <LayoutContext.Provider value={layoutStore}>
+      <div className="app">
+        <Tabs
+          tabs={state.tabs}
+          active={state.active}
+          canReopen={state.closed.length > 0}
+          onActivate={(i) => update((s) => ({ ...s, active: i }))}
+          onClose={(i) => closeTabs((j) => j !== i)}
+          onCloseOthers={(i) => closeTabs((j) => j === i)}
+          onCloseRight={(i) => closeTabs((j) => j <= i)}
+          onRename={async (i) => {
+            const v = await ui.prompt("Rename tab", [{ name: "title", label: "Tab name", value: tabTitle(state.tabs[i]) }], "Rename");
+            if (v) {
+              update((s) => ({ ...s, tabs: s.tabs.map((t, j) => (j === i ? { ...t, title: v.title.trim() || undefined } : t)) }));
+            }
+          }}
+          onReopen={reopen}
+          onMove={(from, to) =>
+            update((s) => {
+              const tabs = [...s.tabs];
+              const [moved] = tabs.splice(from, 1);
+              tabs.splice(to, 0, moved);
+              return { ...s, tabs, active: to };
+            })
           }
-        }}
-        onReopen={reopen}
-        onMove={(from, to) =>
-          update((s) => {
-            const tabs = [...s.tabs];
-            const [moved] = tabs.splice(from, 1);
-            tabs.splice(to, 0, moved);
-            return { ...s, tabs, active: to };
-          })
-        }
-        onNew={newTab}
-      />
-      {activePath ? (
-        <RepoView
-          key={activePath}
-          path={activePath}
-          prefs={state.prefs[activePath] ?? NO_PREFS}
-          setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: prefs } }))}
-          openTab={openTab}
-          recent={state.recent}
+          onNew={newTab}
         />
-      ) : (
-        <NewTab recent={state.recent} onOpen={openTab} onOpenDialog={openDialog} onClone={clone} onInit={init} />
-      )}
-      <StatusBar />
-    </div>
+        {activePath ? (
+          <RepoView
+            key={activePath}
+            path={activePath}
+            prefs={state.prefs[activePath] ?? NO_PREFS}
+            setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: prefs } }))}
+            openTab={openTab}
+            recent={state.recent}
+          />
+        ) : (
+          <NewTab recent={state.recent} onOpen={openTab} onOpenDialog={openDialog} onClone={clone} onInit={init} />
+        )}
+        <StatusBar />
+      </div>
+    </LayoutContext.Provider>
   );
 }

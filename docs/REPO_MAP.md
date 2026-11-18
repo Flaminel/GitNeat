@@ -40,8 +40,8 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/monaco.ts` | Monaco setup: worker, `gitneat` theme, language detection |
 | `src/actions.ts` | UI flow of each repository action (prompts, confirms, toasts, undo records). The git work runs in Rust through `action`. |
 | `src/menus.ts` | Context menus: asks Rust for the menu with `contextMenu`, then runs the handler for the chosen id |
-| `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
-| `src/App.tsx` | Tabs, saved state, open repository. A tab without a path is a NEW tab (D51). |
+| `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter`, `useStored` and `LayoutContext` for the saved layout sizes and view options (D55) |
+| `src/App.tsx` | Tabs, saved state (with `layout`, D55), open repository. A tab without a path is a NEW tab (D51). |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
