@@ -69,6 +69,8 @@ function makeCtx(refs: Ref[]): Ctx {
     toggleSolo: () => undefined,
     hidden: [],
     solo: [],
+    layout: {},
+    setLayout: () => undefined,
     record: () => undefined,
   };
 }

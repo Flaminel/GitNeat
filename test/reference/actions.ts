@@ -9,20 +9,45 @@ const short = (sha: string) => sha.slice(0, 7);
 const confirmForceDelete = (ctx: Ctx, name: string) =>
   ctx.ui.confirm("Branch not merged", `${name} is not fully merged. Delete anyway?`, "Force delete", true);
 
-type PushChoice = "force" | "pull" | null;
+const PULL_OPTIONS: { mode: PullMode; label: string }[] = [
+  { mode: "fetch", label: "Fetch All" },
+  { mode: "ff", label: "Pull (fast-forward if possible)" },
+  { mode: "ff-only", label: "Pull (fast-forward only)" },
+  { mode: "rebase", label: "Pull (rebase)" },
+];
 
-async function choosePushAction(ctx: Ctx): Promise<PushChoice> {
-  const choice = await ctx.ui.choose("Push rejected", "The remote has commits that your branch does not have.", [
-    { label: "Pull", value: "pull" },
-    { label: "Force Push", value: "force", danger: true },
-  ]);
-  if (choice === "pull") {
-    return "pull";
+const FORCE_WARNING = "Force push is a destructive action and cannot be undone. Are you sure?";
+const SKIP_FORCE_WARNING = "push.skipForceWarning";
+const PUSH_RETRIES = 4;
+
+const pullDefault = (ctx: Ctx): PullMode => {
+  const stored = ctx.layout["pull.default"];
+  return PULL_OPTIONS.some((o) => o.mode === stored) ? (stored as PullMode) : "ff";
+};
+
+async function choosePullMode(ctx: Ctx): Promise<PullMode | null> {
+  const mode = pullDefault(ctx);
+  if (mode !== "fetch") {
+    return mode;
   }
-  if (choice === "force" && (await ctx.ui.confirm("Force push", "Force push with lease? This can overwrite commits on the remote.", "Force push", true))) {
-    return "force";
+  const options = PULL_OPTIONS.filter((o) => o.mode !== "fetch");
+  const answer = await ctx.ui.choose("", options.map((o) => ({ label: o.label, value: o.mode })));
+  return answer ? (answer.choice as PullMode) : null;
+}
+
+async function confirmForce(ctx: Ctx, skippable: boolean): Promise<boolean> {
+  if (skippable && ctx.layout[SKIP_FORCE_WARNING] === true) {
+    return true;
   }
-  return null;
+  const fields: Field[] = skippable ? [{ name: "skip", label: "Don't ask again", kind: "checkbox" }] : [];
+  const answer = await ctx.ui.choose(FORCE_WARNING, [{ label: "Force Push", value: "force", danger: true }], fields);
+  if (!answer) {
+    return false;
+  }
+  if (skippable && answer.skip === "true") {
+    ctx.setLayout(SKIP_FORCE_WARNING, true);
+  }
+  return true;
 }
 
 async function headState(cwd: string): Promise<HeadState> {
@@ -273,23 +298,68 @@ export async function push(ctx: Ctx, branch?: string, remote?: string): Promise<
     }
     args = ["push", "-u", v.remote, `${name}:${v.branch}`];
   }
-  let choice: PushChoice = null;
-  await run(ctx, "Push", async () => {
-    try {
-      await g(ctx, args);
-    } catch (error) {
-      if (!(error instanceof GitError) || !/rejected|non-fast-forward|fetch first/.test(error.message)) {
-        throw error;
+  const upstream = ref?.upstream ?? (remote ? `${remote}/${name}` : args[2]?.replace(":", "/") ?? name);
+  let mode: "plain" | "lease" | "hard" = "plain";
+  for (let attempt = 0; attempt < PUSH_RETRIES; attempt += 1) {
+    const box: { pending: "push-behind" | "push-remote-changed" | null } = { pending: null };
+    await run(ctx, "Push", async () => {
+      const flag = mode === "lease" ? ["--force-with-lease"] : mode === "hard" ? ["--force"] : [];
+      try {
+        await g(ctx, [args[0], ...flag, ...args.slice(1)]);
+      } catch (error) {
+        if (!(error instanceof GitError) || mode === "hard") {
+          throw error;
+        }
+        if (/stale info|fetch first/.test(error.message)) {
+          box.pending = "push-remote-changed";
+        } else if (mode === "plain" && /rejected|non-fast-forward/.test(error.message)) {
+          box.pending = "push-behind";
+        } else {
+          throw error;
+        }
       }
-      choice = await choosePushAction(ctx);
-      if (choice === "force") {
-        await g(ctx, [...args.slice(0, 1), "--force-with-lease", ...args.slice(1)]);
-      }
+    });
+    if (!box.pending) {
+      return;
     }
-  });
-  if (choice === "pull") {
-    await pull(ctx, "ff");
+    if (box.pending === "push-behind") {
+      const pullMode = pullDefault(ctx);
+      const answerBehind = await ctx.ui.choose(`'${name}' is behind '${upstream}'. Update your branch by doing a Pull.`, [
+        { label: pullMode === "fetch" ? "Pull" : (PULL_OPTIONS.find((o) => o.mode === pullMode)?.label ?? "Pull"), value: "pull" },
+        { label: "Force Push", value: "force", danger: true },
+      ]);
+      if (!answerBehind) {
+        return;
+      }
+      if (answerBehind.choice === "pull") {
+        const chosen = await choosePullMode(ctx);
+        if (!chosen || !(await pull(ctx, chosen))) {
+          return;
+        }
+      } else if (await confirmForce(ctx, true)) {
+        mode = "lease";
+      } else {
+        return;
+      }
+    } else {
+      const answerChanged = await ctx.ui.choose(`WARNING! '${name}' has changed on the remote since the last fetch.`, [
+        { label: "Fetch", value: "fetch" },
+        { label: "Force Push Anyway", value: "force", danger: true },
+      ]);
+      if (!answerChanged) {
+        return;
+      }
+      if (answerChanged.choice === "fetch") {
+        await pull(ctx, "fetch");
+        return;
+      }
+      if (!(await confirmForce(ctx, false))) {
+        return;
+      }
+      mode = "hard";
+    }
   }
+  ctx.ui.toast("Maximum retry limit reached", "error", "Push Failed");
 }
 
 export const pushTo = (ctx: Ctx, local: string, remote: string, branch: string) =>

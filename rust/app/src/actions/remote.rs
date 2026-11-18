@@ -53,6 +53,8 @@ struct Push {
     upstream: Option<String>,
     answer: Option<Answer>,
     force: bool,
+    #[serde(default)]
+    hard: bool,
 }
 
 #[derive(Deserialize)]
@@ -153,6 +155,10 @@ fn rejected(error: &str) -> bool {
         .any(|m| error.contains(m))
 }
 
+fn remote_changed(error: &str) -> bool {
+    ["stale info", "fetch first"].iter().any(|m| error.contains(m))
+}
+
 async fn push(cwd: &str, args: &Value) -> Res<Value> {
     let a: Push = parse(args)?;
     let list: Vec<String> = if let Some(remote) = a.remote.as_deref().filter(|r| !r.is_empty()) {
@@ -173,12 +179,16 @@ async fn push(cwd: &str, args: &Value) -> Res<Value> {
     let plain: Vec<&str> = list.iter().map(String::as_str).collect();
     let mut forced = vec![plain[0], "--force-with-lease"];
     forced.extend(&plain[1..]);
+    let mut hard = vec![plain[0], "--force"];
+    hard.extend(&plain[1..]);
     run(cwd, true, async {
-        if a.force {
-            return git(cwd, &forced).await;
+        if a.hard {
+            return git(cwd, &hard).await;
         }
-        match git(cwd, &plain).await {
-            Err(error) if rejected(&error) => Err(needs_confirm("force-push", &error)),
+        let result = git(cwd, if a.force { &forced } else { &plain }).await;
+        match result {
+            Err(error) if remote_changed(&error) => Err(needs_confirm("push-remote-changed", &error)),
+            Err(error) if !a.force && rejected(&error) => Err(needs_confirm("push-behind", &error)),
             other => other,
         }
     })

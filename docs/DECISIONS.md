@@ -489,11 +489,13 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Limits: The evidence has no success notice for push or fetch, so GitNeat shows none. Source has titles for specific errors, for example `Error-FetchFailedWithName`. GitNeat builds the title from the task label only. The hook title "{hook} Failed" is not added, because GitNeat does not parse the hook name from the git output.
 - Limits: The comparison test `test/actions.test.ts` logs only error toasts, because the frozen reference has no notices. No manual check in the app: the Tauri window was not started in this task. The toast layout has no pixel measurement from Source.
 
-## D74. Push rejected: Pull, Force Push or Cancel
+## D74. Push rejected: Pull, Force Push and Fetch prompts
 
-- Decision: `ui.choose` shows a dialog with a message and one button for each choice, plus Cancel. A rejected push calls `choose` with Pull and Force Push.
-- Decision: Pull runs the default pull (mode ff) after the push task ends. Force Push asks a second confirm "Force push with lease?", then pushes with `--force-with-lease`. Cancel and a declined second confirm do nothing.
-- Reason: Source shows a Pull button, a Force Push button that asks a second time, and Cancel (`docs/EVIDENCE.md` section 12). Task T19.
-- Limits: The Rust action `push` is unchanged. It still returns `needs-confirm:force-push`, and the UI handles the choice. The dialog texts are not the Source strings, because the evidence holds only the string keys.
-- Limits: The comparison scenario for Pull uses a branch that is only behind. A diverged pull makes a merge commit whose message holds the temporary path, so the TS and Rust runs get different shas.
+- Decision: `ui.choose` shows a dialog without title, with a message, one button for each choice, optional checkbox fields and Cancel. It returns the fields and `choice`, or null.
+- Decision: The Rust action `push` returns `needs-confirm:push-remote-changed` for the git texts `fetch first` and `stale info`. For the other rejections it returns `needs-confirm:push-behind`. The args `force` (lease) and `hard` (plain `--force`) select the retry mode.
+- Decision: `push` in `src/actions.ts` retries up to 4 times. On `push-behind` it asks "'{branch}' is behind '{upstream}'. Update your branch by doing a Pull." with Pull and Force Push. Pull runs the default pull, then pushes again. If the default is Fetch All, Pull asks for one of the three pull modes. Force Push asks "Force push is a destructive action and cannot be undone. Are you sure?" with a "Don't ask again" checkbox, then pushes with lease.
+- Decision: On `push-remote-changed` it asks "WARNING! '{branch}' has changed on the remote since the last fetch." with Fetch and Force Push Anyway. Fetch runs Fetch All and ends. Force Push Anyway asks the same confirm without the checkbox, then pushes with `--force`.
+- Reason: Source has these prompts and texts (`docs/EVIDENCE.md` section 12). Task T19.
+- Limits: The `{1}` value in the remote-changed text is the branch name. Source passes the full ref name. The bold WARNING! is plain text. The "Don't ask again" value is saved as the layout key `push.skipForceWarning`. Source saves it in an app setting.
+- Limits: The reference push in `test/reference/actions.ts` mirrors the flow with `git` calls. The Pull scenario uses a branch that is only behind, because a diverged pull makes a merge commit whose message holds the temporary path.
 - Limits: No manual check in the app: the Tauri window was not started in this task.

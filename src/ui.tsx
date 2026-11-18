@@ -55,7 +55,7 @@ export interface Choice {
 export interface Ui {
   prompt(title: string, fields: Field[], ok?: string): Promise<Record<string, string> | null>;
   confirm(title: string, message: string, ok?: string, danger?: boolean): Promise<boolean>;
-  choose(title: string, message: string, choices: Choice[]): Promise<string | null>;
+  choose(message: string, choices: Choice[], fields?: Field[]): Promise<Record<string, string> | null>;
   toast(text: string, kind?: "error" | "info", title?: string): void;
   task(label: string, fn: () => Promise<unknown>, title?: string): Promise<boolean>;
   busy: string | null;
@@ -118,10 +118,8 @@ export function UiProvider({ children }: { children: ReactNode }) {
   );
 
   const choose = useCallback(
-    (title: string, message: string, choices: Choice[]) =>
-      new Promise<string | null>((resolve) =>
-        setDialog({ title, message, fields: [], ok: "", choices, resolve: (v) => resolve(v ? v.choice : null) }),
-      ),
+    (message: string, choices: Choice[], fields: Field[] = []) =>
+      new Promise<Record<string, string> | null>((resolve) => setDialog({ title: "", message, fields, ok: "", choices, resolve })),
     [],
   );
 
@@ -218,7 +216,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
           }
         }}
       >
-        <h3>{request.title}</h3>
+        {request.title && <h3>{request.title}</h3>}
         {request.message && <p className="modal-message">{request.message}</p>}
         {request.fields.map((field, i) => (
           <label key={field.name} className={field.kind === "checkbox" ? "check" : "field"}>
@@ -264,7 +262,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
           </button>
           {request.choices ? (
             request.choices.map((c) => (
-              <button key={c.value} type="button" className={c.danger ? "danger" : "primary"} onClick={() => finish({ choice: c.value })}>
+              <button key={c.value} type="button" className={c.danger ? "danger" : "primary"} onClick={() => finish({ ...values, choice: c.value })}>
                 {c.label}
               </button>
             ))

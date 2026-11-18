@@ -138,8 +138,8 @@ mod tests {
     #[test]
     fn needs_confirm_has_kind_and_text() {
         assert_eq!(
-            needs_confirm("force-push", "rejected"),
-            "needs-confirm:force-push:rejected"
+            needs_confirm("push-behind", "rejected"),
+            "needs-confirm:push-behind:rejected"
         );
     }
 

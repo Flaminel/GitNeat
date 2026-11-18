@@ -33,12 +33,7 @@ function ToolButton(props: { label: string; icon: React.ReactNode; onClick(): vo
   );
 }
 
-const PULL_OPTIONS: { mode: A.PullMode; label: string }[] = [
-  { mode: "fetch", label: "Fetch All" },
-  { mode: "ff", label: "Pull (fast-forward if possible)" },
-  { mode: "ff-only", label: "Pull (fast-forward only)" },
-  { mode: "rebase", label: "Pull (rebase)" },
-];
+const PULL_OPTIONS = A.PULL_OPTIONS;
 
 const detachedText = (label: string) => `${label} is not available when in a detached HEAD state`;
 

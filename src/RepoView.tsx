@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as A from "./actions";
 import { Ctx, TodoEntry, UndoEntry } from "./actions";
 import { gitneat } from "./api";
@@ -11,7 +11,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
 import { Commit, loadRepo, RepoData, samePath } from "./repo";
-import { Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
+import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
   hidden: string[];
@@ -58,6 +58,7 @@ function toggle(list: string[], item: string): string[] {
 
 export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent }: Props) {
   const ui = useUi();
+  const { layout, set: setLayout } = useContext(LayoutContext);
   const cached = cache.get(path);
   const [data, setData] = useState<RepoData | null>(cached?.data ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -168,12 +169,14 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
         toggleSolo: (full) => setPrefs({ hidden: prefs.hidden, solo: toggle(prefs.solo, full) }),
         hidden: prefs.hidden,
         solo: prefs.solo,
+        layout,
+        setLayout,
         record: (entry) => {
           setUndoStack((list) => [...list.slice(-49), entry]);
           setRedoStack([]);
         },
       },
-    [data, path, ui, load, openTab, prefs, setPrefs],
+    [data, path, ui, load, openTab, prefs, setPrefs, layout, setLayout],
   );
 
   const undo = async () => {

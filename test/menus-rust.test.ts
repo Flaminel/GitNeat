@@ -353,8 +353,8 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
       log.push(`confirm ${title} | ${message}`);
       return false;
     },
-    choose: async (title, message) => {
-      log.push(`choose ${title} | ${message}`);
+    choose: async (message) => {
+      log.push(`choose ${message}`);
       return null;
     },
     toast: (text, kind) => {
@@ -398,6 +398,8 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
     },
     hidden: marks.hidden,
     solo: marks.solo,
+    layout: {},
+    setLayout: () => undefined,
     record: (entry) => {
       log.push(`record ${JSON.stringify(entry)}`);
     },

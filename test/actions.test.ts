@@ -43,6 +43,7 @@ interface Dirs {
 interface Harness {
   log: string[];
   recorded: UndoEntry[];
+  answers: Record<string, string>[];
 }
 
 interface Scenario {
@@ -51,7 +52,7 @@ interface Scenario {
   run: (ctx: Ctx, d: Dirs, h: Harness) => Promise<unknown>;
   prompt?: Record<string, string> | null | ((d: Dirs) => Record<string, string>);
   confirm?: boolean | ((title: string) => boolean);
-  choice?: string | null;
+  answers?: Record<string, string>[];
   expect?: RegExp;
 }
 
@@ -355,11 +356,15 @@ S("push-no-branch", (d) => {
   g(d.repo, "checkout", "-q", "--detach");
 }, (ctx) => A.push(ctx), { expect: /Checkout a branch/ });
 S("push-no-remotes", base, (ctx) => A.push(ctx), { expect: /no remotes/ });
-S("push-rejected-stale-force", (d) => diverged(d, false), (ctx) => A.push(ctx), { choice: "force", expect: /Push rejected/ });
-S("push-rejected-fetched-force", (d) => diverged(d, true), (ctx) => A.push(ctx), { choice: "force", expect: /Push rejected/ });
-S("push-rejected-force-declined", (d) => diverged(d, true), (ctx) => A.push(ctx), { choice: "force", confirm: false, expect: /Push rejected/ });
-S("push-rejected-pull", behind, (ctx) => A.push(ctx), { choice: "pull", expect: /Push rejected/ });
-S("push-rejected-cancel", (d) => diverged(d, true), (ctx) => A.push(ctx), { expect: /Push rejected/ });
+S("push-behind-pull", behind, (ctx) => A.push(ctx), { answers: [{ choice: "pull" }] });
+S("push-behind-force", (d) => diverged(d, true), (ctx) => A.push(ctx), { answers: [{ choice: "force" }, { choice: "force", skip: "false" }] });
+S("push-behind-force-skip", (d) => diverged(d, true), (ctx) => A.push(ctx), { answers: [{ choice: "force" }, { choice: "force", skip: "true" }] });
+S("push-behind-force-declined", (d) => diverged(d, true), (ctx) => A.push(ctx), { answers: [{ choice: "force" }] });
+S("push-behind-cancel", (d) => diverged(d, true), (ctx) => A.push(ctx), { expect: /choose/ });
+S("push-changed-force", (d) => diverged(d, false), (ctx) => A.push(ctx), { answers: [{ choice: "force" }, { choice: "force" }] });
+S("push-changed-force-declined", (d) => diverged(d, false), (ctx) => A.push(ctx), { answers: [{ choice: "force" }] });
+S("push-changed-fetch", (d) => diverged(d, false), (ctx) => A.push(ctx), { answers: [{ choice: "fetch" }] });
+S("push-changed-cancel", (d) => diverged(d, false), (ctx) => A.push(ctx), { expect: /choose/ });
 S("push-error", (d) => {
   remote(d);
   commit(d.repo, "l.txt", "l\n", "local work");
@@ -633,9 +638,10 @@ function makeUi(s: Scenario, d: Dirs, h: Harness): Ctx["ui"] {
       h.log.push(`confirm ${title} | ${message} | ${ok} | ${danger}`);
       return typeof s.confirm === "function" ? s.confirm(title) : (s.confirm ?? true);
     },
-    choose: async (title, message, choices) => {
-      h.log.push(`choose ${title} | ${message} | ${choices.map((c) => c.label).join(",")}`);
-      return s.choice === undefined ? null : s.choice;
+    choose: async (message, choices, fields) => {
+      h.log.push(`choose ${message} | ${choices.map((c) => c.label).join(",")} | ${JSON.stringify(fields ?? [])}`);
+      const answer = h.answers.shift();
+      return answer ? { ...answer } : null;
     },
     toast: (text, kind) => {
       if (kind === "error") {
@@ -701,7 +707,7 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
   const d: Dirs = { root, repo: path.join(root, "repo"), remote: path.join(root, "remote.git"), other: path.join(root, "other"), wt: path.join(root, "wt") };
   fs.mkdirSync(root, { recursive: true });
   s.setup(d);
-  const h: Harness = { log: [], recorded: [] };
+  const h: Harness = { log: [], recorded: [], answers: [...(s.answers ?? [])] };
   const api = {
     platform: "darwin",
     git: runGit,
@@ -743,6 +749,8 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
     toggleSolo: () => undefined,
     hidden: [],
     solo: [],
+    layout: {},
+    setLayout: () => undefined,
     record: (entry) => {
       h.recorded.push(entry);
       h.log.push(`record ${JSON.stringify(entry)}`);
