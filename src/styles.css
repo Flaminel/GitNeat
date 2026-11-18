@@ -10,6 +10,7 @@
   --text: rgba(255, 255, 255, 0.75);
   --text-dim: rgba(255, 255, 255, 0.6);
   --text-faint: rgba(255, 255, 255, 0.4);
+  --text-dimmed: rgba(255, 255, 255, 0.2);
   --accent: #4d88ff;
   --green: #5cb85c;
   --red: #d9413d;
@@ -1928,8 +1929,14 @@ a.sha {
   margin-left: 8px;
 }
 
-.row.dim {
-  opacity: 0.3;
+.row .cell,
+.row .cell * {
+  transition: color 0.2s;
+}
+
+.row.dim .cell,
+.row.dim .cell * {
+  color: var(--text-dimmed);
 }
 
 .row.date-break {

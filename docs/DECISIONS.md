@@ -362,6 +362,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: `src/components/GraphView.tsx` draws each edge between two lanes as a vertical stub, an arc of radius 8 and a horizontal run at the row middle. The lane x is `28 + col * 22 + 11`. The automatic graph width is `lanes * 22 + 62`, with the 360 px cap kept.
 - Rules: Each row has a band in the lane color from the node center to the right end, at 10 % (50 % when selected). Hover adds `rgba(77,136,255,.1)` over the full row. The ref connector is 1 px at 25 % opacity, and 2 px at 100 % on the HEAD row. Pills use the opaque `--lane-N-bg25`, `-bg45` (hover) and `-bg50` (current or selected) tints, radius 2 and padding 5 px.
 - Nodes: the commit ring is 22 px with an 18 px avatar. The merge dot is 12 px. The stash node is a 22 px square with a dotted border. The WIP node is a 22 px circle with a dotted border. A stash message is italic and dim.
+- Search: a row that does not match the search keeps its graph and pills. Its text color becomes `--text-dimmed` with a 0.2 s transition.
 - Header: 26 px with 12 px labels in sentence case. The message cell has no divider. The date label is 10 px with radius 2 at `right: 0`.
 - Reason: `docs/EVIDENCE.md` sections 3 and 13.
-- Limits: The selected row no longer has the blue `--selected` background. The 50 % lane band marks it. The commit description after the subject and the `--text-dimmed` color of search misses are not done. No side by side screenshot was taken: the screen was locked during T05.
+- Limits: The selected row no longer has the blue `--selected` background. The 50 % lane band marks it. Task T39 adds the commit description after the subject. No side by side screenshot was taken: the screen was locked during T05.
