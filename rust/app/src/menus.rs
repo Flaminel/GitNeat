@@ -73,6 +73,13 @@ struct WipIn {
     panel: bool,
     #[serde(default)]
     ignore: bool,
+    conflict: Option<ConflictIn>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ConflictIn {
+    current: String,
+    incoming: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -152,6 +159,10 @@ struct FileArgs {
     history: bool,
     #[serde(skip)]
     missing: bool,
+    #[serde(skip)]
+    diff_tool: bool,
+    #[serde(skip)]
+    merge_tool: bool,
 }
 
 #[derive(Deserialize)]
@@ -372,13 +383,18 @@ fn plural(count: usize, one: &str, many: &str) -> String {
 fn ignore_items(path: &str, w: &WipIn) -> Vec<MenuSpec> {
     let name = path.rsplit('/').next().unwrap_or(path);
     let extension = name.rfind('.').map(|i| &name[i..]).filter(|e| e.len() > 1);
-    let folder = path.rsplit_once('/').map(|(dir, _)| dir.rsplit('/').next().unwrap_or(dir));
+    let folder = path
+        .rsplit_once('/')
+        .map(|(dir, _)| dir.rsplit('/').next().unwrap_or(dir));
     if w.count > 1 {
         return vec![item("ignoreFile", format!("Ignore {} files", w.count))];
     }
     let mut children = vec![item("ignoreFile", format!("Ignore '{name}'"))];
     if let Some(e) = extension {
-        children.push(item("ignoreExtension", format!("All files with the extension '{e}'")));
+        children.push(item(
+            "ignoreExtension",
+            format!("All files with the extension '{e}'"),
+        ));
     }
     if let Some(f) = folder {
         children.push(item("ignoreFolder", format!("All files in '{f}/'")));
@@ -386,17 +402,38 @@ fn ignore_items(path: &str, w: &WipIn) -> Vec<MenuSpec> {
     vec![sub("Ignore", children)]
 }
 
-fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
-    let open = if a.missing {
-        Vec::new()
+fn tool_label(configured: bool, kind: &str) -> String {
+    if configured {
+        format!("Open in external {kind} tool")
     } else {
-        vec![
-            item("openFile", "Open file"),
-            item("showItem", reveal_label(&a.platform)),
-        ]
-    };
+        format!("Open in {kind} tool")
+    }
+}
+
+fn conflict_items(a: &FileArgs, c: &ConflictIn) -> Vec<MenuSpec> {
+    vec![
+        item("openMergeTool", tool_label(a.merge_tool, "merge")),
+        item("takeCurrent", format!("Take current ({})", c.current)),
+        item("takeIncoming", format!("Take incoming ({})", c.incoming)),
+        item("markResolved", "Mark resolved"),
+    ]
+}
+
+fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
+    let conflict = a.wip.as_ref().and_then(|w| w.conflict.as_ref());
+    let mut open = Vec::new();
+    if conflict.is_none() {
+        open.push(item("openDiffTool", tool_label(a.diff_tool, "diff")));
+    }
+    if !a.missing {
+        open.push(item("openFile", "Open file"));
+        open.push(item("showItem", reveal_label(&a.platform)));
+    }
     let history = if a.history {
-        vec![item("fileHistory", "File History"), item("fileBlame", "File Blame")]
+        vec![
+            item("fileHistory", "File History"),
+            item("fileBlame", "File Blame"),
+        ]
     } else {
         Vec::new()
     };
@@ -404,7 +441,11 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
         return groups(vec![
             vec![item(
                 "applyStashed",
-                plural(a.stash_apply, "Apply stashed file", "Apply {} files from stash"),
+                plural(
+                    a.stash_apply,
+                    "Apply stashed file",
+                    "Apply {} files from stash",
+                ),
             )],
             history,
             open,
@@ -412,16 +453,30 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
         ]);
     }
     let Some(w) = a.wip.as_ref() else {
-        return groups(vec![history, open, vec![item("copyFilePath", "Copy file path")]]);
+        return groups(vec![
+            history,
+            open,
+            vec![item("copyFilePath", "Copy file path")],
+        ]);
     };
     if !w.panel {
-        let stage = flat(vec![
-            (!w.staged).then(|| item("stage", "Stage")),
-            w.staged.then(|| item("unstage", "Unstage")),
+        let mut stage = match conflict {
+            Some(c) => conflict_items(a, c),
+            None => flat(vec![
+                (!w.staged).then(|| item("stage", "Stage")),
+                w.staged.then(|| item("unstage", "Unstage")),
+            ]),
+        };
+        stage.extend(flat(vec![
             (!w.staged).then(|| item("discard", "Discard changes")),
             w.stash.then(|| item("stashFile", "Stash file")),
+        ]));
+        return groups(vec![
+            stage,
+            history,
+            open,
+            vec![item("copyFilePath", "Copy file path")],
         ]);
-        return groups(vec![stage, history, open, vec![item("copyFilePath", "Copy file path")]]);
     }
     let many = w.count > 1;
     let stage = if many {
@@ -565,6 +620,8 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
         MenuKind::File => {
             let mut a: FileArgs = actions::parse(args)?;
             a.missing = a.history && !std::path::Path::new(cwd).join(&a.path).exists();
+            a.diff_tool = actions::tools::diff_tool_configured(cwd).await;
+            a.merge_tool = actions::tools::configured(cwd, "merge.tool").await;
             file_menu(&a)
         }
         MenuKind::Drop => {
@@ -614,6 +671,57 @@ mod tests {
             Some("g0:x")
         );
         assert_eq!(out[1].id.as_deref(), Some("g0:y"));
+    }
+
+    fn file_labels(args: serde_json::Value, diff_tool: bool, merge_tool: bool) -> Vec<String> {
+        let mut a: FileArgs = serde_json::from_value(args).unwrap();
+        a.diff_tool = diff_tool;
+        a.merge_tool = merge_tool;
+        labels(&tidy(file_menu(&a)))
+    }
+
+    #[test]
+    fn file_menu_opens_the_diff_tool_before_the_open_items() {
+        let args = serde_json::json!({"platform": "darwin", "path": "a.txt"});
+        assert_eq!(
+            file_labels(args.clone(), false, false),
+            [
+                "Open in diff tool",
+                "Open file",
+                "Show in Finder",
+                "-",
+                "Copy file path"
+            ]
+        );
+        assert_eq!(
+            file_labels(args, true, false)[0],
+            "Open in external diff tool"
+        );
+    }
+
+    #[test]
+    fn conflicted_file_menu_has_merge_tool_and_take_items() {
+        let args = serde_json::json!({
+            "platform": "darwin",
+            "path": "a.txt",
+            "wip": {"staged": false, "conflict": {"current": "main", "incoming": "topic"}}
+        });
+        assert_eq!(
+            file_labels(args.clone(), true, true),
+            [
+                "Open in external merge tool",
+                "Take current (main)",
+                "Take incoming (topic)",
+                "Mark resolved",
+                "Discard changes",
+                "-",
+                "Open file",
+                "Show in Finder",
+                "-",
+                "Copy file path"
+            ]
+        );
+        assert_eq!(file_labels(args, false, false)[0], "Open in merge tool");
     }
 
     #[test]

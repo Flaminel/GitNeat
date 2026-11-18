@@ -408,6 +408,11 @@ export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untrac
           ]
         : [],
       [
+        {
+          id: "openDiffTool",
+          label: "Open in diff tool",
+          run: () => gitneat().action(ctx.cwd, "openDiffTool", wip?.staged ? { path, staged: true } : { path, untracked: Boolean(wip?.untracked) }),
+        },
         { id: "openFile", label: "Open file", run: () => gitneat().openPath(abs) },
         { id: "showItem", label: gitneat().platform === "darwin" ? "Show in Finder" : "Show in Explorer", run: () => gitneat().showItem(abs) },
       ],

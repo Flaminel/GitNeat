@@ -32,6 +32,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
 | `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
+| `rust/app/src/actions/tools.rs` | Open a file in the external diff or merge tool with `git difftool` and `git mergetool`, and the tool config check (D92) |
 | `rust/app/src/menus.rs`, `rust/app/src/menus/` | Context menu builders for the `context_menu` command (D42) |
 | `rust/app/examples/` | Command line entry points that the TS comparison tests run |
 | `rust/graph`, `rust/diff`, `rust/merge`, `rust/repo` | Rust ports of the lane layout, the diff parser, `src/merge.ts` and the parsers of `src/repo.ts`, with recorded cases |
@@ -103,6 +104,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the Conflicted Files section (D75) | `WipInfo` in `src/components/DetailPanel.tsx`, `markResolved` in `rust/app/src/actions/history.rs` |
 | Change a repository shortcut (D59) | The keydown handler in `src/RepoView.tsx` |
 | Change a tab shortcut | The keydown handler in `src/App.tsx` |
+| Change the open in diff or merge tool items or Cmd+D (D92) | `rust/app/src/actions/tools.rs`, `file_menu` in `rust/app/src/menus.rs`, `openDiffTool` in `src/actions.ts`, `openInTool` in `src/RepoView.tsx` |
 | Change a credential or passphrase prompt (D90) | `askCredentials` in `src/App.tsx`, the prompt parse in `rust/app/src/askpass.rs` |
 
 ## Environment variables

@@ -272,6 +272,17 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
     }
   };
 
+  const openInTool = () => {
+    if (!ctx) {
+      return;
+    }
+    if (!openFile) {
+      ctx.ui.toast("No file is selected in the Commit Panel or open in the merge resolution panel", "error", "Failed to open diff tool");
+      return;
+    }
+    return openFile.merge ? A.openMergeTool(ctx, openFile.path) : A.openDiffTool(ctx, openFile.path, openFile.source);
+  };
+
   const focusMessage = () => {
     if (!data?.status.length) {
       return;
@@ -298,6 +309,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         "Shift+KeyS": () => ctx.data.status.some((s) => s.work !== " " || s.index === "?") && A.stageAll(ctx),
         "Shift+KeyU": () => ctx.data.status.some((s) => s.index !== " " && s.index !== "?") && A.unstageAll(ctx),
         "Shift+KeyM": focusMessage,
+        KeyD: () => openInTool(),
       };
       if (run[key]) {
         e.preventDefault();

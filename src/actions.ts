@@ -1,5 +1,5 @@
 import { gitneat } from "./api";
-import { Commit, GitError, Operation, Ref, RepoData, samePath } from "./repo";
+import { Commit, DiffSource, GitError, Operation, Ref, RepoData, samePath } from "./repo";
 import { Field, Layout, Ui } from "./ui";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
@@ -816,6 +816,29 @@ export const abortOperation = (ctx: Ctx, op: Operation) => go(ctx, `Abort ${op}`
 export const skipOperation = (ctx: Ctx) => go(ctx, "Skip commit", "skipOperation", {});
 
 export const markResolved = (ctx: Ctx, paths: string[]) => go(ctx, "Mark resolved", "markResolved", { paths });
+
+const openInTool = async (ctx: Ctx, title: string, name: string, args: object): Promise<void> => {
+  try {
+    await act(ctx.cwd, name, args);
+  } catch (error) {
+    ctx.ui.toast(error instanceof Error ? error.message : String(error), "error", title);
+  }
+};
+
+export const openDiffTool = (ctx: Ctx, path: string, source: DiffSource) => {
+  const args =
+    source.kind === "commit"
+      ? { path, sha: source.sha, parent: source.parent }
+      : source.kind === "staged"
+        ? { path, staged: true }
+        : { path, untracked: source.untracked };
+  return openInTool(ctx, "Failed to open diff tool", "openDiffTool", args);
+};
+
+export const openMergeTool = async (ctx: Ctx, path: string) => {
+  await openInTool(ctx, "Failed to open merge tool", "openMergeTool", { path });
+  ctx.refresh();
+};
 
 export const resolveFile = (ctx: Ctx, path: string, how: "ours" | "theirs" | "delete") => go(ctx, "Resolve", "resolveFile", { path, how });
 

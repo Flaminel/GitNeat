@@ -4,6 +4,7 @@ mod index;
 mod rebase;
 mod refs;
 mod remote;
+pub mod tools;
 
 use crate::git::{self, GitResult};
 use serde::de::DeserializeOwned;
@@ -121,6 +122,9 @@ pub async fn dispatch(cwd: &str, name: &str, args: Value) -> Res<Value> {
         return done;
     }
     if let Some(done) = index::call(cwd, name, &args).await {
+        return done;
+    }
+    if let Some(done) = tools::call(cwd, name, &args).await {
         return done;
     }
     Err(format!("Unknown action {name}"))

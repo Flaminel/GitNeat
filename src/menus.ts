@@ -1,7 +1,7 @@
 import * as A from "./actions";
 import { Ctx } from "./actions";
 import { gitneat } from "./api";
-import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, Worktree } from "./repo";
+import { Commit, commitWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Worktree } from "./repo";
 
 type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "file" | "drop" | "multi";
 
@@ -207,10 +207,11 @@ export interface FileSelection {
 export function fileMenu(
   ctx: Ctx,
   path: string,
-  wip?: { staged: boolean; untracked: boolean },
+  wip?: { staged: boolean; untracked: boolean; conflict?: { current: string; incoming: string } },
   selection?: FileSelection,
   stashed?: { ref: string; paths: string[]; origins: string[] },
   view?: (view: "blame" | "history") => void,
+  source?: DiffSource,
 ): Promise<void> {
   const abs = `${ctx.cwd}/${path}`;
   const paths = selection?.paths ?? [path];
@@ -235,6 +236,11 @@ export function fileMenu(
     ignoreFolder: () => finish(A.ignoreFolder(ctx, path)),
     exportPatch: () => A.savePatchWork(ctx, paths),
     applyStashed: () => (stashed ? A.stashApplyFiles(ctx, stashed.ref, [...stashed.paths, ...stashed.origins]) : undefined),
+    openDiffTool: () => A.openDiffTool(ctx, path, source ?? (wip?.staged ? { kind: "staged" } : { kind: "unstaged", untracked: Boolean(wip?.untracked) })),
+    openMergeTool: () => A.openMergeTool(ctx, path),
+    takeCurrent: () => A.resolveFile(ctx, path, "ours"),
+    takeIncoming: () => A.resolveFile(ctx, path, "theirs"),
+    markResolved: () => A.markResolved(ctx, [path]),
     openFile: () => gitneat().openPath(abs),
     showItem: () => gitneat().showItem(abs),
     copyFilePath: () => gitneat().copy(path),

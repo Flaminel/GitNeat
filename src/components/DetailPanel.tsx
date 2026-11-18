@@ -354,8 +354,14 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
             const chosen = picked.length > 1 && picked.includes(p) ? picked : [p];
             const origins = [...changed.values()].filter((f) => f.orig && chosen.includes(f.path)).map((f) => f.orig as string);
             const original = extra.includes(p) && !changed.has(p) ? { kind: "commit" as const, sha: detail.parents[2], parent: "" } : source;
-            return M.fileMenu(ctx, p, undefined, undefined, stash ? { ref: stash.ref, paths: chosen, origins } : undefined, (view) =>
-              onOpenFile({ source: original, path: p, orig: changed.get(p)?.orig, view }),
+            return M.fileMenu(
+              ctx,
+              p,
+              undefined,
+              undefined,
+              stash ? { ref: stash.ref, paths: chosen, origins } : undefined,
+              (view) => onOpenFile({ source: original, path: p, orig: changed.get(p)?.orig, view }),
+              original,
             );
           }}
         />
@@ -526,7 +532,13 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
               tree={tree}
               isOpen={isOpen(false)}
               onOpen={(p) => open(p, false, false)}
-              onMenu={(p) => M.fileMenu(ctx, p, { staged: false, untracked: false })}
+              onMenu={(p) =>
+                M.fileMenu(ctx, p, {
+                  staged: false,
+                  untracked: false,
+                  conflict: { current: opInfo?.to || ctx.data.head?.slice(0, 7) || "", incoming: opInfo?.from || "Applied patch or stash" },
+                })
+              }
             />
           </div>
         </div>
