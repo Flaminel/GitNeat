@@ -1779,28 +1779,32 @@ a.sha {
   border-color: var(--red);
 }
 
-.welcome {
+.new-tab {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
+  min-height: 0;
 }
 
-.welcome h1 {
+.new-tab h2 {
   margin: 0;
-  font-weight: 300;
-  font-size: 42px;
+  font-weight: 400;
 }
 
-.welcome-actions {
+.new-tab-actions {
   display: flex;
   gap: 10px;
 }
 
-.welcome-actions button {
+.new-tab-actions button {
   padding: 8px 16px;
+}
+
+.new-tab-search {
+  width: 520px;
 }
 
 .recent {

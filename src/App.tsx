@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { gitneat } from "./api";
+import { NewTab } from "./components/NewTab";
 import { Tab, Tabs, tabTitle } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
@@ -17,6 +18,7 @@ interface State {
 
 const EMPTY: State = { tabs: [], active: 0, recent: [], closed: [], prefs: {} };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
+const NEW_TAB: Tab = {};
 
 function StatusBar() {
   const [base] = useState(() => window.devicePixelRatio);
@@ -45,7 +47,8 @@ export function App() {
       .storeGet()
       .then((saved) => {
         loaded.current = true;
-        setState({ ...EMPTY, ...(saved as Partial<State>) });
+        const s = { ...EMPTY, ...(saved as Partial<State>) };
+        setState(s.tabs.length ? s : { ...s, tabs: [NEW_TAB], active: 0 });
       });
   }, []);
 
@@ -60,10 +63,13 @@ export function App() {
   const openTab = useCallback(
     (path: string) =>
       update((s) => {
-        const existing = s.tabs.findIndex((t) => samePath(t.path, path));
+        const existing = s.tabs.findIndex((t) => !!t.path && samePath(t.path, path));
         const recent = [path, ...s.recent.filter((p) => p !== path)].slice(0, 20);
         if (existing >= 0) {
           return { ...s, active: existing, recent };
+        }
+        if (s.tabs[s.active] && !s.tabs[s.active].path) {
+          return { ...s, tabs: s.tabs.map((t, i) => (i === s.active ? { path } : t)), recent };
         }
         return { ...s, tabs: [...s.tabs, { path }], active: s.tabs.length, recent };
       }),
@@ -79,13 +85,17 @@ export function App() {
     }
   }, [openTab, ui]);
 
+  const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
+
   const closeTabs = (keep: (i: number) => boolean) =>
     update((s) => {
-      const closed = s.tabs.filter((_, i) => !keep(i));
+      const closed = s.tabs.filter((t, i) => !keep(i) && t.path);
       const tabs = s.tabs.filter((_, i) => keep(i));
-      const activePath = s.tabs[s.active]?.path;
-      const active = Math.max(0, tabs.findIndex((t) => t.path === activePath));
-      return { ...s, tabs, active: Math.min(active, Math.max(0, tabs.length - 1)), closed: [...closed, ...s.closed].slice(0, 20) };
+      if (!tabs.length) {
+        return { ...s, tabs: [NEW_TAB], active: 0, closed: [...closed, ...s.closed].slice(0, 20) };
+      }
+      const before = s.tabs.filter((_, i) => i < s.active && keep(i)).length;
+      return { ...s, tabs, active: Math.min(before, tabs.length - 1), closed: [...closed, ...s.closed].slice(0, 20) };
     });
 
   useEffect(() => {
@@ -94,9 +104,9 @@ export function App() {
       if (!mod || !state) {
         return;
       }
-      if (e.key === "o") {
+      if (e.key === "t" && !e.shiftKey) {
         e.preventDefault();
-        void openDialog();
+        newTab();
       } else if (e.key === "w" && state.tabs.length) {
         e.preventDefault();
         closeTabs((i) => i !== state.active);
@@ -150,7 +160,7 @@ export function App() {
   const tabs = state?.tabs;
   useEffect(() => {
     if (tabs) {
-      forgetRepos(tabs.map((t) => t.path));
+      forgetRepos(tabs.flatMap((t) => (t.path ? [t.path] : [])));
     }
   }, [tabs]);
 
@@ -158,7 +168,7 @@ export function App() {
     return null;
   }
 
-  const activeTab = state.tabs[state.active];
+  const activePath = state.tabs[state.active]?.path;
   return (
     <div className="app">
       <Tabs
@@ -184,38 +194,19 @@ export function App() {
             return { ...s, tabs, active: to };
           })
         }
-        onNew={openDialog}
+        onNew={newTab}
       />
-      {activeTab ? (
+      {activePath ? (
         <RepoView
-          key={activeTab.path}
-          path={activeTab.path}
-          prefs={state.prefs[activeTab.path] ?? NO_PREFS}
-          setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activeTab.path]: prefs } }))}
+          key={activePath}
+          path={activePath}
+          prefs={state.prefs[activePath] ?? NO_PREFS}
+          setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: prefs } }))}
           openTab={openTab}
           recent={state.recent}
         />
       ) : (
-        <div className="welcome">
-          <h1>GitNeat</h1>
-          <div className="welcome-actions">
-            <button className="primary" onClick={openDialog}>
-              Open a repository
-            </button>
-            <button onClick={clone}>Clone a repository</button>
-            <button onClick={init}>Start a local repository</button>
-          </div>
-          {state.recent.length > 0 && (
-            <div className="recent">
-              <h4>Recent repositories</h4>
-              {state.recent.map((p) => (
-                <a key={p} onClick={() => openTab(p)}>
-                  <b>{p.split(/[\\/]/).pop()}</b> <span>{p}</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+        <NewTab recent={state.recent} onOpen={openTab} onOpenDialog={openDialog} onClone={clone} onInit={init} />
       )}
       <StatusBar />
     </div>

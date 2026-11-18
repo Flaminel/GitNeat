@@ -41,9 +41,9 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/actions.ts` | UI flow of each repository action (prompts, confirms, toasts, undo records). The git work runs in Rust through `action`. |
 | `src/menus.ts` | Context menus: asks Rust for the menu with `contextMenu`, then runs the handler for the chosen id |
 | `src/ui.tsx` | Prompt and confirm dialogs, toasts, task runner, menu helper, `Splitter` and saved panel widths |
-| `src/App.tsx` | Tabs, saved state, open repository |
+| `src/App.tsx` | Tabs, saved state, open repository. A tab without a path is a NEW tab (D51). |
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
-| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `MergeView` (merge conflict tool), `RebaseModal` |
+| `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
 | `src/styles.css` | Theme colors and all styles |
 | `test/reference/` | Frozen TS version of the loaders, the lane layout, the diff parser, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
@@ -70,6 +70,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change row height | `ROW_HEIGHT` in `src/components/GraphView.tsx` |
 | Add a left panel section | `src/components/Sidebar.tsx` |
 | Add a new IPC call | `rust/app/src/commands.rs`, the command list in `rust/app/src/lib.rs`, `src/api.ts` and `src/tauri-api.ts` |
+| Change the NEW tab page or its search | `src/components/NewTab.tsx`, `.new-tab` in `src/styles.css` |
 | Change the Tauri window buttons | `WindowControls` in `src/components/Tabs.tsx`, `.window-controls` in `src/styles.css` |
 | Change the build targets | `bundle` in `rust/app/tauri.conf.json` and `.github/workflows/build.yml` |
 | Change undo or redo | `undo` and `redo` in `src/actions.ts`, the stacks in `src/RepoView.tsx` |

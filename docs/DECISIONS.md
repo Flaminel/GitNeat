@@ -313,3 +313,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: The user asked for a plan that agents implement one task at a time and mark as done. The store gives one status for each task without a commit for each status change.
 - Rules: The `order` field sets the sequence. Each task names its evidence section in `docs/EVIDENCE.md` (sections 9 to 13). The page shows the agent prompt.
 - Limits: The artifact is private to its owner. An agent needs the ArtifactData tool to change a status. The task text is a snapshot of 2026-11-18. The user saw the gaps of T01 to T04 before the Rust rewrite. An agent must check each gap and each file and line reference against the current code. If the gap is gone, the agent sets the task to `done` with the note "already at parity".
+
+## D51. A tab without a path is a NEW tab
+
+- Decision: `Tab.path` is optional. A tab without a path shows `src/components/NewTab.tsx`. The "+" button and Cmd+T add a NEW tab. A click on a recent repository opens it in the current NEW tab. The Open button opens the folder picker.
+- Reason: Source 11.9 opens a NEW tab from "+" and Cmd+T, and opens a repository in that tab (see `docs/EVIDENCE.md` section 9). Task T01 of the parity plan (D50).
+- Rules: If the active tab is a NEW tab, `openTab` replaces it with the repository. If another tab has the repository open, `openTab` selects that tab and keeps the NEW tab. When the last tab closes, one NEW tab stays. On start, an empty tab list gets one NEW tab. Closed NEW tabs do not go to the reopen list. The search box shows when the Recent list has more than 10 entries. It matches the name or the path, without case. Escape clears it.
+- Limits: Cmd+O no longer opens the folder picker. The Favorite section is not shown until task T24 adds favorites. The Recent list holds 20 entries, and GitNeat does not show a missing folder as unreachable. The `.welcome` page is removed.

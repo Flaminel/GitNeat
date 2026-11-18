@@ -4,7 +4,7 @@ import { gitneat } from "../api";
 import { showMenu } from "../ui";
 
 export interface Tab {
-  path: string;
+  path?: string;
   title?: string;
 }
 
@@ -22,7 +22,7 @@ interface Props {
   onNew(): void;
 }
 
-export const tabTitle = (tab: Tab) => tab.title || tab.path.split(/[\\/]/).pop() || tab.path;
+export const tabTitle = (tab: Tab) => tab.title || tab.path?.split(/[\\/]/).pop() || tab.path || "New Tab";
 
 export function Tabs(props: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
@@ -32,7 +32,7 @@ export function Tabs(props: Props) {
     <div className={`tabbar${isMac ? " mac" : " win"}${controls ? " controls" : ""}`} data-tauri-drag-region>
       {props.tabs.map((tab, i) => (
         <div
-          key={tab.path}
+          key={tab.path ?? `new-${i}`}
           className={`tab${i === props.active ? " active" : ""}`}
           title={tab.path}
           draggable
@@ -57,7 +57,7 @@ export function Tabs(props: Props) {
               { label: "Close tab", run: () => props.onClose(i) },
               { label: "Close other tabs", enabled: props.tabs.length > 1, run: () => props.onCloseOthers(i) },
               { label: "Close tabs to the right", enabled: i < props.tabs.length - 1, run: () => props.onCloseRight(i) },
-              { label: "Rename tab", run: () => props.onRename(i) },
+              { label: "Rename tab", enabled: !!tab.path, run: () => props.onRename(i) },
               "-",
               { label: "Reopen Closed Tab", enabled: props.canReopen, run: props.onReopen },
             ])
@@ -74,7 +74,7 @@ export function Tabs(props: Props) {
           </button>
         </div>
       ))}
-      <button className="tab-new" title="Open repository" onClick={props.onNew}>
+      <button className="tab-new" title="New tab" onClick={props.onNew}>
         +
       </button>
       <div className="tabbar-drag" data-tauri-drag-region />
