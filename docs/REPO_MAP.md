@@ -57,6 +57,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/repoManagement.ts` | Workspace and group types, group order, All repositories list and caption rule (D100) |
 | `test/repo-management.test.ts` | Tests for `src/repoManagement.ts` |
 | `rust/app/src/workspaces.rs` | Commands `repo_summaries`, `find_repos`, `pick_directories`, `import_code_workspace`, `repo_readme`, `create_readme`, `pick_icon` and `icon_data` (D100) |
+| `rust/app/src/shellpath.rs` | macOS login shell PATH at start (D100) |
 | `rust/app/src/editors.rs` | External editor list, detection and launch: `external_editors`, `open_in_editor` (D100) |
 | `src/repoSetup.ts` | Name, path and form checks for the Clone and Init modal |
 | `test/repo-setup.test.ts` | Tests for `src/repoSetup.ts` |

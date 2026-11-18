@@ -138,7 +138,7 @@ export function RepoManagement(props: Props) {
     const errors: { path: string; message: string }[] = [];
     const pullMode = mode && mode !== "fetch" ? mode : "ff";
     await ui.task(`${kind === "fetch" ? "Fetching" : "Pulling"} ${usable.length} ${usable.length === 1 ? "repository" : "repositories"}`, async () => {
-      for (const path of usable) {
+      const one = async (path: string) => {
         const remote = summaries[path]?.remote;
         try {
           if (!remote) {
@@ -152,6 +152,13 @@ export function RepoManagement(props: Props) {
         } catch (error) {
           errors.push({ path, message: error instanceof Error ? error.message : String(error) });
         }
+      };
+      if (kind === "fetch") {
+        await Promise.all(usable.map(one));
+        return;
+      }
+      for (const path of usable) {
+        await one(path);
       }
     });
     if (errors.length) {

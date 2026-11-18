@@ -37,6 +37,7 @@ const NO_EDITOR = "<None>";
 const CUSTOM_EDITOR = "<Custom>";
 const NO_EDITOR_MESSAGE = "There is no external editor configured in your settings";
 const RECENT_LIMIT = 100;
+const REPO_PATH_WARN_LIMIT = 5;
 const ZOOMS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
 const SUPPORT_URL = "https://github.com/Flaminel/GitNeat";
 
@@ -287,7 +288,7 @@ export function App() {
       return;
     }
     const { externalEditor, externalEditorPath } = state.settings;
-    if (paths.length > 10 && !(await ui.confirm("", `GitNeat will open ${paths.length} repositories in your external editor. Are you sure you want to continue?`))) {
+    if (paths.length >= REPO_PATH_WARN_LIMIT && !(await ui.confirm("", `GitNeat will open ${paths.length} repositories in your external editor. Are you sure you want to continue?`))) {
       return;
     }
     try {

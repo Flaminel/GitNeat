@@ -12,6 +12,7 @@ pub mod menu;
 pub mod menus;
 pub mod paths;
 pub mod setup;
+pub mod shellpath;
 pub mod store;
 pub mod templates;
 pub mod watch;
@@ -30,6 +31,7 @@ fn window_size() -> (f64, f64) {
 }
 
 pub fn run() {
+    shellpath::apply();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())

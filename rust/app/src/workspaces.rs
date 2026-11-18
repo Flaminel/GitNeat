@@ -274,15 +274,96 @@ fn escape_html(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn render_readme(name: &str, text: &str) -> String {
+fn url_allowed(url: &str) -> bool {
+    match url.find([':', '/', '?', '#']) {
+        Some(i) if url.as_bytes()[i] == b':' => {
+            matches!(
+                url[..i].to_ascii_lowercase().as_str(),
+                "http" | "https" | "irc" | "ircs" | "mailto" | "xmpp"
+            )
+        }
+        _ => true,
+    }
+}
+
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = bytes
+            .get(i + 1..i + 3)
+            .and_then(|h| std::str::from_utf8(h).ok())
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match (bytes[i], hex) {
+            (b'%', Some(b)) => {
+                out.push(b);
+                i += 3;
+            }
+            (b, _) => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn inline_image(root: &Path, readme_dir: &Path, url: &str) -> Option<String> {
+    if url.starts_with('/') || url.contains(':') {
+        return None;
+    }
+    let clean = url.split(['?', '#']).next().unwrap_or("");
+    let file = readme_dir.join(percent_decode(clean)).canonicalize().ok()?;
+    let root = root.canonicalize().ok()?;
+    if !file.starts_with(&root) {
+        return None;
+    }
+    let mime = match file.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        _ => return None,
+    };
+    let meta = std::fs::metadata(&file).ok()?;
+    if !meta.is_file() || meta.len() > 5 * 1024 * 1024 {
+        return None;
+    }
+    let bytes = std::fs::read(&file).ok()?;
+    Some(format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+fn render_readme(root: &Path, name: &str, text: &str) -> String {
     let lower = name.to_lowercase();
     if !lower.ends_with(".md") && !lower.ends_with(".markdown") {
         return format!("<pre>{}</pre>", escape_html(text));
     }
-    use pulldown_cmark::{Event, Options, Parser};
+    use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
+    let readme_dir = root.join(name).parent().map(Path::to_path_buf).unwrap_or_else(|| root.to_path_buf());
     let events = Parser::new_ext(text, options).map(|e| match e {
         Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
+        Event::Start(Tag::Link { link_type, dest_url, title, id }) => {
+            let dest_url = if url_allowed(&dest_url) { dest_url } else { CowStr::Borrowed("") };
+            Event::Start(Tag::Link { link_type, dest_url, title, id })
+        }
+        Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
+            let dest_url = if !url_allowed(&dest_url) {
+                CowStr::Borrowed("")
+            } else if let Some(data) = inline_image(root, &readme_dir, &dest_url) {
+                CowStr::from(data)
+            } else {
+                dest_url
+            };
+            Event::Start(Tag::Image { link_type, dest_url, title, id })
+        }
         other => other,
     });
     let mut html = String::new();
@@ -301,7 +382,7 @@ pub async fn repo_readme(path: String) -> Option<RepoReadme> {
     }
     let name = pick_readme(&names)?;
     let bytes = tokio::fs::read(Path::new(&path).join(&name)).await.ok()?;
-    let html = render_readme(&name, &String::from_utf8_lossy(&bytes));
+    let html = render_readme(Path::new(&path), &name, &String::from_utf8_lossy(&bytes));
     Some(RepoReadme { name, html })
 }
 
@@ -379,6 +460,40 @@ pub async fn icon_data(name: String) -> Option<String> {
 mod tests {
     use super::*;
 
+    fn readme_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a b.png"), b"png").unwrap();
+        std::fs::write(dir.path().join("x.txt"), b"t").unwrap();
+        std::fs::write(dir.path().join("big.png"), vec![0u8; 5 * 1024 * 1024 + 1]).unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub").join("README.md"), b"").unwrap();
+        dir
+    }
+
+    #[test]
+    fn readme_filters_link_schemes() {
+        let dir = readme_repo();
+        let html = render_readme(dir.path(), "README.md", "[a](javascript:alert(1)) [b](https://x.io) [c](rel/p)");
+        assert!(!html.contains("javascript"));
+        assert!(html.contains("href=\"https://x.io\""));
+        assert!(html.contains("href=\"rel/p\""));
+    }
+
+    #[test]
+    fn readme_inlines_relative_images_only_inside_repo() {
+        let dir = readme_repo();
+        let html = render_readme(dir.path(), "README.md", "![i](a%20b.png?raw=1)");
+        assert!(html.contains("src=\"data:image/png;base64,cG5n\""));
+        let html = render_readme(dir.path(), "sub/README.md", "![i](../a%20b.png)");
+        assert!(html.contains("data:image/png;base64,"));
+        let parent = dir.path().join("sub");
+        let html = render_readme(&parent, "README.md", "![i](../a%20b.png)");
+        assert!(!html.contains("data:"));
+        let html = render_readme(dir.path(), "README.md", "![i](big.png) ![j](x.txt) ![k](data:image/png;base64,AA)");
+        assert!(!html.contains("base64,AA"));
+        assert!(!html.contains("src=\"data:"));
+    }
+
     #[test]
     fn status_gives_branch_upstream_and_counts() {
         let text = "# branch.oid abc\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +2 -3\n1 .M N... 100644 100644 100644 a b f.txt\nu UU N... 1 2 3 4 a b c g.txt\n? new.txt\n";
@@ -427,13 +542,13 @@ mod tests {
 
     #[test]
     fn readme_html_escapes_raw_html() {
-        let html = render_readme("README.md", "# T\n\n<script>x</script>\n\n| a |\n|---|\n| 1 |\n\n- [x] t\n");
+        let html = render_readme(Path::new("."), "README.md", "# T\n\n<script>x</script>\n\n| a |\n|---|\n| 1 |\n\n- [x] t\n");
         assert!(html.contains("<h1>"));
         assert!(html.contains("<table>"));
         assert!(html.contains("checkbox"));
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
-        assert_eq!(render_readme("README", "<b>&"), "<pre>&lt;b&gt;&amp;</pre>");
+        assert_eq!(render_readme(Path::new("."), "README", "<b>&"), "<pre>&lt;b&gt;&amp;</pre>");
     }
 
     #[test]
