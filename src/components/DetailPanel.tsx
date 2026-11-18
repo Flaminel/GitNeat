@@ -7,6 +7,7 @@ import { showMenu, Splitter, useStoredWidth } from "../ui";
 import { Commit, CommitDetail, CompareFile, DiffSource, FileChange, hasCommitHook, loadAllFiles, loadCommit, loadCompare, loadHeadMessage, loadOperation, OperationInfo, StatusEntry } from "../repo";
 import { WIP } from "./GraphView";
 import { Icon } from "./icons";
+import { setPending, usePending } from "../pendingMessage";
 
 export interface OpenFile {
   source: DiffSource;
@@ -519,8 +520,9 @@ function statusCode(e: StatusEntry, staged: boolean): string {
 }
 
 function WipInfo({ ctx, openFile, onOpenFile }: Props) {
-  const [summary, setSummary] = useState("");
-  const [description, setDescription] = useState("");
+  const { summary, description } = usePending(ctx.cwd);
+  const setSummary = (value: string) => setPending(ctx.cwd, { summary: value });
+  const setDescription = (value: string) => setPending(ctx.cwd, { description: value });
   const [amend, setAmend] = useState(false);
   const [tree, setTree] = useState(false);
   const [pendingPush, setPendingPush] = useState<boolean | null>(null);

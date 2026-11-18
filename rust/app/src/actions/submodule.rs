@@ -177,6 +177,8 @@ struct CommitArg {
     new: bool,
     #[serde(default)]
     deleted: bool,
+    #[serde(default)]
+    message: String,
 }
 
 #[derive(Deserialize)]
@@ -236,6 +238,13 @@ async fn sync(cwd: &str, path: &str) -> Res<String> {
     .await
 }
 
+async fn update_all(cwd: &str) -> Res<Value> {
+    if paths::resolve(cwd, ".gitmodules").exists() {
+        git(cwd, &["submodule", "update", "--init", "--recursive"]).await?;
+    }
+    Ok(json!({ "record": null }))
+}
+
 async fn reset(cwd: &str, args: &Value) -> Res<Value> {
     let a: ResetArg = parse(args)?;
     let full = inner_path(cwd, &a.path)?;
@@ -270,7 +279,8 @@ async fn commit(cwd: &str, args: &Value) -> Res<Value> {
     } else {
         "Updated"
     };
-    let message = format!("{verb} submodule {}", a.name);
+    let line = format!("{verb} submodule {}", a.name);
+    let message = format!("{}\n{line}", a.message.trim()).trim().to_string();
     stage_paths(cwd, &a.path).await?;
     run(cwd, true, git(cwd, &["commit", "-m", &message])).await
 }
@@ -332,6 +342,7 @@ async fn add(cwd: &str, args: &Value) -> Res<Value> {
 pub async fn call(cwd: &str, name: &str, args: &Value) -> Option<Res<Value>> {
     Some(match name {
         "submoduleUpdate" => update(cwd, args).await,
+        "submoduleUpdateAll" => update_all(cwd).await,
         "submoduleReset" => reset(cwd, args).await,
         "submoduleCommit" => commit(cwd, args).await,
         "submoduleSetUrl" => set_url(cwd, args).await,
@@ -472,12 +483,12 @@ mod tests {
 
         commit(
             cwd,
-            &json!({"path": "vendor/lib", "name": "vendor/lib", "new": true}),
+            &json!({"path": "vendor/lib", "name": "vendor/lib", "new": true, "message": "pending text\n"}),
         )
         .await
         .unwrap();
-        let subject = git(cwd, &["log", "-1", "--format=%s"]).await.unwrap();
-        assert_eq!(subject.trim(), "Added submodule vendor/lib");
+        let body = git(cwd, &["log", "-1", "--format=%B"]).await.unwrap();
+        assert_eq!(body.trim(), "pending text\nAdded submodule vendor/lib");
         assert!(!load(cwd).await[0].new);
 
         std::fs::write(main.join("vendor/lib/a.txt"), "changed").unwrap();
@@ -487,7 +498,7 @@ mod tests {
 
         sh(&main, &["submodule", "deinit", "-f", "vendor/lib"]);
         assert!(load(cwd).await[0].uninitialized);
-        update(cwd, &json!({"path": "vendor/lib"})).await.unwrap();
+        update_all(cwd).await.unwrap();
         assert!(!load(cwd).await[0].uninitialized);
 
         set_url(cwd, &json!({"path": "vendor/lib", "name": "vendor/lib", "url": "https://example.com/x.git"})).await.unwrap();

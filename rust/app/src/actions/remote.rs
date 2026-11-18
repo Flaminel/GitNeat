@@ -140,9 +140,18 @@ fn prune_flag(args: &Value) -> &'static str {
     }
 }
 
+fn recurse(args: &Value) -> bool {
+    args.get("recurse")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 async fn pull(cwd: &str, args: &Value) -> Res<Value> {
     let a: Pull = parse(args)?;
     let mut flags: Vec<&str> = vec![prune_flag(args)];
+    if recurse(args) {
+        flags.push("--recurse-submodules");
+    }
     match a.mode {
         PullMode::Fetch => {
             let mut argv = vec!["fetch", "--all"];
@@ -261,6 +270,9 @@ async fn fetch_remote(cwd: &str, args: &Value) -> Res<Value> {
     let a: Name = parse(args)?;
     let mut argv = vec!["fetch"];
     argv.push(prune_flag(args));
+    if recurse(args) {
+        argv.push("--recurse-submodules");
+    }
     argv.push(&a.name);
     run(cwd, true, git(cwd, &argv)).await
 }

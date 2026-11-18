@@ -56,6 +56,8 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/repoSetup.ts` | Name, path and form checks for the Clone and Init modal |
 | `test/repo-setup.test.ts` | Tests for `src/repoSetup.ts` |
 | `src/components/icons.tsx` | Inline SVG icons |
+| `src/pendingMessage.ts` | Commit form text for each repository (summary and description). The right panel and the submodule commit use it (D97). |
+| `test/pending-message.test.ts` | Tests for `src/pendingMessage.ts` |
 | `src/palette.ts` | Command palette logic: fuzzy score, frecency (D95), rank, item builders and availability rules |
 | `src/paletteCommands.ts` | Palette command list and the domain item loaders. `RepoView` registers the open repository with `setRepoApi`. |
 | `src/components/Palette.tsx` | Command palette dialog (D95) |

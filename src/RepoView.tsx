@@ -22,7 +22,10 @@ export interface RepoPrefs {
   openSections?: string[];
   sectionYsByKey?: Record<string, number>;
   commitDefaults?: CommitDefaults;
+  autoUpdateSubmodules?: SubmoduleAutoUpdate;
 }
+
+export type SubmoduleAutoUpdate = "default" | "enabled" | "disabled";
 
 export interface CommitDefaults {
   push: boolean;
@@ -38,9 +41,10 @@ export interface Settings {
   rememberTabs: boolean;
   toolbarLabels: boolean;
   syntaxHighlighting: boolean;
+  autoUpdateSubmodules: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true };
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true, autoUpdateSubmodules: true };
 export const MAX_COMMITS_MIN = 500;
 export const AUTO_FETCH_MAX = 60;
 
@@ -200,7 +204,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         return;
       }
       running = true;
-      await A.autoFetch(path, settings.autoPrune);
+      await A.autoFetch(path, settings.autoPrune, settings.autoUpdateSubmodules);
       running = false;
       void load();
     }, settings.autoFetch * 60000);
@@ -250,6 +254,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         hidden: prefs.hidden,
         solo: prefs.solo,
         prune: settings.autoPrune,
+        autoUpdateSubmodules: prefs.autoUpdateSubmodules === "enabled" || (prefs.autoUpdateSubmodules !== "disabled" && settings.autoUpdateSubmodules),
         commitDefaults: prefs.commitDefaults ?? { push: false, skipHooks: false },
         layout,
         setLayout,
@@ -258,7 +263,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
           setRedoStack([]);
         },
       },
-    [data, path, ui, load, openTab, prefs, setPrefs, layout, setLayout, settings.autoPrune],
+    [data, path, ui, load, openTab, prefs, setPrefs, layout, setLayout, settings.autoPrune, settings.autoUpdateSubmodules],
   );
 
   const undo = async () => {

@@ -3,7 +3,7 @@ import { AskpassReply, AskpassRequest, gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { samePath } from "./repo";
-import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings } from "./RepoView";
+import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings, SubmoduleAutoUpdate } from "./RepoView";
 import { Palette } from "./components/Palette";
 import { RepoModal, RepoModalTab } from "./components/RepoModal";
 import { Domain, EMPTY_FRECENCY, parseFrecency } from "./palette";
@@ -25,6 +25,7 @@ interface State {
 
 const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS };
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
+const AUTO_UPDATE_LABELS: Record<SubmoduleAutoUpdate, string> = { default: "Use global setting", enabled: "Enabled", disabled: "Disabled" };
 const NEW_TAB: Tab = {};
 const RECENT_LIMIT = 100;
 const ZOOMS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
@@ -159,12 +160,19 @@ export function App() {
     if (!state) {
       return;
     }
-    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting } = state.settings;
+    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting, autoUpdateSubmodules } = state.settings;
     const v = await ui.prompt(
       "Preferences",
       [
         { name: "autoFetch", label: "Auto-Fetch Interval", help: "In minutes, between 0 and 60 (0 disables auto-fetch). Fetches all visible remotes.", value: String(autoFetch) },
         { name: "autoPrune", label: "Auto-Prune", kind: "checkbox", value: String(autoPrune) },
+        {
+          name: "autoUpdateSubmodules",
+          label: "Keep submodules up to date",
+          help: "Automatically update all submodules after performing a Git action",
+          kind: "checkbox",
+          value: String(autoUpdateSubmodules),
+        },
         { name: "defaultBranch", label: "Default Branch Name", help: "Sets the default branch name when initializing new repositories.", placeholder: "main", value: defaultBranch, ref: true },
         { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
         { name: "toolbarLabels", label: "Show toolbar icon labels", kind: "checkbox", value: String(toolbarLabels) },
@@ -203,6 +211,7 @@ export function App() {
         rememberTabs: v.rememberTabs === "true",
         toolbarLabels: v.toolbarLabels === "true",
         syntaxHighlighting: v.syntaxHighlighting === "true",
+        autoUpdateSubmodules: v.autoUpdateSubmodules === "true",
       },
     }));
   };
@@ -213,11 +222,19 @@ export function App() {
       return;
     }
     const current = state.prefs[path]?.commitDefaults;
+    const auto = state.prefs[path]?.autoUpdateSubmodules ?? "default";
     const v = await ui.prompt(
       "Repository Preferences",
       [
         { name: "push", label: "Push after each commit", kind: "checkbox", value: String(current?.push ?? false) },
         { name: "skipHooks", label: "Skip git hooks by default when committing", kind: "checkbox", value: String(current?.skipHooks ?? false) },
+        {
+          name: "autoUpdateSubmodules",
+          label: "Keep submodules up to date",
+          kind: "select",
+          options: Object.values(AUTO_UPDATE_LABELS),
+          value: AUTO_UPDATE_LABELS[auto],
+        },
       ],
       "Save",
     );
@@ -225,7 +242,8 @@ export function App() {
       return;
     }
     const commitDefaults = { push: v.push === "true", skipHooks: v.skipHooks === "true" };
-    update((s) => ({ ...s, prefs: { ...s.prefs, [path]: { ...(s.prefs[path] ?? NO_PREFS), commitDefaults } } }));
+    const autoUpdateSubmodules = (Object.keys(AUTO_UPDATE_LABELS) as SubmoduleAutoUpdate[]).find((k) => AUTO_UPDATE_LABELS[k] === v.autoUpdateSubmodules) ?? "default";
+    update((s) => ({ ...s, prefs: { ...s.prefs, [path]: { ...(s.prefs[path] ?? NO_PREFS), commitDefaults, autoUpdateSubmodules } } }));
   };
 
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));

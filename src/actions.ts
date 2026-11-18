@@ -1,6 +1,7 @@
 import { gitneat } from "./api";
 import { Commit, DiffSource, GitError, Operation, pullRequestUrl, Ref, RepoData, remoteWebUrl, samePath, Submodule } from "./repo";
 import { Field, Layout, Ui } from "./ui";
+import { pendingText, resetPending } from "./pendingMessage";
 
 export type TodoAction = "pick" | "reword" | "squash" | "fixup" | "drop";
 
@@ -26,6 +27,7 @@ export interface Ctx {
   solo: string[];
   record(entry: UndoEntry): void;
   prune: boolean;
+  autoUpdateSubmodules: boolean;
   commitDefaults: { push: boolean; skipHooks: boolean };
   layout: Layout;
   setLayout(key: string, value: number | boolean | string): void;
@@ -66,6 +68,14 @@ async function act<T = Done>(cwd: string, name: string, args: unknown): Promise<
 
 const failTitle = (label: string) => `${label.replace(/^(Checkout|Merge|Pull|Fetch|Rebase onto|Cherry pick|Undo|Redo|Continue|Abort) .+$/, "$1")} Failed`;
 
+const SUBMODULE_SYNC = /^(Pull|Checkout|Merge|Rebase|Reset|Cherry|Revert|Apply|Pop|Continue|Skip|Abort)/;
+
+export async function syncSubmodules(ctx: Ctx): Promise<void> {
+  if (ctx.autoUpdateSubmodules && ctx.data.submodules.length) {
+    await ctx.ui.task("Updating submodule", () => act(ctx.cwd, "submoduleUpdateAll", {}), "Error updating submodules");
+  }
+}
+
 async function runNative(ctx: Ctx, label: string, fn: () => Promise<Done>): Promise<boolean> {
   const box: { done?: Done } = {};
   const ok = await ctx.ui.task(
@@ -81,11 +91,17 @@ async function runNative(ctx: Ctx, label: string, fn: () => Promise<Done>): Prom
   if (ok && box.done?.notice) {
     ctx.ui.toast(box.done.notice);
   }
+  if (ok && !/submodule/i.test(label) && (box.done?.record || SUBMODULE_SYNC.test(label))) {
+    await syncSubmodules(ctx);
+  }
   ctx.refresh();
   return ok;
 }
 
-const go = (ctx: Ctx, label: string, name: string, args: unknown) => runNative(ctx, label, () => act(ctx.cwd, name, args));
+const RECURSE = ["pull", "pullBranch", "fetchRemote"];
+
+const go = (ctx: Ctx, label: string, name: string, args: unknown) =>
+  runNative(ctx, label, () => act(ctx.cwd, name, RECURSE.includes(name) ? { ...(args as object), recurse: ctx.autoUpdateSubmodules } : args));
 
 const needsConfirm = (error: unknown, kind: string) => error instanceof Error && error.message.startsWith(`needs-confirm:${kind}:`);
 
@@ -148,12 +164,18 @@ async function confirmForce(ctx: Ctx, skippable: boolean): Promise<boolean> {
 
 export async function undo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
   const ok = await ctx.ui.task(`Undo ${entry.label}`, () => act(ctx.cwd, "undo", { entry }));
+  if (ok) {
+    await syncSubmodules(ctx);
+  }
   ctx.refresh();
   return ok;
 }
 
 export async function redo(ctx: Ctx, entry: UndoEntry): Promise<boolean> {
   const ok = await ctx.ui.task(`Redo ${entry.label}`, () => act(ctx.cwd, "redo", { entry }));
+  if (ok) {
+    await syncSubmodules(ctx);
+  }
   ctx.refresh();
   return ok;
 }
@@ -162,8 +184,8 @@ export const checkoutRef = (ctx: Ctx, name: string) => go(ctx, `Checkout ${name}
 
 export const checkoutCommit = (ctx: Ctx, sha: string) => go(ctx, `Checkout ${short(sha)}`, "checkoutCommit", { sha });
 
-export const autoFetch = (cwd: string, prune: boolean): Promise<boolean> =>
-  act(cwd, "pull", { mode: "fetch", prune }).then(
+export const autoFetch = (cwd: string, prune: boolean, recurse: boolean): Promise<boolean> =>
+  act(cwd, "pull", { mode: "fetch", prune, recurse }).then(
     () => true,
     () => false,
   );
@@ -584,7 +606,7 @@ export const lockWorktree = (ctx: Ctx, path: string, lock: boolean) => go(ctx, l
 export const pruneWorktrees = (ctx: Ctx) => go(ctx, "Prune worktrees", "pruneWorktrees", {});
 
 export const updateSubmodule = (ctx: Ctx, sm: Submodule) =>
-  go(ctx, sm.uninitialized ? `Initialize ${sm.name}` : `Update ${sm.name}`, "submoduleUpdate", { path: sm.path });
+  go(ctx, "Updating submodule", "submoduleUpdate", { path: sm.path });
 
 export async function addSubmodule(ctx: Ctx): Promise<void> {
   const v = await ctx.ui.prompt("Add Submodule", [
@@ -596,7 +618,7 @@ export async function addSubmodule(ctx: Ctx): Promise<void> {
   if (!v || !url || !path) {
     return;
   }
-  if (await go(ctx, "Add Submodule", "submoduleAdd", { url, path })) {
+  if (await go(ctx, "Adding submodule", "submoduleAdd", { url, path })) {
     ctx.ui.toast(path, "info", "Submodule Added");
   }
 }
@@ -621,7 +643,10 @@ export async function commitSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
   ) {
     return;
   }
-  await go(ctx, "Commit submodule", "submoduleCommit", { path: sm.path, name: sm.name, new: sm.new, deleted: sm.deleted });
+  const message = pendingText(ctx.cwd);
+  if (await go(ctx, "Commit submodule", "submoduleCommit", { path: sm.path, name: sm.name, new: sm.new, deleted: sm.deleted, message })) {
+    resetPending(ctx.cwd);
+  }
 }
 
 export async function removeSubmodule(ctx: Ctx, sm: Submodule): Promise<void> {
