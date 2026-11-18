@@ -16,12 +16,14 @@ import { Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 export interface RepoPrefs {
   hidden: string[];
   solo: string[];
+  closed?: string[];
+  openSections?: string[];
 }
 
 interface Props {
   path: string;
   prefs: RepoPrefs;
-  setPrefs(prefs: RepoPrefs): void;
+  setPrefs(prefs: Partial<RepoPrefs>): void;
   openTab(path: string): void;
   recent: string[];
 }
@@ -34,9 +36,9 @@ interface Cached {
   multi: string[];
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];
-  closed: string[];
-  openSections: string[];
 }
+
+const DEFAULT_SECTIONS = ["LOCAL", "REMOTE"];
 
 const cache = new Map<string, Cached>();
 
@@ -64,8 +66,8 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [undoStack, setUndoStack] = useState<UndoEntry[]>(cached?.undoStack ?? []);
   const [redoStack, setRedoStack] = useState<UndoEntry[]>(cached?.redoStack ?? []);
-  const [closed, setClosed] = useState<string[]>(cached?.closed ?? []);
-  const [openSections, setOpenSections] = useState<string[]>(cached?.openSections ?? ["LOCAL", "REMOTE"]);
+  const closed = prefs.closed ?? [];
+  const openSections = prefs.openSections ?? DEFAULT_SECTIONS;
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
@@ -240,9 +242,9 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
 
   useEffect(() => {
     if (data) {
-      cache.set(path, { data, selected, multi, undoStack, redoStack, closed, openSections });
+      cache.set(path, { data, selected, multi, undoStack, redoStack });
     }
-  }, [path, data, selected, multi, undoStack, redoStack, closed, openSections]);
+  }, [path, data, selected, multi, undoStack, redoStack]);
 
   if (error && !data) {
     return <div className="repo-error">{error}</div>;
@@ -304,9 +306,9 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
             collapsed={leftCollapsed}
             setCollapsed={setLeftCollapsed}
             closed={closed}
-            setClosed={setClosed}
+            setClosed={(list) => setPrefs({ closed: list })}
             openSections={openSections}
-            setOpenSections={setOpenSections}
+            setOpenSections={(list) => setPrefs({ openSections: list })}
           />
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}

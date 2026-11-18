@@ -424,9 +424,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The saved prefs and the `loadRepo` call keep their shape. Solo mode does not change the stash rows.
 - Limits: The Stashes list in the left panel still shows every stash, with no dimmed state. No manual check in the app: the screen was locked during T11.
 
-## D66. Collapsed folders and open sections stay per repository
+## D66. Collapsed folders and open sections persist per repository
 
-- Decision: `src/RepoView.tsx` holds the collapsed folder keys and the open section names of the left panel. It passes them to `Sidebar` as props. The tab cache of D49 stores both lists.
-- Reason: Source stores the collapsed folders for each repository (see `docs/EVIDENCE.md` section 11). Task T12.
-- Rules: The cache entry gets the fields `closed` and `openSections`. The defaults are no collapsed folder and the sections LOCAL and REMOTE open.
-- Limits: The lists live in memory only. An app restart or a closed tab resets them. No manual check in the app.
+- Decision: `RepoPrefs` in `src/RepoView.tsx` has the optional fields `closed` and `openSections`. `RepoView` passes them to `Sidebar` as props. The app store saves them with the other tab prefs. `setPrefs` in `src/App.tsx` merges a partial value into the saved prefs of the tab.
+- Reason: Source writes both lists to the settings file of the repository (see `docs/EVIDENCE.md` section 11). Task T12.
+- Rules: The defaults are no collapsed folder and the sections LOCAL and REMOTE open. `setPrefs` takes a `Partial<RepoPrefs>`, so the callers of `hidden` and `solo` keep their shape.
+- Limits: Source also copies `expandedSections` from the main worktree to a new worktree. GitNeat does not. No manual check in the app.

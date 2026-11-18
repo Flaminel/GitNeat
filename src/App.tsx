@@ -217,7 +217,7 @@ export function App() {
             key={activePath}
             path={activePath}
             prefs={state.prefs[activePath] ?? NO_PREFS}
-            setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: prefs } }))}
+            setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: { ...(s.prefs[activePath] ?? NO_PREFS), ...prefs } } }))}
             openTab={openTab}
             recent={state.recent}
           />
