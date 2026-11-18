@@ -42,6 +42,10 @@ export function tauriApi(): GitNeatApi {
       return () => void stop.then((off) => off());
     },
     missingPaths: (paths) => invoke("missing_paths", { paths }),
+    repoSummaries: (paths, wip) => invoke("repo_summaries", { paths, wip }),
+    findRepos: (dirs) => invoke("find_repos", { dirs }),
+    pickDirectories: () => invoke("pick_directories"),
+    importCodeWorkspace: () => invoke("import_code_workspace"),
     saveFile: (defaultName, content) => invoke("save_file", { defaultName, content }),
   openPatch: () => invoke("open_patch"),
     writeTemp: (content) => invoke("write_temp", { content }),

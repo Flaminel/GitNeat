@@ -6,6 +6,8 @@ import { samePath } from "./repo";
 import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings, SubmoduleAutoUpdate } from "./RepoView";
 import { Palette } from "./components/Palette";
 import { RepoModal, RepoModalTab } from "./components/RepoModal";
+import { RepoManagement } from "./components/RepoManagement";
+import { GroupPrefs, Workspace } from "./repoManagement";
 import { Domain, EMPTY_FRECENCY, parseFrecency } from "./palette";
 import { AppApi } from "./paletteCommands";
 import { Field, Layout, LayoutContext, legacyLayout, Ui, useUi } from "./ui";
@@ -21,9 +23,12 @@ interface State {
   prefs: Record<string, RepoPrefs>;
   layout: Layout;
   settings: Settings;
+  workspaces: Workspace[];
+  groups: Record<string, GroupPrefs>;
 }
 
-const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS };
+const EMPTY: State = { tabs: [], active: 0, recent: [], favorites: [], aliases: {}, closed: [], prefs: {}, layout: {}, settings: DEFAULT_SETTINGS, workspaces: [], groups: {} };
+const MANAGEMENT = -1;
 const NO_PREFS: RepoPrefs = { hidden: [], solo: [] };
 const AUTO_UPDATE_LABELS: Record<SubmoduleAutoUpdate, string> = { default: "Use global setting", enabled: "Enabled", disabled: "Disabled" };
 const NEW_TAB: Tab = {};
@@ -87,6 +92,7 @@ export function App() {
         s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
         if (!s.settings.rememberTabs) {
           s.tabs = [];
+          s.active = 0;
         }
         for (const t of s.tabs as (Tab & { title?: string })[]) {
           if (t.path && t.title) {
@@ -255,6 +261,9 @@ export function App() {
       if (!tabs.length) {
         return { ...s, tabs: [NEW_TAB], active: 0, closed: [...closed, ...s.closed].slice(0, 20) };
       }
+      if (s.active === MANAGEMENT) {
+        return { ...s, tabs, closed: [...closed, ...s.closed].slice(0, 20) };
+      }
       const before = s.tabs.filter((_, i) => i < s.active && keep(i)).length;
       return { ...s, tabs, active: Math.min(before, tabs.length - 1), closed: [...closed, ...s.closed].slice(0, 20) };
     });
@@ -272,7 +281,14 @@ export function App() {
     });
 
   const selectTab = (step: number) =>
-    update((s) => ({ ...s, active: (s.active + step + s.tabs.length) % Math.max(1, s.tabs.length) }));
+    update((s) => {
+      if (s.active === MANAGEMENT) {
+        return { ...s, active: step > 0 ? 0 : s.tabs.length - 1 };
+      }
+      return { ...s, active: (s.active + step + s.tabs.length) % Math.max(1, s.tabs.length) };
+    });
+
+  const openManagement = () => update((s) => ({ ...s, active: MANAGEMENT }));
 
   const runMenu = (id: string) => {
     if (!state) {
@@ -282,11 +298,12 @@ export function App() {
     const path = state.tabs[state.active]?.path;
     const actions: Record<string, () => unknown> = {
       "new-tab": newTab,
-      "close-tab": () => state.tabs.length && closeTabs((i) => i !== state.active),
+      "close-tab": () => state.active !== MANAGEMENT && state.tabs.length && closeTabs((i) => i !== state.active),
       "reopen-tab": reopen,
       clone: clone,
       init: init,
       open: openDialog,
+      "repo-management": openManagement,
       terminal: () => path && gitneat().openTerminal(path),
       "file-manager": () => path && gitneat().openPath(path),
       undo: () => pressKey("KeyZ"),
@@ -328,6 +345,11 @@ export function App() {
       if (e.ctrlKey && !e.metaKey && e.key === "Tab") {
         e.preventDefault();
         selectTab(e.shiftKey ? -1 : 1);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.code === "KeyO") {
+        e.preventDefault();
+        runMenu("repo-management");
         return;
       }
       if (!(e.metaKey || e.ctrlKey) || e.altKey) {
@@ -390,7 +412,8 @@ export function App() {
     newTab,
     clone,
     init,
-    closeTab: () => closeTabs((i) => i !== state.active),
+    closeTab: () => state.active !== MANAGEMENT && closeTabs((i) => i !== state.active),
+    openManagement,
     preferences,
     zoom: (step) => (step ? stepZoom(step) : update((s) => ({ ...s, layout: { ...s.layout, zoom: 1 } }))),
     toggleSetting: (key) => update((s) => ({ ...s, settings: { ...s.settings, [key]: !s.settings[key] } })),
@@ -405,6 +428,7 @@ export function App() {
         <Tabs
           tabs={state.tabs}
           active={state.active}
+          onManagement={openManagement}
           canReopen={state.closed.length > 0}
           onActivate={(i) => update((s) => ({ ...s, active: i }))}
           onClose={(i) => closeTabs((j) => j !== i)}
@@ -425,7 +449,27 @@ export function App() {
           }
           onNew={newTab}
         />
-        {activePath ? (
+        {state.active === MANAGEMENT ? (
+          <RepoManagement
+            open={state.tabs.flatMap((t) => (t.path ? [t.path] : []))}
+            favorites={state.favorites}
+            recent={state.recent}
+            aliases={state.aliases}
+            workspaces={state.workspaces}
+            groups={state.groups}
+            prune={state.settings.autoPrune}
+            recurse={state.settings.autoUpdateSubmodules}
+            onOpenTabs={(paths) => paths.forEach(openTab)}
+            onCloseRepos={(paths) => closeTabs((i) => !paths.some((p) => !!state.tabs[i].path && samePath(state.tabs[i].path!, p)))}
+            onFavorite={toggleFavorite}
+            onRemoveRecent={(paths) => update((s) => ({ ...s, recent: s.recent.filter((r) => !paths.includes(r)) }))}
+            onWorkspaces={(fn) => update((s) => ({ ...s, workspaces: fn(s.workspaces) }))}
+            onGroups={(fn) => update((s) => ({ ...s, groups: fn(s.groups) }))}
+            onOpenDialog={openDialog}
+            onClone={clone}
+            onInit={init}
+          />
+        ) : activePath ? (
           <RepoView
             key={activePath}
             path={activePath}

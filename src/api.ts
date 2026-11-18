@@ -42,6 +42,19 @@ export interface CloneProgress {
   percent: number;
 }
 
+export interface RepoSummary {
+  path: string;
+  branch: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  remote: string | null;
+  remoteUrl: string | null;
+  changes: number | null;
+  conflicts: number;
+  error: string | null;
+}
+
 export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
@@ -69,6 +82,10 @@ export interface GitNeatApi {
   initRepo(parent: string, name: string, branch: string, gitignore: string, license: string, lfs: boolean): Promise<string>;
   onCloneProgress(fn: (progress: CloneProgress) => void): () => void;
   missingPaths(paths: string[]): Promise<string[]>;
+  repoSummaries(paths: string[], wip: boolean): Promise<RepoSummary[]>;
+  findRepos(dirs: string[]): Promise<string[]>;
+  pickDirectories(): Promise<string[]>;
+  importCodeWorkspace(): Promise<string[]>;
   saveFile(name: string, content: string): Promise<boolean>;
   openPatch(): Promise<string | null>;
   writeTemp(content: string): Promise<string>;

@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useState } from "react";
 import { gitneat } from "../api";
 import { showMenu } from "../ui";
+import { Icon } from "./icons";
 
 export interface Tab {
   path?: string;
@@ -22,6 +23,7 @@ interface Props {
   onReopen(): void;
   onMove(from: number, to: number): void;
   onNew(): void;
+  onManagement(): void;
 }
 
 export const repoName = (path: string) => path.split(/[\\/]/).pop() || path;
@@ -36,6 +38,9 @@ export function Tabs(props: Props) {
   const controls = gitneat().windowControls === true;
   return (
     <div className={`tabbar${isMac ? " mac" : " win"}${controls ? " controls" : ""}`} data-tauri-drag-region>
+      <button className={`tab-management${props.active < 0 ? " active" : ""}`} title="Repo Management" onClick={props.onManagement}>
+        {Icon.repos}
+      </button>
       {props.tabs.map((tab, i) => (
         <div
           key={tab.path ?? `new-${i}`}

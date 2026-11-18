@@ -14,6 +14,7 @@ pub mod setup;
 pub mod store;
 pub mod templates;
 pub mod watch;
+pub mod workspaces;
 
 use tauri::webview::NewWindowResponse;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -107,6 +108,10 @@ pub fn run() {
             setup::clone_repo,
             setup::init_repo,
             commands::missing_paths,
+            workspaces::repo_summaries,
+            workspaces::find_repos,
+            workspaces::pick_directories,
+            workspaces::import_code_workspace,
             commands::save_file,
             commands::open_patch,
             commands::write_temp,

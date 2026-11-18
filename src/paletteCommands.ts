@@ -24,6 +24,7 @@ export interface RepoApi {
 
 export interface AppApi {
   newTab(): void;
+  openManagement(): void;
   clone(): unknown;
   init(): unknown;
   closeTab(): void;
@@ -86,7 +87,8 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("exportToPatch", "Create patch from all working directory changes", need((_, c) => A.savePatchWork(c, c.data.status.map((s) => s.path))), { flags: r }),
     command("applyPatch", "Apply patch", need((_, c) => A.openAndApplyPatch(c)), { flags: live }),
     command("openFileInExternalView", "Open in External Diff/Merge Tool", need((p) => p.openInTool()), { flags: r }),
-    command("openRepo", "Open Repository Management Tab", app.newTab),
+    command("openRepo", "Open Repository Management Tab", app.openManagement),
+    command("openProjects", "Open Workspaces", app.openManagement),
     command("cloneRepo", "Clone", app.clone),
     command("initRepo", "Initialize a Repo", app.init, { hidden: "initialize" }),
     command("openInFileManager", "Open in File Manager", need((_, c) => gitneat().openPath(c.cwd)), { hidden: "folder explorer finder", flags: r }),

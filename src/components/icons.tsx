@@ -82,4 +82,14 @@ export const Icon = {
     </>,
     14,
   ),
+  star: svg(<path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />, 13),
+  repos: svg(<path d="M2 2.5h5v5H2z M9 2.5h5v5H9z M2 9.5h5v5H2z M9 9.5h5v5H9z" />, 14),
+  more: svg(
+    <>
+      <circle cx="8" cy="3.5" r="0.8" fill="currentColor" />
+      <circle cx="8" cy="8" r="0.8" fill="currentColor" />
+      <circle cx="8" cy="12.5" r="0.8" fill="currentColor" />
+    </>,
+    14,
+  ),
 };

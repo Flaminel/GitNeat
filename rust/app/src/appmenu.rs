@@ -88,6 +88,12 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &item(app, "clone", "Clone Repo...", Some("CmdOrCtrl+N"))?,
             &item(app, "init", "Init Repo...", Some("CmdOrCtrl+I"))?,
             &item(app, "open", "Open Repo...", Some("CmdOrCtrl+O"))?,
+            &item(
+                app,
+                "repo-management",
+                "Open Repo Management",
+                Some("CmdOrCtrl+Alt+O"),
+            )?,
             &sep(app)?,
             &item(app, "terminal", "Open External Terminal", Some("Alt+T"))?,
             &item(app, "file-manager", "Open in File Manager", Some("Alt+O"))?,
