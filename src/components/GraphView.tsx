@@ -1,6 +1,5 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
-import { GraphRow, Segment } from "../graph";
-import { Commit, Ref } from "../repo";
+import { Commit, GraphRow, Ref, Segment } from "../repo";
 import { Splitter, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
 

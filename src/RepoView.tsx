@@ -9,7 +9,6 @@ import { MergeView } from "./components/MergeView";
 import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
-import { layoutGraph } from "./graph";
 import * as M from "./menus";
 import { Commit, loadRepo, RepoData } from "./repo";
 import { Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
@@ -113,7 +112,7 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
     return [wip, ...data.commits];
   }, [data]);
 
-  const rows = useMemo(() => layoutGraph(commits), [commits]);
+  const rows = data?.rows ?? [];
 
   const ctx = useMemo<Ctx | null>(
     () =>

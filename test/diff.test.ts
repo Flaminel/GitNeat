@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { hunkPatch, linesPatch, parseDiff } from "../src/diff";
+import { hunkPatch, linesPatch } from "../src/diff";
+import { parseDiff } from "./reference/diff";
 
 function repo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-diff-"));

@@ -1,4 +1,5 @@
-import type { RepoData } from "./repo";
+import type { ParsedDiff } from "./diff";
+import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, RepoData } from "./repo";
 
 export interface GitResult {
   code: number;
@@ -20,6 +21,12 @@ export interface GitNeatApi {
   git(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult>;
   action(cwd: string, name: string, args: unknown): Promise<unknown>;
   loadRepo(cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData>;
+  loadCommit(cwd: string, sha: string): Promise<CommitDetail>;
+  loadAllFiles(cwd: string, sha: string): Promise<string[]>;
+  loadDiff(cwd: string, source: DiffSource, file: string, ignoreWhitespace: boolean, orig?: string): Promise<ParsedDiff>;
+  loadSides(cwd: string, source: DiffSource, file: string, orig?: string): Promise<DiffSides>;
+  loadBlame(cwd: string, file: string, rev?: string): Promise<BlameLine[]>;
+  loadFileHistory(cwd: string, file: string, limit: number): Promise<Commit[]>;
   openRepoDialog(): Promise<string | { error: string } | null>;
   pickDirectory(): Promise<string | null>;
   saveFile(name: string, content: string): Promise<boolean>;

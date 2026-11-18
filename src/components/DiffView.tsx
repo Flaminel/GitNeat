@@ -1,5 +1,5 @@
 import { MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { hunkPatch, Hunk, linesInRange, linesPatch, parseDiff, ParsedDiff } from "../diff";
+import { hunkPatch, Hunk, linesInRange, linesPatch, ParsedDiff } from "../diff";
 import { gitneat } from "../api";
 import { languageFor, monaco } from "../monaco";
 import { BlameLine, Commit, DiffSides, loadBlame, loadDiff, loadFileHistory, loadSides } from "../repo";
@@ -577,7 +577,7 @@ export function DiffView(props: Props) {
   const [view, setView] = useState<View>("diff");
   const [ignoreWs, setIgnoreWs] = useState(() => stored<string>(WS_KEY, "false") === "true");
   const [wrap, setWrap] = useState(() => stored<string>(WRAP_KEY, "false") === "true");
-  const [text, setText] = useState<string | null>(null);
+  const [diff, setDiff] = useState<ParsedDiff | null>(null);
   const [sides, setSides] = useState<DiffSides | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -601,7 +601,7 @@ export function DiffView(props: Props) {
     Promise.all([loadDiff(cwd, file.source, file.path, ignoreWs, file.orig), loadSides(cwd, file.source, file.path, file.orig)]).then(
       ([t, s]) => {
         if (live) {
-          setText(t);
+          setDiff(t);
           setSides(s);
         }
       },
@@ -624,7 +624,6 @@ export function DiffView(props: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const diff = useMemo(() => (text === null ? null : parseDiff(text)), [text]);
   const binary = !!(diff?.binary || sides?.binary);
   const canStage = !ignoreWs && (kind === "unstaged" || kind === "staged");
   const status = !sides ? "M" : file.orig && file.orig !== file.path ? "R" : sides.original === "" && sides.modified !== "" ? "A" : sides.modified === "" && kind !== "unstaged" ? "D" : "M";
