@@ -395,3 +395,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source shows the characters left before `commitMessageSoftLimit` (see `docs/EVIDENCE.md` section 10). Task T08 of the parity plan (D50).
 - Rules: The WIP commit form and the amend and reword form both show the counter. The counter counts code points. The tooltip is the Source text. The counter uses `--text-faint`, which has the value of the Source `--text-disabled` (0.4 alpha). The input keeps `maxLength` 200.
 - Limits: No manual check in the app: the screen was locked during T08.
+
+## D62. Search result counter
+
+- Decision: The graph search shows "{i} of {N}" and "0 results", as in Source. `GraphView` in `src/components/GraphView.tsx` keeps the matches in graph order in `matchList`. The index is the position of the selected commit in `matchList`. Enter and Shift+Enter move the selection to the next and the previous match.
+- Reason: Source uses `CommitSearch-ResultsText` and `CommitSearch-NoResults` (see `docs/EVIDENCE.md` section 11). Task T09 of the parity plan (D50).
+- Rules: If the query has no match, the counter shows "0 results". If the selected commit is not a match, the counter shows "0 of {N}". An empty query shows no counter.
+- Limits: Typing does not select the first match. Source has a filter mode, GitNeat only dims the rows that do not match. No manual check in the app: the screen was locked during T09.

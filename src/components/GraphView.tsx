@@ -367,6 +367,8 @@ export function GraphView(props: Props) {
         .map((c) => c.sha),
     );
   }, [query, props.commits]);
+  const matchList = useMemo(() => props.commits.filter((c) => matches?.has(c.sha)).map((c) => c.sha), [matches, props.commits]);
+  const matchIndex = matchList.indexOf(props.selected ?? "");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -384,9 +386,8 @@ export function GraphView(props: Props) {
     if (!matches || matches.size === 0) {
       return;
     }
-    const list = props.commits.filter((c) => matches.has(c.sha));
-    const i = list.findIndex((c) => c.sha === props.selected);
-    props.onSelect(list[(i + step + list.length) % list.length].sha);
+    const i = matchList.indexOf(props.selected ?? "");
+    props.onSelect(matchList[(i + step + matchList.length) % matchList.length]);
   };
 
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 10);
@@ -422,7 +423,7 @@ export function GraphView(props: Props) {
                   }
                 }}
               />
-              <span className="search-count">{matches ? `${matches.size} found` : ""}</span>
+              <span className="search-count">{matches === null ? "" : matchList.length === 0 ? "0 results" : `${matchIndex + 1} of ${matchList.length}`}</span>
               <button className="icon-btn" onClick={() => setQuery(null)}>
                 ×
               </button>
