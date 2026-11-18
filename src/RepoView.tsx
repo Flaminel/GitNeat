@@ -552,7 +552,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
                     : M.commitMenu(ctx, c)
               }
               onRefMenu={(r) => M.refMenu(ctx, r)}
-              onRefDrop={(source, target) => M.canDrop(ctx, source, target) && M.dropMenu(ctx, source, target)}
+              onRefDrop={(source, target) => M.dropMenu(ctx, source, target)}
               onRefOpen={(r) => A.openRef(ctx, r)}
             />
           )}

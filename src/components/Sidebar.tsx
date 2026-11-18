@@ -289,7 +289,7 @@ export function Sidebar({
         onDrop={(e) => {
           const source = e.dataTransfer.getData("text/gitneat-ref");
           setOver(null);
-          if (branch && source && M.canDrop(ctx, source, ref)) {
+          if (branch && source && source !== ref.full) {
             M.dropMenu(ctx, source, ref);
           }
         }}

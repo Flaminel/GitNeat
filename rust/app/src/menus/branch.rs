@@ -436,3 +436,106 @@ pub(super) fn folder_menu(name: &str, count: usize) -> Vec<MenuSpec> {
     };
     vec![item("deleteFolder", label)]
 }
+
+fn drop_group(env: &Env, r: &RefIn) -> Vec<RefIn> {
+    let refs: Vec<RefIn> = env
+        .refs
+        .iter()
+        .filter(|x| x.sha == r.sha && x.kind != RefKind::Tag)
+        .cloned()
+        .collect();
+    ref_groups(&refs)
+        .into_iter()
+        .find(|g| g.iter().any(|x| x.full == r.full))
+        .unwrap_or_else(|| vec![r.clone()])
+}
+
+fn has_web(env: &Env, r: &RefIn) -> bool {
+    let name = r.name.split('/').next().unwrap_or_default();
+    env.remotes
+        .iter()
+        .find(|x| x.name == name)
+        .is_some_and(|x| compare_url(&x.url, base_name(r)).is_some())
+}
+
+pub(super) fn drop_pr_items(env: &Env, source: &RefIn, target: &RefIn) -> Vec<MenuSpec> {
+    let from = drop_group(env, source);
+    let to = drop_group(env, target);
+    let heads: Vec<&RefIn> = from.iter().filter(|r| r.kind == RefKind::Remote).collect();
+    let bases: Vec<&RefIn> = to.iter().filter(|r| r.kind == RefKind::Remote).collect();
+    let local = from.iter().find(|r| r.kind == RefKind::Local);
+    let start = |i: usize, j: usize| {
+        (has_web(env, heads[i]) && has_web(env, bases[j])).then(|| {
+            item(
+                format!("pr:{i}:{j}"),
+                format!(
+                    "Start a pull request to {} from {}",
+                    bases[j].name, heads[i].name
+                ),
+            )
+        })
+    };
+    let push = |j: usize| {
+        let local = local?;
+        (local.upstream.as_deref().is_some_and(|u| !u.is_empty()) && has_web(env, bases[j])).then(
+            || {
+                item(
+                    format!("prPush:{j}"),
+                    format!(
+                        "Push {} and start a pull request to {}",
+                        local.name, bases[j].name
+                    ),
+                )
+            },
+        )
+    };
+    match (heads.len(), bases.len()) {
+        (_, 0) => Vec::new(),
+        (1, 1) => flat(vec![start(0, 0)]),
+        (0, 1) => flat(vec![push(0)]),
+        (0, _) => {
+            let items = flat((0..bases.len()).map(push).collect());
+            if items.is_empty() {
+                items
+            } else {
+                vec![sub(
+                    format!("Push {} and start a pull request", local.map_or("", |l| &l.name)),
+                    items,
+                )]
+            }
+        }
+        (1, n) => {
+            let items = flat((0..n).map(|j| start(0, j)).collect());
+            if items.is_empty() {
+                items
+            } else {
+                vec![sub(
+                    format!("Start a pull request from {}", heads[0].name),
+                    items,
+                )]
+            }
+        }
+        (m, 1) => {
+            let items = flat((0..m).map(|i| start(i, 0)).collect());
+            if items.is_empty() {
+                items
+            } else {
+                vec![sub(
+                    format!("Start a pull request to {}", bases[0].name),
+                    items,
+                )]
+            }
+        }
+        (m, n) => (0..n)
+            .filter_map(|j| {
+                let items = flat((0..m).map(|i| start(i, j)).collect());
+                (!items.is_empty()).then(|| {
+                    sub(
+                        format!("Start a pull request to {}", bases[j].name),
+                        items,
+                    )
+                })
+            })
+            .collect(),
+    }
+}

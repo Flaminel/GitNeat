@@ -1,7 +1,7 @@
 import * as A from "../../src/actions";
 import type { Ctx, RangeInfo } from "../../src/actions";
 import { gitneat } from "./api";
-import { Commit, commitWebUrl, compareWebUrl, Ref, remoteWebUrl, samePath, Worktree } from "../../src/repo";
+import { Commit, commitWebUrl, compareToWebUrl, compareWebUrl, Ref, remoteWebUrl, samePath, Worktree } from "../../src/repo";
 import { MenuItem, showMenu } from "../../src/ui";
 import { rangeInfo } from "./actions";
 
@@ -423,14 +423,63 @@ export function fileMenu(ctx: Ctx, path: string, wip?: { staged: boolean; untrac
 
 export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<void> {
   const source = ctx.data.refs.find((r) => r.full === sourceFull);
-  if (!source) {
+  if (!source || source.sha === target.sha) {
     return Promise.resolve();
   }
   const cur = currentName(ctx);
   const targetIsCurrent = !!target.current;
   const sourceIsCurrent = !!source.current;
   const [remote, ...rest] = target.name.split("/");
-  return present(ctx.cwd, "drop", { ...env(ctx), sourceFull, target }, () => [
+  const groupOf = (ref: Ref) =>
+    refGroups(ctx.data.refs.filter((r) => r.sha === ref.sha && r.kind !== "tag")).find((g) => g.some((r) => r.full === ref.full)) ?? [ref];
+  const from = groupOf(source);
+  const heads = from.filter((r) => r.kind === "remote");
+  const bases = groupOf(target).filter((r) => r.kind === "remote");
+  const local = from.find((r) => r.kind === "local");
+  const urlOf = (ref: Ref) => ctx.data.remotes.find((r) => r.name === ref.name.split("/")[0])?.url ?? "";
+  const hasWeb = (ref: Ref) => !!compareWebUrl(urlOf(ref), baseName(ref));
+  const open = (head: Ref, base: Ref) => gitneat().openExternal(compareToWebUrl(urlOf(base), baseName(base), urlOf(head), baseName(head)) as string);
+  const start = (i: number, j: number): MenuItem =>
+    hasWeb(heads[i]) &&
+    hasWeb(bases[j]) && {
+      id: `pr:${i}:${j}`,
+      label: `Start a pull request to ${bases[j].name} from ${heads[i].name}`,
+      run: () => open(heads[i], bases[j]),
+    };
+  const push = (j: number): MenuItem =>
+    !!local &&
+    !!local.upstream &&
+    hasWeb(bases[j]) && {
+      id: `prPush:${j}`,
+      label: `Push ${local.name} and start a pull request to ${bases[j].name}`,
+      run: async () => {
+        const upstream = ctx.data.refs.find((r) => r.name === local.upstream);
+        if (upstream) {
+          await A.push(ctx, local.name);
+          open(upstream, bases[j]);
+        }
+      },
+    };
+  const live = (list: MenuItem[]) => list.filter(Boolean);
+  const range = (n: number) => Array.from({ length: n }, (_, k) => k);
+  const wrap = (label: string, items: MenuItem[]): MenuItem[] => (live(items).length ? [{ label, submenu: live(items) as MenuItem[] }] : []);
+  let pr: MenuItem[] = [];
+  if (bases.length > 0) {
+    if (heads.length === 1 && bases.length === 1) {
+      pr = live([start(0, 0)]);
+    } else if (heads.length === 0 && bases.length === 1) {
+      pr = live([push(0)]);
+    } else if (heads.length === 0) {
+      pr = wrap(`Push ${local?.name ?? ""} and start a pull request`, range(bases.length).map(push));
+    } else if (heads.length === 1) {
+      pr = wrap(`Start a pull request from ${heads[0].name}`, range(bases.length).map((j) => start(0, j)));
+    } else if (bases.length === 1) {
+      pr = wrap(`Start a pull request to ${bases[0].name}`, range(heads.length).map((i) => start(i, 0)));
+    } else {
+      pr = range(bases.length).flatMap((j) => wrap(`Start a pull request to ${bases[j].name}`, range(heads.length).map((i) => start(i, j))));
+    }
+  }
+  const main: MenuItem[] = [
     targetIsCurrent && { id: "merge", label: `Merge ${source.name} into ${cur}`, run: () => A.merge(ctx, source.name) },
     targetIsCurrent && { id: "rebaseOnto", label: `Rebase ${cur} onto ${source.name}`, run: () => A.rebaseOnto(ctx, source.name) },
     targetIsCurrent && { id: "rebaseInteractive", label: `Interactive Rebase ${cur} onto ${source.name}`, run: () => A.startInteractiveRebase(ctx, source.name) },
@@ -449,7 +498,9 @@ export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<voi
         label: `Push ${source.name} to ${target.name}`,
         run: () => A.pushTo(ctx, source.name, remote, rest.join("/")),
       },
-  ]);
+  ];
+  const items = [...groups(live(main) as MenuItem[], pr)];
+  return items.some((i) => i && i !== "-") ? present(ctx.cwd, "drop", { ...env(ctx), sourceFull, target }, () => items) : Promise.resolve();
 }
 
 export async function multiMenu(ctx: Ctx, commits: Commit[]): Promise<void> {

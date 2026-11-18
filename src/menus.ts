@@ -1,7 +1,7 @@
 import * as A from "./actions";
 import { Ctx } from "./actions";
 import { gitneat } from "./api";
-import { Commit, commitWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Submodule, Worktree } from "./repo";
+import { Commit, commitWebUrl, compareToWebUrl, compareWebUrl, DiffSource, Ref, remoteWebUrl, Submodule, Worktree } from "./repo";
 
 type MenuKind = "commit" | "ref" | "wip" | "stash" | "tag" | "remote" | "worktree" | "submodule" | "file" | "drop" | "multi" | "refs" | "folder";
 
@@ -259,18 +259,21 @@ export function fileMenu(
   });
 }
 
-export function canDrop(ctx: Ctx, sourceFull: string, target: Ref): boolean {
-  const source = ctx.data.refs.find((r) => r.full === sourceFull);
-  return !!source && source.sha !== target.sha && (source.kind === "local" || target.kind === "local");
-}
-
 export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<void> {
   const source = ctx.data.refs.find((r) => r.full === sourceFull);
   if (!source) {
     return Promise.resolve();
   }
   const [remote, ...rest] = target.name.split("/");
-  return present(ctx, "drop", { ...env(ctx), sourceFull, target }, {
+  const groupOf = (ref: Ref) =>
+    refGroups(ctx.data.refs.filter((r) => r.sha === ref.sha && r.kind !== "tag")).find((g) => g.some((r) => r.full === ref.full)) ?? [ref];
+  const from = groupOf(source);
+  const heads = from.filter((r) => r.kind === "remote");
+  const bases = groupOf(target).filter((r) => r.kind === "remote");
+  const local = from.find((r) => r.kind === "local");
+  const urlOf = (ref: Ref) => ctx.data.remotes.find((r) => r.name === ref.name.split("/")[0])?.url ?? "";
+  const open = (head: Ref, base: Ref) => gitneat().openExternal(compareToWebUrl(urlOf(base), baseName(base), urlOf(head), baseName(head)) as string);
+  const handlers: Handlers = {
     merge: () => A.merge(ctx, source.name),
     rebaseOnto: () => A.rebaseOnto(ctx, source.name),
     rebaseInteractive: () => A.startInteractiveRebase(ctx, source.name),
@@ -279,7 +282,22 @@ export function dropMenu(ctx: Ctx, sourceFull: string, target: Ref): Promise<voi
     rebaseInteractiveTarget: () => A.startInteractiveRebase(ctx, target.name),
     fastForward: () => A.fastForward(ctx, target, source.name),
     pushTo: () => A.pushTo(ctx, source.name, remote, rest.join("/")),
+  };
+  heads.forEach((head, i) =>
+    bases.forEach((base, j) => {
+      handlers[`pr:${i}:${j}`] = () => open(head, base);
+    }),
+  );
+  bases.forEach((base, j) => {
+    handlers[`prPush:${j}`] = async () => {
+      const upstream = ctx.data.refs.find((r) => r.name === local?.upstream);
+      if (local && upstream) {
+        await A.push(ctx, local.name);
+        open(upstream, base);
+      }
+    };
   });
+  return present(ctx, "drop", { ...env(ctx), sourceFull, target }, handlers);
 }
 
 export function refsMenu(ctx: Ctx, refs: Ref[], done: () => void): Promise<void> {

@@ -575,10 +575,13 @@ fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
 
 fn drop_menu(env: &Env, source_full: &str, target: &RefIn) -> Option<Vec<MenuSpec>> {
     let source = env.refs.iter().find(|r| r.full == source_full)?;
+    if source.sha == target.sha {
+        return None;
+    }
     let cur = current_name(env);
     let target_is_current = target.current == Some(true);
     let source_is_current = source.current == Some(true);
-    Some(flat(vec![
+    let local = flat(vec![
         target_is_current.then(|| item("merge", format!("Merge {} into {cur}", source.name))),
         target_is_current.then(|| item("rebaseOnto", format!("Rebase {cur} onto {}", source.name))),
         target_is_current.then(|| {
@@ -608,7 +611,9 @@ fn drop_menu(env: &Env, source_full: &str, target: &RefIn) -> Option<Vec<MenuSpe
         }),
         (source.kind == RefKind::Local && target.kind == RefKind::Remote)
             .then(|| item("pushTo", format!("Push {} to {}", source.name, target.name))),
-    ]))
+    ]);
+    let items = groups(vec![local, branch::drop_pr_items(env, source, target)]);
+    items.iter().any(|i| !is_sep(i)).then_some(items)
 }
 
 async fn multi_menu(cwd: &str, env: &Env, shas: &[String], wip: bool) -> Res<Vec<MenuSpec>> {
@@ -888,5 +893,44 @@ mod tests {
             labels(&branch::folder_menu("feat/x", 3)),
             ["Delete 3 branches in folder \"feat/x\""]
         );
+    }
+    fn drop_env(upstream: Option<&str>) -> Env {
+        serde_json::from_value(json!({
+            "head": "1", "branch": "main",
+            "remotes": [
+                {"name": "origin", "url": "https://github.com/a/b.git"},
+                {"name": "fork", "url": "https://github.com/c/b.git"}
+            ],
+            "refs": [
+                {"kind": "local", "name": "feat", "full": "refs/heads/feat", "sha": "1", "upstream": upstream},
+                {"kind": "remote", "name": "origin/feat", "full": "refs/remotes/origin/feat", "sha": "1"},
+                {"kind": "remote", "name": "origin/main", "full": "refs/remotes/origin/main", "sha": "2"},
+                {"kind": "remote", "name": "fork/main", "full": "refs/remotes/fork/main", "sha": "3"}
+            ]
+        }))
+        .unwrap()
+    }
+
+    fn drop_labels(env: &Env, source: &str, target: &str) -> Vec<String> {
+        let target = env.refs.iter().find(|r| r.full == target).unwrap();
+        drop_menu(env, source, target).map_or_else(Vec::new, |items| labels(&tidy(items)))
+    }
+
+    #[test]
+    fn drop_menu_has_pull_request_items() {
+        let env = drop_env(Some("origin/feat"));
+        assert_eq!(
+            drop_labels(&env, "refs/remotes/origin/feat", "refs/remotes/origin/main"),
+            ["Start a pull request to origin/main from origin/feat"]
+        );
+        let out = drop_labels(&env, "refs/remotes/origin/feat", "refs/remotes/fork/main");
+        assert_eq!(out, ["Start a pull request to fork/main from origin/feat"]);
+        assert!(drop_labels(&env, "refs/heads/feat", "refs/heads/feat").is_empty());
+    }
+
+    #[test]
+    fn drop_menu_on_the_same_commit_has_no_menu() {
+        let env = drop_env(None);
+        assert!(drop_labels(&env, "refs/heads/feat", "refs/remotes/origin/feat").is_empty());
     }
 }

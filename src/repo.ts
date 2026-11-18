@@ -206,6 +206,22 @@ export function compareWebUrl(remoteUrl: string, branch: string): string | null 
   return `${base}/compare/${branch}?expand=1`;
 }
 
+export function compareToWebUrl(baseUrl: string, baseBranch: string, headUrl: string, headBranch: string): string | null {
+  const base = remoteWebUrl(baseUrl);
+  const head = remoteWebUrl(headUrl);
+  if (!base || !head) {
+    return null;
+  }
+  if (base.includes("gitlab")) {
+    return `${base}/-/merge_requests/new?merge_request[source_branch]=${encodeURIComponent(headBranch)}&merge_request[target_branch]=${encodeURIComponent(baseBranch)}`;
+  }
+  if (base.includes("bitbucket.org")) {
+    return `${base}/pull-requests/new?source=${encodeURIComponent(headBranch)}&dest=${encodeURIComponent(baseBranch)}`;
+  }
+  const owner = base === head ? "" : `${head.split("/")[3]}:`;
+  return `${base}/compare/${baseBranch}...${owner}${headBranch}?expand=1`;
+}
+
 export interface DiffSides {
   original: string;
   modified: string;
