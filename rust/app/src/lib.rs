@@ -3,6 +3,7 @@ pub mod commands;
 pub mod git;
 pub mod load;
 pub mod load_gix;
+pub mod loaders;
 pub mod menu;
 pub mod menus;
 pub mod paths;
@@ -63,6 +64,12 @@ pub fn run() {
             commands::git,
             commands::action,
             commands::load_repo,
+            commands::load_commit,
+            commands::load_all_files,
+            commands::load_diff,
+            commands::load_sides,
+            commands::load_blame,
+            commands::load_file_history,
             commands::open_repo_dialog,
             commands::pick_directory,
             commands::save_file,

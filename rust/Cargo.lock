@@ -1582,6 +1582,7 @@ dependencies = [
 name = "gitneat"
 version = "0.1.0"
 dependencies = [
+ "diff",
  "dirs",
  "gix",
  "gix-status",

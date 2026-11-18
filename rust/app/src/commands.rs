@@ -1,11 +1,14 @@
 use crate::actions;
 use crate::git::{self, GitResult};
 use crate::load::{self, RepoData};
+use crate::loaders::{self, DiffSides, DiffSource};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::menus::{self, MenuKind};
 use crate::paths;
 use crate::store;
 use crate::watch::{self, Watchers};
+use diff::port::ParsedDiff;
+use repo::port::BlameLine;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -63,6 +66,56 @@ pub async fn load_repo(
     limit: u32,
 ) -> RepoData {
     load::load_repo(&cwd, &hidden, &solo, limit).await
+}
+
+#[tauri::command]
+pub async fn load_commit(cwd: String, sha: String) -> Res<Value> {
+    loaders::load_commit(&cwd, &sha).await
+}
+
+#[tauri::command]
+pub async fn load_all_files(cwd: String, sha: String) -> Res<Vec<String>> {
+    loaders::load_all_files(&cwd, &sha).await
+}
+
+#[tauri::command]
+pub async fn load_diff(
+    cwd: String,
+    source: DiffSource,
+    file: String,
+    ignore_whitespace: Option<bool>,
+    orig: Option<String>,
+) -> Res<ParsedDiff> {
+    loaders::load_diff(
+        &cwd,
+        &source,
+        &file,
+        ignore_whitespace.unwrap_or(false),
+        orig.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_sides(
+    watchers: State<'_, Watchers>,
+    cwd: String,
+    source: DiffSource,
+    file: String,
+    orig: Option<String>,
+) -> Res<DiffSides> {
+    let roots = open_roots(&watchers);
+    Ok(loaders::load_sides(&cwd, &source, &file, orig.as_deref(), &roots).await)
+}
+
+#[tauri::command]
+pub async fn load_blame(cwd: String, file: String, rev: Option<String>) -> Res<Vec<BlameLine>> {
+    loaders::load_blame(&cwd, &file, rev.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn load_file_history(cwd: String, file: String, limit: Option<u32>) -> Res<Vec<Value>> {
+    loaders::load_file_history(&cwd, &file, limit.unwrap_or(200)).await
 }
 
 async fn pick_folder(window: &Window, create: bool) -> Option<PathBuf> {

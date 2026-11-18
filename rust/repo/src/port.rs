@@ -106,6 +106,35 @@ pub struct FileChange {
     pub path: Option<String>,
 }
 
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetail {
+    pub sha: String,
+    pub parents: Vec<String>,
+    #[serde(serialize_with = "ser_undef")]
+    pub author: Option<String>,
+    #[serde(serialize_with = "ser_undef")]
+    pub email: Option<String>,
+    #[serde(serialize_with = "ser_num")]
+    pub author_time: f64,
+    #[serde(serialize_with = "ser_undef")]
+    pub committer: Option<String>,
+    #[serde(serialize_with = "ser_num")]
+    pub commit_time: f64,
+    pub message: String,
+    pub files: Vec<FileChange>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct BlameLine {
+    pub sha: String,
+    pub author: String,
+    #[serde(serialize_with = "ser_num")]
+    pub time: f64,
+    pub summary: String,
+    pub text: String,
+}
+
 fn ser_num<S: Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
     js::number(*v).serialize(s)
 }
@@ -400,6 +429,83 @@ pub fn read_name_status(out: &str) -> Vec<FileChange> {
     files
 }
 
+pub fn read_commit(meta: &str) -> Result<CommitDetail, String> {
+    let f: Vec<&str> = meta.split(FS).collect();
+    let parents = match f.get(1) {
+        Some(p) if !p.is_empty() => p.split(' ').map(String::from).collect(),
+        _ => Vec::new(),
+    };
+    let message = f.get(7).ok_or_else(|| {
+        "TypeError: Cannot read properties of undefined (reading 'trim')".to_string()
+    })?;
+    Ok(CommitDetail {
+        sha: f[0].to_string(),
+        parents,
+        author: f.get(2).map(|s| s.to_string()),
+        email: f.get(3).map(|s| s.to_string()),
+        author_time: f.get(4).map_or(f64::NAN, |t| js_number(t)),
+        committer: f.get(5).map(|s| s.to_string()),
+        commit_time: f.get(6).map_or(f64::NAN, |t| js_number(t)),
+        message: js_trim(message).to_string(),
+        files: Vec::new(),
+    })
+}
+
+fn blame_head(line: &str) -> Option<&str> {
+    let sha = line.get(..40)?;
+    if !sha.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+        return None;
+    }
+    let rest = after_digits(line[40..].strip_prefix(' ')?)?;
+    after_digits(rest.strip_prefix(' ')?)?;
+    Some(sha)
+}
+
+fn after_digits(s: &str) -> Option<&str> {
+    let end = s.bytes().take_while(u8::is_ascii_digit).count();
+    if end == 0 {
+        return None;
+    }
+    Some(&s[end..])
+}
+
+#[derive(Clone, Default)]
+struct BlameInfo {
+    author: String,
+    time: f64,
+    summary: String,
+}
+
+pub fn read_blame(out: &str) -> Result<Vec<BlameLine>, String> {
+    let mut info: HashMap<String, BlameInfo> = HashMap::new();
+    let mut lines = Vec::new();
+    let mut sha = String::new();
+    let unset =
+        |key: &str| format!("TypeError: Cannot set properties of undefined (setting '{key}')");
+    for line in out.split('\n') {
+        if let Some(head) = blame_head(line) {
+            sha = head.to_string();
+            info.entry(sha.clone()).or_default();
+        } else if let Some(rest) = line.strip_prefix("author ") {
+            info.get_mut(&sha).ok_or_else(|| unset("author"))?.author = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("author-time ") {
+            info.get_mut(&sha).ok_or_else(|| unset("time"))?.time = js_number(rest);
+        } else if let Some(rest) = line.strip_prefix("summary ") {
+            info.get_mut(&sha).ok_or_else(|| unset("summary"))?.summary = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix('\t') {
+            let meta = info.get(&sha).cloned().unwrap_or_default();
+            lines.push(BlameLine {
+                sha: sha.clone(),
+                author: meta.author,
+                time: meta.time,
+                summary: meta.summary,
+                text: rest.to_string(),
+            });
+        }
+    }
+    Ok(lines)
+}
+
 static WEB_URL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"^(?:https?://(?:[^@/]+@)?|ssh://(?:[^@/]+@)?|[^@/]+@)([^/:]+)(?::[0-9]+)?[:/]([^\n\r\x{2028}\x{2029}]+?)(?:\.git)?/?$",
@@ -680,6 +786,30 @@ mod tests {
         let g = read_name_status("R\0only");
         assert_eq!(g[0].path, None);
         assert_eq!(g[0].orig, Some(Some("only".to_string())));
+    }
+
+    #[test]
+    fn commit_meta() {
+        let d = read_commit("abc\x1fp1 p2\x1fAn\x1fe@x\x1f17\x1fCn\x1f18\x1f  body\n\n").unwrap();
+        assert_eq!(d.parents, vec!["p1", "p2"]);
+        assert_eq!((d.author_time, d.commit_time), (17.0, 18.0));
+        assert_eq!(d.message, "body");
+        assert!(read_commit("abc\x1f").is_err());
+    }
+
+    #[test]
+    fn blame_porcelain() {
+        let sha = "a".repeat(40);
+        let out = format!(
+            "{sha} 1 1 2\nauthor An\nauthor-mail <e>\nauthor-time 17\nsummary hi\n\tone\r\n{sha} 2 2\n\ttwo\n"
+        );
+        let lines = read_blame(&out).unwrap();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[1].author, "An");
+        assert_eq!(lines[1].time, 17.0);
+        assert_eq!(lines[0].text, "one\r");
+        assert!(read_blame("author x\n").is_err());
+        assert_eq!(blame_head(&format!("{sha} 1")), None);
     }
 
     #[test]

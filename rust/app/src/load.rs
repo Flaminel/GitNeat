@@ -98,11 +98,12 @@ fn clean(value: Value) -> Value {
     }
 }
 
+pub(crate) fn value<T: Serialize>(item: &T) -> Value {
+    clean(serde_json::to_value(item).unwrap_or(Value::Null))
+}
+
 pub(crate) fn values<T: Serialize>(items: &[T]) -> Vec<Value> {
-    items
-        .iter()
-        .map(|item| clean(serde_json::to_value(item).unwrap_or(Value::Null)))
-        .collect()
+    items.iter().map(value).collect()
 }
 
 fn log_format() -> String {

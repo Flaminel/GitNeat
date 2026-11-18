@@ -21,6 +21,7 @@ tempfile = "3"
 gix = { version = "0.90.0", default-features = false, features = ["status", "revision", "parallel", "sha1", "max-performance"] }
 gix-status = "0.37.0"
 repo = { path = "../repo" }
+diff = { path = "../diff" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
