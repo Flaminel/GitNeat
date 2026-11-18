@@ -4,6 +4,7 @@ import { showMenu, Splitter, useStored, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
 
 export const ROW_HEIGHT = 28;
+const LOAD_MORE_ROWS = 20;
 const LANE = 22;
 const GUTTER = 28;
 const ZONE_MARGIN = 3;
@@ -61,6 +62,8 @@ interface Props {
   onRefOpen(ref: Ref): void;
   onRefDrop(source: string, target: Ref): void;
   wipCount: number;
+  hasMore: boolean;
+  onLoadMore(): void;
 }
 
 const laneX = (i: number) => GUTTER + i * LANE + LANE / 2;
@@ -570,7 +573,13 @@ export function GraphView(props: Props) {
           {Icon.gear}
         </button>
       </div>
-      <div className="graph-scroll" ref={scroller} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+      <div className="graph-scroll" ref={scroller} onScroll={(e) => {
+          const el = e.currentTarget;
+          setScrollTop(el.scrollTop);
+          if (props.hasMore && el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_MORE_ROWS * ROW_HEIGHT) {
+            props.onLoadMore();
+          }
+        }}>
         <div style={{ height: props.commits.length * ROW_HEIGHT, position: "relative" }}>
           {props.commits.slice(start, end).map((commit, k) => {
             const i = start + k;

@@ -49,7 +49,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: The graph loads at most 2000 commits.
 - Reason: The log parse and layout stay below 100 ms for this size.
-- Limits: Older history is not visible. Add a "load more" control if this is a problem.
+- Limits: Older history is not visible until the user scrolls to the end. D78 loads more.
 
 ## D8. Rebase operations use a prepared todo file
 
@@ -534,3 +534,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source `graphZoneMetaData` and `popupGraphHeaderContextMenu` (`docs/EVIDENCE.md` section 11). Task T22.
 - Limits: The Changes column is not built (it needs `--shortstat` for each commit). The column order is fixed, and the user cannot drag a header. The commit message column fills the free width, so it has no resize handle. The menu has no "Compact Graph Column" item, because GitNeat has no graph column mode. Source sets the Sha default to 130 and the maximum to 100. GitNeat uses 100. The visible flags are for the app, not for each repository. Source saves the visibility in the profile and the widths for each repository.
 - Limits: No manual check in the Tauri window. `tsc`, the tests and a Vite build pass.
+
+## D78. Lazy commit loading
+
+- Decision: `RepoView` keeps the commit limit in a ref. It starts at 2000 (D7) and grows by 2000. `GraphView` calls `onLoadMore` when the scroll bottom is within 20 rows of the last row and `hasMore` is true. `hasMore` is true if the loaded commit count is at least the limit. `onLoadMore` runs `load` again with the new limit. A second call waits until the load ends.
+- Reason: Source loads commits lazily near the bottom (`docs/EVIDENCE.md` section 11). Task T23.
+- Rules: GitNeat shows no "Displaying N commits" footer. Source shows the footer only if lazy loading is off, and its default is on. GitNeat has no setting to turn lazy loading off. The task text asked for the footer, but parity follows the bundle.
+- Limits: Each step loads the whole log again, with the larger limit. Source loads pages of 200. A page of 2000 keeps the number of reloads low. A repository with 100000 commits reloads 50 times to reach the end. No manual check in the app: the Tauri window was not started in this task.

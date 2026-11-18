@@ -31,6 +31,7 @@ interface Props {
 }
 
 const COMMIT_LIMIT = 2000;
+const COMMIT_STEP = 2000;
 
 interface Cached {
   data: RepoData;
@@ -76,13 +77,15 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const loadSeq = useRef(0);
+  const limit = useRef(COMMIT_LIMIT);
+  const loadingMore = useRef(false);
   const [shown, setShown] = useState(selected);
   const held = useRef(false);
   const copied = useRef(false);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
-      const next = await loadRepo(path, prefs.hidden, prefs.solo, COMMIT_LIMIT);
+      const next = await loadRepo(path, prefs.hidden, prefs.solo, limit.current);
       if (seq !== loadSeq.current) {
         return;
       }
@@ -94,10 +97,21 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
       setSelected((s) => s ?? (next.status.length ? WIP : next.head));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      loadingMore.current = false;
     }
   }, [path, prefs.hidden, prefs.solo]);
 
   useEffect(() => {
+    void load();
+  }, [load]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore.current) {
+      return;
+    }
+    loadingMore.current = true;
+    limit.current += COMMIT_STEP;
     void load();
   }, [load]);
 
@@ -367,6 +381,8 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
               selected={selected}
               multi={multi}
               wipCount={data.status.length}
+              hasMore={data.commits.length >= limit.current}
+              onLoadMore={loadMore}
               onSelect={select}
               onCommitMenu={(c) =>
                 c.sha === WIP
