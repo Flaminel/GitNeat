@@ -306,3 +306,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: On a slow Windows laptop, a tab switch showed "Loading…" until git returned. Source also restores a store snapshot for each repository path on a tab switch, and then refreshes from disk (see `docs/EVIDENCE.md` section 4.1).
 - Rules: `RepoView` writes the entry on each change of these values. `src/App.tsx` calls `forgetRepos` when the tab list changes. It removes the entries of closed tabs. The open diff, the rebase modal, the graph scroll position and the file watcher are not cached. Source does not cache the diff, the modals or the graph scroll either.
 - Limits: Until `load()` returns, the tab shows the state from its last visit. An action in that time uses this data. Each open tab keeps one `RepoData` in memory, a few MB for 2000 commits. A tab that is reopened after it was closed loads from git again.
+
+## D50. The parity plan lives in an artifact with a task store
+
+- Decision: The list of gaps between GitNeat and Source 11.9.0 is a private claude.ai artifact, "GitNeat Parity Plan" (https://claude.ai/artifact/YTgdQpC5mdTiZbnmzdfRTt). Its `tasks` collection holds one document for each task, T01 to T37. An implementing agent sets a task to `doing`, then to `done` with the commit sha, or to `blocked` with the reason.
+- Reason: The user asked for a plan that agents implement one task at a time and mark as done. The store gives one status for each task without a commit for each status change.
+- Rules: The `order` field sets the sequence. Each task names its evidence section in `docs/EVIDENCE.md` (sections 9 to 13). The page shows the agent prompt.
+- Limits: The artifact is private to its owner. An agent needs the ArtifactData tool to change a status. The task text is a snapshot of 2026-11-18. An agent must check the file and line references against the current code.

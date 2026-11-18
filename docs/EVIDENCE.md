@@ -182,7 +182,92 @@ Source: R default CSS-variable map (offset 6913195, duplicated at 6863525); only
 - Font: `--font-default: 'Open Sans', Arial, sans-serif`, mono `Monaco, Menlo, Ubuntu Mono, Consolas`, root `--font-size: 62.5%` (1rem = 10px; `--fs-3: 1.4rem`). Radii: button `.2rem`, input `3px`; scrollbar thickness 14px; handle width 7px.
 - Terminal palette (xterm) also themed: bg `#000000`, fg `#FFFFFF`, selection `#304676`.
 
-## 8. Caveats
+## 9. New tab and repository open
+
+Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offsets, except in section 10, where they are character offsets.
+
+- **Observed (NEW tab)**: the "+" button and Cmd+T create a tab of type `NEW` (S `TabsBar-NewTabTitle`="New Tab", `KeyBinding-OpenNewTab`). The `NewTabView` component is at R ~262351-263800.
+- **Observed (NEW tab content)**: the page has the heading `NewTabView-RepositoriesSection`="Repositories". Under it are three buttons:
+  - `open-repo-button` calls `promptForDirectoryAndStartOpenRepoOnSuccess()`, the native folder picker.
+  - `clone-repo-button` opens the modal `REPOSITORY_MANAGEMENT` with `selectedTab: CLONE`.
+  - `start-local-repo-button` opens the same modal with `selectedTab: INIT`.
+- **Observed (NEW tab lists)**: a "Favorite" section shows the first 8 favorites (`at?.slice(0,8)`). A "Recent" section shows all entries of `getAllRecentLocalRepos` and scrolls. Each section shows only if it is not empty. Each row shows the alias or the repository name (`getAlias(path,aliases)`) and the path. A click calls `openRepoInSelectedTab(path)`, so the NEW tab becomes the repository tab.
+- **Observed (NEW tab search)**: the input `NewTabView-RepositorySearch-Placeholder`="Search repositories" shows only when `ct.length+it.length>10` (favorites plus recents). It has autofocus. Escape clears it. It matches the name or the path.
+- **Observed (NEW tab side widget)**: a widget rotates by hour between AI features, integrations, dev tools, referrals and organizations. D11 excludes it.
+- **Observed (workspaces)**: the NEW tab has no workspace section in 11.9. Local workspaces (`Workspace-TypeLocal`, `Workspace-TypeLocalSynced`) live in the permanent Repo Management tab (`TabsBar-RepoManagementIconTooltip`, IPC `OPEN_REPO_MANAGEMENT_TAB`). That tab has the groups open repos, favorites, recent and workspaces, with `fetchAll`, `pullAll`, `openAllRepos`="Open all repos in new tabs" and per-repository fetch, pull, close, remove, favorite and color.
+- **Inferred (last tab)**: when the last tab closes, a NEW tab stays (`findFirstNewTab`, R 4017528).
+- **Observed (breadcrumb)**: the toolbar repository dropdown (R ~1645299) has a "Favorites" header with `⌘1..9` hints, a "Recently opened" header limited to 4 (`RECENTLY_OPENED_BREADCRUMBS_LIMIT=4`) and a footer "View all repositories".
+- **Observed (aliases)**: an alias belongs to the repository path, not to the tab. The rename prompt has "Save alias" and "Clear alias" (`RenameTabPrompt-MessageRepo`).
+- **Observed (recent management)**: `RepoManagement-removeRecentRepo`, `removeAllRecentRepos`="Remove all". A missing folder shows `RepoManagement-RepoIsUnreachable`="Repo is unreachable and may have been deleted".
+- **Observed (shortcuts, R keymap ~3300177)**: Cmd+T new tab, Cmd+Shift+T reopen closed tab, Ctrl+Tab and Ctrl+Shift+Tab next and previous tab, Cmd+1..9 tab N, Cmd+Shift+A tabs list, Cmd+P command palette, Cmd+Shift+O open repository palette, Cmd+B create branch, Cmd+L fetch all, Cmd+Z undo, Cmd+Y or Cmd+Shift+Z redo, Cmd+K toggle the detail panel, Cmd+Shift+S and Cmd+Shift+U stage and unstage all, Cmd+Shift+M focus the commit message, Cmd+= and Cmd+- zoom.
+- **Observed (clone and init)**: the Clone modal has "Where to clone to", a "Full path" preview, "Shallow Clone" and progress `Workspace-Cloning`="Cloning... {0}%". The Init modal has "Initialize in", "Default branch name", ".gitignore Template (optional)" and "License (optional)".
+- **Observed (preferences)**: `GeneralPreferences-AutoFetchInterval` (minutes, 0 to 60, 0 turns it off), `AutoPrune`, `InitialCommitsToShowInGraph` (minimum 500), `EnableCommitsLazyLoadingInGraph`, `DefaultBranchName`, `RememberTabs`. The Pull button dropdown has the header `PullOptionsMessage`="Select a default pull/fetch operation to execute when clicking this button" (R ~1278915).
+
+## 10. Right panel: sha, message and commit form
+
+- **Observed (sha)**: the header is `CommitLabel` ("commit:") plus a copy component around `getShortSha(sha)` (6 characters) (R 1378421). The copy component (R 1440497) copies the full sha on click. Its tooltip is `TextOperation-Copy` and changes to `TextOperation-CopySuccess`="Copied!" until the mouse leaves.
+- **Observed (message click)**: the message box has the class `commit-message-view`, plus `editable-message` when the commit can be edited (R 1953914). A tooltip on the left (delay 250 ms) says `AmendPreviousCommitMessageTip`="Click to amend your commit message", `RewordCommitMessageTooltip`="Click to reword your commit message" or `AmendStashMessageTip`="Click to amend your stash message".
+- **Observed (eligibility, R 2453143 and 2453828)**: `getIsAmendable` is true for the HEAD commit or a stash, if no rebase runs. `getIsRewordableBySha` is true for a commit that HEAD reaches through single-parent commits only, if no rebase runs. A merge commit and a commit below a merge are not rewordable.
+- **Observed (edit mode, R 290654-298177)**: for HEAD, the click calls `setAmending(true)`. The box becomes the summary input and the description textarea with the old message. The buttons are "Update Message" and "Cancel Amend". For an older commit, the click dispatches `RebaseRewordCommitMessageStarted(sha, RewordMode.DETAIL_PANEL, summary, description)`. The buttons are "Update Message" and "Cancel Reword". The help text is "Rewording this commit message will cause {0} commits to be rebased.", with `getRewordRebaseCommitCount` = depth + 1.
+- **Observed (message CSS, src/css/styles.css)**: `.commit-message-view{padding:10px;background:var(--input__bg);border:1px solid var(--section-border);overflow-x:hidden;border-radius:4px}`. `.editable-message:hover{cursor:pointer;border:1px solid var(--blue)}`. `.commit-message-container.scrollable{overflow-y:auto}`. The description `pre` has `overflow-y:auto` and `word-break:break-word`. `.commit-detail-content` is a flex column with `overflow:hidden`, so the file list takes the remaining height.
+- **Observed (message height)**: the message container has `height: commitMessageHeight`, from the profile setting `layout.CommitMessage.rightPanelHeight` (R 2456177). A handle at the bottom resizes it, and `onCommitMessageHeightResizeEnd` saves it (R 298740).
+- **Observed (summary counter)**: `commitMessageSoftLimit=72` (R 2376588). The span `commit-summary-chars-left` shows the characters left and gets `is-exceeded` below 0 (R 1951200).
+- **Observed (commit options)**: "Commit options" (`CommitDetailPanel-CommitOptions`) opens the checkboxes "Push after committing" and "Skip Git hooks". The hooks checkbox shows only if a hook exists. The button label gets " and Push" or " (Skip Hooks)".
+- **Observed (multi-select and compare)**: `RightPanel-NCommitsSelected`="{0} commits selected", `CommitDetailPanel-DiffBetweenCommitsTitle`="Viewing merged diff of {0} commits", `CommitDetailPanel-DiffBetweenTwoCommits`, `CommitDetailPanel-DiffBetweenACommitAndTheWIP`.
+- **Observed (conflicts in the WIP panel)**: `RightPanel-MergeConflictsDetected`, `RightPanel-RebaseConflictsDetected`, `RightPanel-UnsupportedRebase`="External rebase in progress", sections "Conflicted Files ({0})" and "Resolved Files ({0})", `Folder-MarkConflictedFilesAsResolved`="Mark all resolved". In a rebase with nothing staged, the button is "Skip Commit".
+- **Observed (other)**: `StagingPanel-WarningDetachedHeadState`="You are in a detached HEAD state". "Co-authors:" row with 20 px avatars. The author name has an email tooltip (delay 500 ms).
+
+## 11. Graph and left panel
+
+- **Observed (columns)**: seven columns, S `GraphHeader-BranchTag`, `CommitGraph`, `CommitMessage`, `CommitAuthor`, `CommitDateTime`, `CommitSha`, `Changes`. "Column settings" (`GraphHeader-EditColumns`, R 6745338) shows and hides each column. `UIPreferences-CompactGraphColumnLayout` and `ShowCommitDescInGraphOpt-Always/OnHover/Never` exist.
+- **Observed (keyboard, graph package P 279254)**: `selectPrevious(e.shiftKey)` on ArrowUp, `selectNext(e.shiftKey)` on ArrowDown, `selectHead` on `H`. Shift extends the selection. The detail panel loads on key up (`lastNavSha`).
+- **Observed (search)**: `CommitSearch-ResultsText`="{0} of {1}" (R 569546), `CommitSearch-NoResults`="0 results", and a filter mode (`searchMode==="filter"`, P 267507).
+- **Observed (load more)**: `onShowMoreCommits` fires near the bottom (P 280361). The footer row says `Graph-AdjustCommitCount`="Displaying {0} commits. Adjust this setting in Preferences" (R 581777).
+- **Observed (ref zone)**: each ref is a `ref-node`, with an `overflow-count` "+N" (P 253652). Hover expands the zone (`onRefZoneHovered`). Pills show upstream ahead and behind (`ref-upstream-ahead/behind`, P 209183). `REF_ZONE_MAX_REFS_TO_RENDER=100`.
+- **Observed (scroll markers)**: a canvas `graph-scroll-markers` (P 153854) marks HEAD, the selection, search matches and refs.
+- **Observed (left panel)**: multi-select menus `ContextMenu-HideNLocalBranches`, `DeleteNLocalBranches` (R 2572111). Section header menus "Hide all local branches", "Hide all remotes", "Hide all stashes", "Hide all tags" (R 2568171). `RefBar-NAhead`="{0} ahead", `RefBar-NBehind`="{0} behind", cap "99+" (R 2104564). `RefBar-StatusSoloing`, `LeftPanel-StopSoloing`. Collapsed folders are stored per repository (`getCollapsedBranchFolders`, R 629339). Header actions `RefBar-AddWorktree`, `RefBar-AddSubmodule`.
+- **Observed (menus)**: the stash menu has "Edit stash message" and "Hide". The remote menu has Hide and Solo (`getToggleRemoteHide/Solo`). The tag menu has "Push {0} to all remotes" and the follow-up `ConfirmationMessage-WouldYouLikeToDeleteTagFromAllRemotes`. The commit menu has `ContextMenu-CompareAgainstWorkingCopy` when a WIP row exists.
+
+## 12. Git operation flows
+
+- **Observed (push rejected, R 3737988)**: the prompt has a Pull button, a "Force Push" button that asks a second time (`PromptForPush-ConfirmForcePush`) and Cancel. Texts: `PromptForPush-LocalIsBehindRemote`, `PromptForPush-RemoteChanged` (R 3739320).
+- **Observed (credentials)**: `PromptForCreds-EnterCredentialsForUrl`, `PromptForCreds-EnterSSHPassphrase`="Enter passphrase for SSH key '{0}':", `PromptForCreds-RememberMe`.
+- **Observed (errors)**: titled errors such as `Error-CheckoutFailed`="Checkout Failed", `Error-FetchFailedWithName`, `GitHook-HookFailed`="{0} Failed" (R 2896306). Success notices `Notification-PulledSuccessfully`, `Notification-AlreadyUpToDate`, `NotificationMessage-CherrypickWasNoop`.
+- **Observed (auto stash)**: `StashMessage-Checkout`="Auto stash before checking out \"{0}\"", with variants for merge, rebase, reset, cherry-pick and revert.
+- **Observed (stash)**: `StashThisFile`="Stash file", `StashNFiles`, `Stash-ApplyWithUncommittedChangesPrompt`.
+- **Observed (tools)**: `OpenInDiffTool`, `OpenInMergeTool`, `KeyBinding-OpenFileInExternalDiffOrMergeTool`.
+- **Observed (diff)**: `DiffImage-OldImage`, `DiffImage-NewImage`, `DiffImage-ShowDiffOverlay`. File history: `FileHistory-ContinueLooking`="Go Deeper", `FileHistory-End`="End of History".
+- **Observed (submodules)**: `Submodule-Initialize`, `Submodule-Update`, `Submodule-Open`, `Submodule-Create`="Add Submodule".
+- **Observed (worktree)**: `PromptForRemoveWorktree-RemoveWorktreeRequiresForce`, `ForceRemoveWorktreeButtonLabel`.
+- **Observed (rebase banner)**: `ConflictsHeader-Merging`="Merging {0} into {1}", `ConflictsHeader-Rebasing`="Rebasing {0} onto {1}".
+
+## 13. Graph geometry
+
+Source: `node_modules/@source/source-components/dist/index.js` (P, byte offsets) and the `styles.css` file in the same folder. All values are Observed unless marked Inferred. The table orders the rows by visual impact.
+
+| Property | Source | GitNeat on 2026-11-18 |
+| --- | --- | --- |
+| Edge shape | A vertical stub, an arc of radius 8 (`ARC_RADIUS` 11 minus `ARC_PADDING` 3, P ~16370, P 333310), then a horizontal run at the row middle (y = 14). The arc sits at the top or bottom edge of the row. | A cubic bezier from the row middle to the row edge (`src/components/GraphView.tsx:31-41`). |
+| Lane x | `28 + col * 22 + 11` (gutter 28, column 22, P 16021, P 340439). Column 0 is at x = 39. | `29 + col * 22`. Column 0 is at x = 29. |
+| Graph zone width | `maxCols * 22 + 2 * 28 + 2 * 3` (`getCommitZoneContentWidth`, P 284828). One column gives 84. | `min(58 + (lanes - 1) * 22, 360)`. One column gives 58. |
+| Row tint | `.commit-bg-color` starts at the node center and fills to the right end of the row in the lane color at 10 % (`-f10`). A selected row uses 50 % (`-f50`) (P 238306). Hover is `rgba(77,136,255,.1)`. | A neutral hover `rgba(255,255,255,.03)` and `var(--selected)` (`src/styles.css:710-716`). No lane tint. |
+| Ref connector | `hr.ref-line`, 1 px, lane color, opacity 0.25. The HEAD ref is 2 px at opacity 1. `margin-top: 11px` (P 237806). | 2 px solid for each ref (`src/styles.css:784-789`). |
+| Ref pill | Height 22, padding 5 px, radius 2, font 12 px, white text. Background `-bg25`, hover `-bg45`, active `-bg50` (opaque tints, see section 3). Icon box 14 px. The active name has weight 500. | Padding `0 6px`, radius 3, `color-mix` 25 % and 50 % (`src/styles.css:751-772`). |
+| Commit node | A circle, 22 px, 2 px border in the lane color, background `--app__bg0`. The avatar inside is 18 px. | Circles of radius 11.5 and 9.5, fill `#3a3f4b`, initials at 8 px (`GraphView.tsx:213-214`). |
+| Merge node | Filled with the lane color, diameter 12. | Radius 5 (diameter 10). |
+| Stash node | A 22 px square with a 2 px dotted border. The message is italic in `--text-secondary`. | A 14 px rounded rectangle with dash `3 2`. |
+| WIP node | A 2 px dotted border. Its edge has `strokeDasharray` 2. | Radius 8 with dash `3 2`. The edge dash is `3 3`. |
+| Edge line | 2 px, `stroke-linejoin: round`. | 2 px. |
+| Header row | 26 px (`GRAPH_HEADER_ROW_HEIGHT`). Inferred: labels at 12 px, not uppercase. | 24 px, 10 px uppercase labels (`src/styles.css:657-665`). |
+| Message cell | 12 px, `margin-left: 8px`, no divider. The description follows the subject in `.message-zone--body` with opacity 0.6 (P 235117). | `padding: 0 10px` with a left border. No description. |
+| Date label | `.time-line-message`: 10 px, radius 2, background `panel__bg1`, `right: 0`, `top: -8px`. | 11 px, radius 3, `right: 8px`. |
+| Dimmed row | The text color becomes `--text-dimmed`, with a 0.2 s transition. | `opacity: .3` on the row. |
+| Row height | 28, inner 22, zone margins 3 (P 333310). | 28. Same. |
+| Palette | Section 3. | Same (D18). The `-f10`, `-f50`, `-bg25`, `-bg45` and `-bg50` tints are missing. |
+
+Not found: the label CSS of the header, the internals of `GraphAvatar`, and the default visibility of the author, date and sha columns.
+
+## 14. Caveats
 - Minified single-line bundles; offsets are byte offsets and may differ by re-extraction. Variable names are mangled (e.g. `Ao`, `No`); group names in section 1.1 are mine.
 - Several predicate selectors (`getIsDroppableBySha`, `getCanMoveUpForSha`, `getIsRewordableBySha`, branch `Pull/Push` builders, `Vr`) were not traced.
 - Telemetry wrapper `wrapMenuItemWithTelemetry` adds `telemetryId` to every item (not user-visible).

@@ -56,6 +56,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `docs/EVIDENCE.md` | What the Source analysis found, with evidence |
 | `docs/EVIDENCE-DIFF.md` | Evidence for the Source diff and merge views |
 | `docs/DECISIONS.md` | Design decisions and their limits |
+| Parity plan (artifact, D50) | Open tasks against Source, with status: https://claude.ai/artifact/YTgdQpC5mdTiZbnmzdfRTt |
 
 ## Where to change things
 
