@@ -38,6 +38,11 @@ fn to_path(picked: Option<FilePath>) -> Option<PathBuf> {
 }
 
 #[tauri::command]
+pub fn askpass_reply(request: u64, reply: Option<crate::askpass::Reply>) {
+    crate::askpass::reply(request, reply);
+}
+
+#[tauri::command]
 pub async fn action(cwd: String, name: String, args: Value) -> Res<Value> {
     actions::dispatch(&cwd, &name, args).await
 }

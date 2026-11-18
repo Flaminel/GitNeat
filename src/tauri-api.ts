@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { GitNeatApi } from "./api";
+import type { AskpassRequest, GitNeatApi } from "./api";
 
 function platform(): string {
   const agent = navigator.userAgent;
@@ -55,6 +55,11 @@ export function tauriApi(): GitNeatApi {
       const stop = listen<string>("app-menu", (e) => fn(e.payload));
       return () => void stop.then((off) => off());
     },
+    onAskpass: (fn) => {
+      const stop = listen<AskpassRequest>("askpass", (e) => fn(e.payload));
+      return () => void stop.then((off) => off());
+    },
+    askpassReply: (request, reply) => invoke("askpass_reply", { request, reply }),
     setZoom: (factor) => getCurrentWebview().setZoom(factor),
   };
 }

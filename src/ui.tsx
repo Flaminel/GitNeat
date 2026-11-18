@@ -7,7 +7,7 @@ export interface Field {
   help?: string;
   value?: string;
   placeholder?: string;
-  kind?: "text" | "textarea" | "checkbox" | "select";
+  kind?: "text" | "password" | "textarea" | "checkbox" | "select";
   options?: string[];
   ref?: boolean;
 }
@@ -31,6 +31,7 @@ function tidy(items: MenuItem[]): RealItem[] {
 }
 
 interface DialogRequest {
+  id?: number;
   title: string;
   message?: string;
   fields: Field[];
@@ -54,7 +55,7 @@ export interface Choice {
 }
 
 export interface Ui {
-  prompt(title: string, fields: Field[], ok?: string): Promise<Record<string, string> | null>;
+  prompt(title: string, fields: Field[], ok?: string, message?: string): Promise<Record<string, string> | null>;
   confirm(title: string, message: string, ok?: string, danger?: boolean): Promise<boolean>;
   choose(message: string, choices: Choice[], fields?: Field[]): Promise<Record<string, string> | null>;
   toast(text: string, kind?: "error" | "info", title?: string): void;
@@ -91,7 +92,9 @@ export async function showMenu(items: MenuItem[]): Promise<void> {
 }
 
 export function UiProvider({ children }: { children: ReactNode }) {
-  const [dialog, setDialog] = useState<DialogRequest | null>(null);
+  const [dialogs, setDialogs] = useState<DialogRequest[]>([]);
+  const dialogId = useRef(0);
+  const setDialog = useCallback((request: DialogRequest) => setDialogs((list) => [...list, { ...request, id: ++dialogId.current }]), []);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const nextId = useRef(0);
@@ -105,9 +108,9 @@ export function UiProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const prompt = useCallback(
-    (title: string, fields: Field[], ok = "OK") =>
-      new Promise<Record<string, string> | null>((resolve) => setDialog({ title, fields, ok, resolve })),
-    [],
+    (title: string, fields: Field[], ok = "OK", message?: string) =>
+      new Promise<Record<string, string> | null>((resolve) => setDialog({ title, message, fields, ok, resolve })),
+    [setDialog],
   );
 
   const confirm = useCallback(
@@ -115,13 +118,13 @@ export function UiProvider({ children }: { children: ReactNode }) {
       new Promise<boolean>((resolve) =>
         setDialog({ title, message, fields: [], ok, danger, resolve: (v) => resolve(v !== null) }),
       ),
-    [],
+    [setDialog],
   );
 
   const choose = useCallback(
     (message: string, choices: Choice[], fields: Field[] = []) =>
       new Promise<Record<string, string> | null>((resolve) => setDialog({ title: "", message, fields, ok: "", choices, resolve })),
-    [],
+    [setDialog],
   );
 
   const task = useCallback(
@@ -145,7 +148,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
   return (
     <UiContext.Provider value={ui}>
       {children}
-      {dialog && <Dialog request={dialog} close={() => setDialog(null)} />}
+      {dialogs[0] && <Dialog key={dialogs[0].id} request={dialogs[0]} close={() => setDialogs((list) => list.slice(1))} />}
       <div className="toasts">
         {toasts.map((t) => (
           <ToastView key={t.id} toast={t} close={() => setToasts((l) => l.filter((x) => x.id !== t.id))} />
@@ -249,6 +252,7 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
             ) : (
               <input
                 autoFocus={i === 0}
+                type={field.kind === "password" ? "password" : "text"}
                 value={values[field.name]}
                 placeholder={field.placeholder}
                 spellCheck={false}

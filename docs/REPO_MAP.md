@@ -21,6 +21,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/main.rs` | Tauri window, plugins, menu event handler, command list |
 | `rust/app/src/commands.rs` | One Tauri command per `window.gitneat` call |
 | `rust/app/src/git.rs` | `git` runner and the blocked option check |
+| `rust/app/src/askpass.rs` | Askpass server and helper for credential and SSH passphrase prompts (D90) |
 | `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
 | `rust/app/src/appmenu.rs` | macOS app menu. Each custom item emits the event `app-menu` (D83) |
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
@@ -101,6 +102,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change the Conflicted Files section (D75) | `WipInfo` in `src/components/DetailPanel.tsx`, `markResolved` in `rust/app/src/actions/history.rs` |
 | Change a repository shortcut (D59) | The keydown handler in `src/RepoView.tsx` |
 | Change a tab shortcut | The keydown handler in `src/App.tsx` |
+| Change a credential or passphrase prompt (D90) | `askCredentials` in `src/App.tsx`, the prompt parse in `rust/app/src/askpass.rs` |
 
 ## Environment variables
 
@@ -109,4 +111,5 @@ GitNeat is a Tauri 2 app with two parts.
 | `GITNEAT_USER_DATA` | Folder for `gitneat-state.json` (open tabs, recent repositories, hidden and solo branches). A `portable.txt` next to the exe also sets the exe folder (D80). |
 | `GITNEAT_BACKEND` | `cli` makes the Tauri `load_repo` use the `git` CLI instead of gix |
 | `GITNEAT_RUST_COMPARE` | `1` runs the TS against Rust comparison tests in `npm test` |
+| `GITNEAT_ASKPASS_PORT`, `GITNEAT_ASKPASS_TOKEN`, `GITNEAT_ASKPASS_ID` | Set by `run_git` for git. If the port is set, the app executable runs as the askpass helper (D90). |
 | `GITNEAT_WINDOW_SIZE` | Window size as `WIDTHxHEIGHT`. The default is `1500x940`. |

@@ -68,6 +68,10 @@ pub async fn run_git(
                 .env(format!("GIT_CONFIG_VALUE_{i}"), value);
         }
     }
+    let askpass = crate::askpass::begin();
+    if let Some((_, vars)) = &askpass {
+        cmd.envs(vars.iter().map(|(k, v)| (*k, v.as_str())));
+    }
     cmd.envs(env.unwrap_or_default())
         .stdin(if input.is_some() {
             Stdio::piped()
@@ -91,7 +95,7 @@ pub async fn run_git(
             let _ = stdin.write_all(text.as_bytes()).await;
         });
     }
-    match child.wait_with_output().await {
+    let result = match child.wait_with_output().await {
         Ok(out) => {
             let code = out.status.code().unwrap_or(1);
             let mut stderr = String::from_utf8_lossy(&out.stderr).into_owned();
@@ -109,7 +113,11 @@ pub async fn run_git(
             stdout: String::new(),
             stderr: e.to_string(),
         },
+    };
+    if let Some((id, _)) = askpass {
+        crate::askpass::end(id, result.code, &result.stderr);
     }
+    result
 }
 
 #[cfg(test)]

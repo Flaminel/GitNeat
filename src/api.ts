@@ -9,6 +9,20 @@ export interface MenuSpec {
   submenu?: MenuSpec[];
 }
 
+export interface AskpassRequest {
+  request: number;
+  kind: "username" | "password" | "passphrase" | "other";
+  target: string;
+  user: string;
+  retry: boolean;
+}
+
+export interface AskpassReply {
+  username: string;
+  password: string;
+  remember: boolean;
+}
+
 export interface GitNeatApi {
   platform: string;
   windowControls?: boolean;
@@ -46,6 +60,8 @@ export interface GitNeatApi {
   unwatch(cwd: string): Promise<void>;
   onRepoChanged(fn: (cwd: string) => void): () => void;
   onAppMenu(fn: (id: string) => void): () => void;
+  onAskpass(fn: (request: AskpassRequest) => void): () => void;
+  askpassReply(request: number, reply: AskpassReply | null): Promise<void>;
   setZoom(factor: number): Promise<void>;
 }
 

@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod askpass;
 #[cfg(target_os = "macos")]
 pub mod appmenu;
 pub mod commands;
@@ -64,12 +65,24 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let builder = builder.decorations(false);
             builder.build()?;
+            let emitter = app.handle().clone();
+            if let Ok(exe) = std::env::current_exe()
+                && let Ok(server) = askpass::start(
+                    exe.to_string_lossy().into_owned(),
+                    Box::new(move |request| {
+                        let _ = emitter.emit("askpass", request);
+                    }),
+                )
+            {
+                askpass::install(server);
+            }
             #[cfg(target_os = "macos")]
             app.set_menu(appmenu::build(app.handle())?)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::action,
+            commands::askpass_reply,
             commands::load_repo,
             commands::load_commits,
             commands::load_commit,

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gitneat } from "./api";
+import { AskpassReply, AskpassRequest, gitneat } from "./api";
 import { NewTab } from "./components/NewTab";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { cloneRepo, initRepo } from "./actions";
 import { samePath } from "./repo";
 import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings } from "./RepoView";
-import { Layout, LayoutContext, legacyLayout, useUi } from "./ui";
+import { Field, Layout, LayoutContext, legacyLayout, Ui, useUi } from "./ui";
 import pkg from "../package.json";
 
 interface State {
@@ -39,6 +39,32 @@ function StatusBar({ zoom }: { zoom: number }) {
       <span className="statusbar-version">{pkg.version}</span>
     </div>
   );
+}
+
+const REMEMBER: Field = { name: "remember", label: "Remember me", kind: "checkbox" };
+
+async function askCredentials(ui: Ui, request: AskpassRequest): Promise<AskpassReply | null> {
+  const { kind, target, user, retry } = request;
+  const password: Field = { name: "password", label: "Password", kind: "password" };
+  const invalid = `Invalid credentials for ${target}. Please try again: `;
+  const forms: Record<AskpassRequest["kind"], [string, Field[]]> = {
+    username: [
+      retry ? invalid : `Please enter your credentials for ${target}: `,
+      [{ name: "username", label: "Username" }, password, REMEMBER],
+    ],
+    password: [retry ? invalid : `Enter password for ${user ? target.replace("://", `://${user}@`) : target}:`, [password, REMEMBER]],
+    passphrase: [
+      retry ? `Incorrect passphrase for SSH key '${target}'. Try again:` : `Enter passphrase for SSH key '${target}':`,
+      [{ ...password, label: "Passphrase" }],
+    ],
+    other: [target, [/\(yes\/no/.test(target) ? { name: "password", label: "Answer" } : password]],
+  };
+  const [message, fields] = forms[kind];
+  const values = await ui.prompt("", fields, "Submit", message);
+  if (!values) {
+    return null;
+  }
+  return { username: values.username ?? "", password: values.password ?? "", remember: values.remember === "true" };
 }
 
 export function App() {
@@ -256,6 +282,15 @@ export function App() {
   const menuHandler = useRef(runMenu);
   menuHandler.current = runMenu;
   useEffect(() => gitneat().onAppMenu((id) => menuHandler.current(id)), []);
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
+  useEffect(
+    () =>
+      gitneat().onAskpass((request) => {
+        void askCredentials(uiRef.current, request).then((reply) => gitneat().askpassReply(request.request, reply));
+      }),
+    [],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
