@@ -111,8 +111,15 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod || !state) {
+      if (!state) {
+        return;
+      }
+      if (e.ctrlKey && !e.metaKey && e.key === "Tab") {
+        e.preventDefault();
+        update((s) => ({ ...s, active: (s.active + (e.shiftKey ? s.tabs.length - 1 : 1)) % Math.max(1, s.tabs.length) }));
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey)) {
         return;
       }
       if (e.key === "t" && !e.shiftKey) {
@@ -127,9 +134,6 @@ export function App() {
       } else if (/^[1-9]$/.test(e.key)) {
         e.preventDefault();
         update((s) => ({ ...s, active: Math.min(Number(e.key) - 1, s.tabs.length - 1) }));
-      } else if (e.key === "Tab") {
-        e.preventDefault();
-        update((s) => ({ ...s, active: (s.active + (e.shiftKey ? s.tabs.length - 1 : 1)) % Math.max(1, s.tabs.length) }));
       }
     };
     window.addEventListener("keydown", onKey);

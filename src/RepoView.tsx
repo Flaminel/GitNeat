@@ -66,18 +66,6 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyJ" && !target.closest("input, textarea, .monaco-editor")) {
-        e.preventDefault();
-        setLeftCollapsed(!leftCollapsed);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [leftCollapsed, setLeftCollapsed]);
-
   const loadSeq = useRef(0);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
@@ -154,6 +142,58 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
     [data, path, ui, load, openTab, prefs, setPrefs],
   );
 
+  const undo = async () => {
+    const entry = undoStack[undoStack.length - 1];
+    if (ctx && entry && (await A.undo(ctx, entry))) {
+      setUndoStack((list) => list.filter((x) => x !== entry));
+      setRedoStack((list) => [...list, entry]);
+    }
+  };
+
+  const redo = async () => {
+    const entry = redoStack[redoStack.length - 1];
+    if (ctx && entry && (await A.redo(ctx, entry))) {
+      setRedoStack((list) => list.filter((x) => x !== entry));
+      setUndoStack((list) => [...list, entry]);
+    }
+  };
+
+  const focusMessage = () => {
+    if (!data?.status.length) {
+      return;
+    }
+    setSelected(WIP);
+    setOpenFile(null);
+    requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".commit-box .summary")?.focus());
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || !ctx || target.closest("input, textarea, select, .monaco-editor")) {
+        return;
+      }
+      const key = `${e.shiftKey ? "Shift+" : ""}${e.code}`;
+      const run: Record<string, () => unknown> = {
+        KeyJ: () => setLeftCollapsed(!leftCollapsed),
+        KeyZ: undo,
+        KeyY: redo,
+        "Shift+KeyZ": redo,
+        KeyB: () => ctx.data.head && A.createBranch(ctx, "HEAD"),
+        KeyL: () => A.pull(ctx, "fetch"),
+        "Shift+KeyS": () => ctx.data.status.some((s) => s.work !== " " || s.index === "?") && A.stageAll(ctx),
+        "Shift+KeyU": () => ctx.data.status.some((s) => s.index !== " " && s.index !== "?") && A.unstageAll(ctx),
+        "Shift+KeyM": focusMessage,
+      };
+      if (run[key]) {
+        e.preventDefault();
+        void run[key]();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   useEffect(() => {
     if (selected === WIP && data && data.status.length === 0) {
       setSelected(data.head);
@@ -200,20 +240,8 @@ export function RepoView({ path, prefs, setPrefs, openTab, recent }: Props) {
         recent={recent}
         undoLabel={undoStack[undoStack.length - 1]?.label}
         redoLabel={redoStack[redoStack.length - 1]?.label}
-        onUndo={async () => {
-          const entry = undoStack[undoStack.length - 1];
-          if (entry && (await A.undo(ctx, entry))) {
-            setUndoStack((list) => list.filter((x) => x !== entry));
-            setRedoStack((list) => [...list, entry]);
-          }
-        }}
-        onRedo={async () => {
-          const entry = redoStack[redoStack.length - 1];
-          if (entry && (await A.redo(ctx, entry))) {
-            setRedoStack((list) => list.filter((x) => x !== entry));
-            setUndoStack((list) => [...list, entry]);
-          }
-        }}
+        onUndo={undo}
+        onRedo={redo}
       />
       {data.operation && (
         <div className="op-banner">
