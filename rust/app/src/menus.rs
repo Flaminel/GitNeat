@@ -150,6 +150,8 @@ struct FileArgs {
     stash_apply: usize,
     #[serde(default)]
     history: bool,
+    #[serde(skip)]
+    missing: bool,
 }
 
 #[derive(Deserialize)]
@@ -385,10 +387,14 @@ fn ignore_items(path: &str, w: &WipIn) -> Vec<MenuSpec> {
 }
 
 fn file_menu(a: &FileArgs) -> Vec<MenuSpec> {
-    let open = vec![
-        item("openFile", "Open file"),
-        item("showItem", reveal_label(&a.platform)),
-    ];
+    let open = if a.missing {
+        Vec::new()
+    } else {
+        vec![
+            item("openFile", "Open file"),
+            item("showItem", reveal_label(&a.platform)),
+        ]
+    };
     let history = if a.history {
         vec![item("fileHistory", "File History"), item("fileBlame", "File Blame")]
     } else {
@@ -557,7 +563,8 @@ pub async fn build(cwd: &str, kind: MenuKind, args: &Value) -> Res<Option<Vec<Me
             worktree_menu(cwd, &a.platform, &a.wt)
         }
         MenuKind::File => {
-            let a: FileArgs = actions::parse(args)?;
+            let mut a: FileArgs = actions::parse(args)?;
+            a.missing = a.history && !std::path::Path::new(cwd).join(&a.path).exists();
             file_menu(&a)
         }
         MenuKind::Drop => {

@@ -632,7 +632,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The action `workPatch` builds a patch of the selected files against HEAD (the empty tree without HEAD). It adds untracked files with `git diff --no-index`. It fails with "Working directory has no changes" for an empty patch. The file name is `Changes-On-<short sha>.patch`, or `diff.patch` without HEAD.
 - Decision: The file list of a selected stash supports multi-select. The menu has "Apply stashed file" or "Apply N files from stash". The action `stashApplyFiles` restores each file into the working tree with `git restore --source`, from the stash or from its third parent. A file that the stash removes is deleted. It uses the same staged and uncommitted checks as Apply (D87). A renamed file also restores its old path.
 - Reason: Task T28. Source multi-select file menu (R 2576997), `ignoreMultipleFiles`, `promptShouldUntrack`, `savePatchForWorkDir`, `getDefaultFileName` and `CherryPickNFilesFromStash` (`docs/EVIDENCE.md` section 12).
-- Limits: Stage, Unstage and Ignore have no undo, as in Source (D89). The stash file list menu has no Open items for a file that is not in the working tree: Source hides them, GitNeat shows them.
+- Limits: Stage, Unstage and Ignore have no undo, as in Source (D89). The file menu hides Open and Show for a file that is not in the working tree, as Source does.
 
 ## D89. Undo and redo of discarded changes
 
