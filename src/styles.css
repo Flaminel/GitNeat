@@ -1963,6 +1963,40 @@ a.sha {
 
 .toast.error {
   border-color: var(--red);
+  min-width: 280px;
+}
+
+.toast-head,
+.toast-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toast-head {
+  margin-bottom: 4px;
+}
+
+.toast-actions {
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.toast-text.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.toast-button {
+  background: transparent;
+  border: none;
+  color: var(--accent, #6cb6ff);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
 }
 
 .new-tab {

@@ -631,7 +631,9 @@ function makeUi(s: Scenario, d: Dirs, h: Harness): Ctx["ui"] {
       return typeof s.confirm === "function" ? s.confirm(title) : (s.confirm ?? true);
     },
     toast: (text, kind) => {
-      h.log.push(`toast ${kind ?? "info"} ${text}`);
+      if (kind === "error") {
+        h.log.push(`toast error ${text}`);
+      }
     },
     task: async (label, fn) => {
       h.log.push(`task ${label}`);

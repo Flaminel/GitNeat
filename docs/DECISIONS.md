@@ -480,3 +480,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Limits: "Edit stash message" moves the stash to the top of the stash list, because git cannot change a message in place. The tag prompt does not check which remotes hold the tag. A remote without the tag shows a toast error.
 - Limits: "Compare commit against working directory" is not added. GitNeat has no compare view in the right panel. The task needs a new loader and a new detail mode. Follow-up task.
 - Limits: No manual check in the app: the Tauri window was not started in this task. The menu trees and handlers are covered by the comparison tests. The Rust actions were run on a temporary repository.
+
+## D73. Titled errors and pull and cherry-pick notices
+
+- Decision: `ui.task` takes an optional error title. The default is "{label} Failed". `runNative` in `src/actions.ts` passes the verb of the label, so "Checkout main" shows "Checkout Failed". An error toast stays open until the user closes it. It has Close, Copy and, for text over 240 characters or 4 lines, Expand and Collapse. An info toast closes after 3.5 s.
+- Decision: The Rust actions `pull` (modes ff, ff-only and rebase), `pullBranch` for the current branch and `cherryPick` can return `notice`. `runNative` shows it as an info toast. A pull shows "Pulled successfully" if HEAD changed, else "Already up to date". A cherry pick that git reports as empty runs `cherry-pick --abort` and shows a no-op notice.
+- Reason: Source has the texts `Error-CheckoutFailed`, `GitHook-HookFailed`, `Notification-PulledSuccessfully`, `Notification-AlreadyUpToDate` and `NotificationMessage-CherrypickWasNoop` (`docs/EVIDENCE.md` section 12). Task T18.
+- Limits: The evidence has no success notice for push or fetch, so GitNeat shows none. Source has titles for specific errors, for example `Error-FetchFailedWithName`. GitNeat builds the title from the task label only. The hook title "{hook} Failed" is not added, because GitNeat does not parse the hook name from the git output.
+- Limits: The comparison test `test/actions.test.ts` logs only error toasts, because the frozen reference has no notices. No manual check in the app: the Tauri window was not started in this task. The toast layout has no pixel measurement from Source.

@@ -48,6 +48,7 @@ interface Plan {
 interface Done {
   record: { before: HeadState; after: HeadState } | null;
   toast?: string;
+  notice?: string;
 }
 
 async function act<T = Done>(cwd: string, name: string, args: unknown): Promise<T> {
@@ -58,13 +59,22 @@ async function act<T = Done>(cwd: string, name: string, args: unknown): Promise<
   }
 }
 
+const failTitle = (label: string) => `${label.replace(/^(Checkout|Merge|Pull|Fetch|Rebase onto|Cherry pick|Undo|Redo|Continue|Abort) .+$/, "$1")} Failed`;
+
 async function runNative(ctx: Ctx, label: string, fn: () => Promise<Done>): Promise<boolean> {
   const box: { done?: Done } = {};
-  const ok = await ctx.ui.task(label, async () => {
-    box.done = await fn();
-  });
+  const ok = await ctx.ui.task(
+    label,
+    async () => {
+      box.done = await fn();
+    },
+    failTitle(label),
+  );
   if (ok && box.done?.record) {
     ctx.record({ label, ...box.done.record });
+  }
+  if (ok && box.done?.notice) {
+    ctx.ui.toast(box.done.notice);
   }
   ctx.refresh();
   return ok;

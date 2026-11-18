@@ -1,6 +1,7 @@
-use super::{Res, git, needs_confirm, parse, run, split_remote};
+use super::{Res, git, head_state, needs_confirm, parse, run, split_remote};
 use serde::Deserialize;
 use serde_json::Value;
+use std::future::Future;
 
 #[derive(Deserialize)]
 struct CloneRepo {
@@ -111,10 +112,22 @@ async fn fast_forward(cwd: &str, args: &Value) -> Res<Value> {
     run(cwd, true, git(cwd, &["fetch", ".", &spec])).await
 }
 
+async fn pulled(cwd: &str, work: impl Future<Output = Res<String>>) -> Res<Value> {
+    let before = head_state(cwd).await;
+    let mut done = run(cwd, true, work).await?;
+    let after = head_state(cwd).await;
+    done["notice"] = Value::from(if before.head == after.head {
+        "Already up to date"
+    } else {
+        "Pulled successfully"
+    });
+    Ok(done)
+}
+
 async fn pull_branch(cwd: &str, args: &Value) -> Res<Value> {
     let a: PullBranch = parse(args)?;
     if a.current {
-        return run(cwd, true, git(cwd, &["pull", "--ff"])).await;
+        return pulled(cwd, git(cwd, &["pull", "--ff"])).await;
     }
     let Some(upstream) = a.upstream.as_deref().filter(|u| !u.is_empty()) else {
         return Err(format!("{} has no upstream.", a.name));
@@ -128,9 +141,9 @@ async fn pull(cwd: &str, args: &Value) -> Res<Value> {
     let a: Pull = parse(args)?;
     match a.mode {
         PullMode::Fetch => run(cwd, true, git(cwd, &["fetch", "--all", "--prune"])).await,
-        PullMode::Rebase => run(cwd, true, git(cwd, &["pull", "--rebase", "--autostash"])).await,
-        PullMode::Ff => run(cwd, true, git(cwd, &["pull", "--ff"])).await,
-        PullMode::FfOnly => run(cwd, true, git(cwd, &["pull", "--ff-only"])).await,
+        PullMode::Rebase => pulled(cwd, git(cwd, &["pull", "--rebase", "--autostash"])).await,
+        PullMode::Ff => pulled(cwd, git(cwd, &["pull", "--ff"])).await,
+        PullMode::FfOnly => pulled(cwd, git(cwd, &["pull", "--ff-only"])).await,
     }
 }
 

@@ -189,7 +189,16 @@ async fn cherry_pick(cwd: &str, args: &Value) -> Res<Value> {
     if a.parents > 1 {
         return run(cwd, true, git(cwd, &["cherry-pick", "-m", "1", &a.sha])).await;
     }
-    run(cwd, true, git(cwd, &["cherry-pick", &a.sha])).await
+    let result = run(cwd, true, git(cwd, &["cherry-pick", &a.sha])).await;
+    match result {
+        Err(error) if error.contains("now empty") => {
+            git(cwd, &["cherry-pick", "--abort"]).await?;
+            Ok(
+                json!({ "record": Value::Null, "notice": "The cherry pick changed nothing: the commit is already applied." }),
+            )
+        }
+        other => other,
+    }
 }
 
 async fn revert(cwd: &str, args: &Value) -> Res<Value> {

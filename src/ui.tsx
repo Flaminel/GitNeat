@@ -40,6 +40,7 @@ interface DialogRequest {
 
 interface Toast {
   id: number;
+  title?: string;
   text: string;
   kind: "error" | "info";
 }
@@ -47,8 +48,8 @@ interface Toast {
 export interface Ui {
   prompt(title: string, fields: Field[], ok?: string): Promise<Record<string, string> | null>;
   confirm(title: string, message: string, ok?: string, danger?: boolean): Promise<boolean>;
-  toast(text: string, kind?: "error" | "info"): void;
-  task(label: string, fn: () => Promise<unknown>): Promise<boolean>;
+  toast(text: string, kind?: "error" | "info", title?: string): void;
+  task(label: string, fn: () => Promise<unknown>, title?: string): Promise<boolean>;
   busy: string | null;
 }
 
@@ -86,10 +87,12 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState<string | null>(null);
   const nextId = useRef(0);
 
-  const toast = useCallback((text: string, kind: "error" | "info" = "info") => {
+  const toast = useCallback((text: string, kind: "error" | "info" = "info", title?: string) => {
     const id = ++nextId.current;
-    setToasts((list) => [...list, { id, text, kind }]);
-    setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), kind === "error" ? 9000 : 3500);
+    setToasts((list) => [...list, { id, title, text, kind }]);
+    if (kind === "info") {
+      setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), 3500);
+    }
   }, []);
 
   const prompt = useCallback(
@@ -107,13 +110,13 @@ export function UiProvider({ children }: { children: ReactNode }) {
   );
 
   const task = useCallback(
-    async (label: string, fn: () => Promise<unknown>) => {
+    async (label: string, fn: () => Promise<unknown>, title = `${label} Failed`) => {
       setBusy(label);
       try {
         await fn();
         return true;
       } catch (error) {
-        toast(error instanceof Error ? error.message : String(error), "error");
+        toast(error instanceof Error ? error.message : String(error), "error", title);
         return false;
       } finally {
         setBusy(null);
@@ -130,12 +133,45 @@ export function UiProvider({ children }: { children: ReactNode }) {
       {dialog && <Dialog request={dialog} close={() => setDialog(null)} />}
       <div className="toasts">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.kind}`} onClick={() => setToasts((l) => l.filter((x) => x.id !== t.id))}>
-            {t.text}
-          </div>
+          <ToastView key={t.id} toast={t} close={() => setToasts((l) => l.filter((x) => x.id !== t.id))} />
         ))}
       </div>
     </UiContext.Provider>
+  );
+}
+
+const LONG_TOAST = 240;
+
+function ToastView({ toast, close }: { toast: Toast; close: () => void }) {
+  const [open, setOpen] = useState(false);
+  const long = toast.text.length > LONG_TOAST || toast.text.split("\n").length > 4;
+  if (toast.kind === "info") {
+    return (
+      <div className="toast info" onClick={close}>
+        {toast.text}
+      </div>
+    );
+  }
+  return (
+    <div className="toast error">
+      <div className="toast-head">
+        <strong>{toast.title ?? "Error"}</strong>
+        <button className="toast-button" onClick={close}>
+          Close
+        </button>
+      </div>
+      <div className={open || !long ? "toast-text" : "toast-text clamped"}>{toast.text}</div>
+      <div className="toast-actions">
+        <button className="toast-button" onClick={() => void navigator.clipboard?.writeText(toast.text)}>
+          Copy
+        </button>
+        {long && (
+          <button className="toast-button" onClick={() => setOpen(!open)}>
+            {open ? "Collapse" : "Expand"}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
