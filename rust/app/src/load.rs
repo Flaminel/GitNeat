@@ -278,7 +278,9 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
     let mut commits = read_log(&log_out);
     let shas: Vec<&str> = stashes.iter().map(|s| s.sha.as_str()).collect();
     let details = stash_times(cwd, &shas).await;
-    insert_stashes(&mut commits, &stashes, &details);
+    if !hidden.iter().any(|h| h == "refs/stash") {
+        insert_stashes(&mut commits, &stashes, &details);
+    }
 
     let submodules = sub_out
         .split('\n')

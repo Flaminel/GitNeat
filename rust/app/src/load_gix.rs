@@ -562,7 +562,9 @@ pub fn load_repo_gix(
         .into_iter()
         .map(|c| (c.sha.clone(), c))
         .collect();
-    insert_stashes(&mut commits, &stashes, &details);
+    if !hidden.iter().any(|h| h == "refs/stash") {
+        insert_stashes(&mut commits, &stashes, &details);
+    }
 
     let status = read_status(&status_text(repo)?);
     let rows = graph_rows(&commits, head.as_deref(), !status.is_empty());

@@ -415,4 +415,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The ahead and behind badges in `src/components/Sidebar.tsx` show an arrow with the tooltips "{n} ahead" and "{n} behind". A count above 99 shows "99+". The status line says "Soloing" while solo is on, else "Viewing". The filter shows a clear button when it has text. While the filter has text, the tree ignores the collapsed folders, so matching folders show open. The Remote and Tags headers have a menu with "Hide all" and "Show all". The Local menu uses the same code.
 - Reason: Source uses `RefBar-NAhead`, `RefBar-NBehind`, `RefBar-StatusSoloing` and the section header menus (see `docs/EVIDENCE.md` section 11). Task T11 of the parity plan (D50).
 - Rules: `ctx.setHidden(fulls, hide)` in `src/RepoView.tsx` adds or removes a list of refs in one write. The old code called `toggleHidden` in a loop, which kept only the last change. "Show all local branches" no longer clears the hidden remotes.
-- Limits: The Stashes header has no menu, because the graph cannot hide stash rows. The top "Show All" button still clears the hidden and solo lists. No manual check in the app: the screen was locked during T11.
+- Limits: The top "Show All" button still clears the hidden and solo lists. No manual check in the app: the screen was locked during T11.
+
+## D65. Hide all stashes
+
+- Decision: The Stashes header menu has "Hide all stashes" and "Show all stashes". Hide adds the name `refs/stash` to the `hidden` list of the tab. `load_repo` in `rust/app/src/load.rs` and `rust/app/src/load_gix.rs` skips `insert_stashes` when the list holds that name. The graph rows and lanes are then built without the stash rows.
+- Reason: Source has Hide all on each section header (see `docs/EVIDENCE.md` section 11). Follow-up of task T11 (D64).
+- Rules: The saved prefs and the `loadRepo` call keep their shape. Solo mode does not change the stash rows.
+- Limits: The Stashes list in the left panel still shows every stash, with no dimmed state. No manual check in the app: the screen was locked during T11.

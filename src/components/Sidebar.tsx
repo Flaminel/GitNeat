@@ -67,6 +67,8 @@ function Section(props: {
 
 const cap = (n: number) => (n > 99 ? "99+" : String(n));
 
+const STASH_REF = "refs/stash";
+
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
 export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: Props) {
@@ -293,7 +295,16 @@ export function Sidebar({ ctx, onSelectSha, showAll, collapsed, setCollapsed }: 
             </div>
           ))}
         </Section>
-        <Section {...sectionProps("STASHES")} title="STASHES" icon={Icon.stash} count={data.stashes.length}>
+        <Section {...sectionProps("STASHES")} title="STASHES"
+          icon={Icon.stash}
+          count={data.stashes.length}
+          onMenu={() =>
+            showMenu([
+              { label: "Hide all stashes", run: () => ctx.setHidden([STASH_REF], true) },
+              { label: "Show all stashes", run: () => ctx.setHidden([STASH_REF], false) },
+            ])
+          }
+        >
           {data.stashes.map((s) => (
             <div
               key={s.ref}
