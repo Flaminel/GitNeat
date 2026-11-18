@@ -442,3 +442,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The drag writes the saved map once, when the user releases the mouse. During the drag the map is local state. The saved map holds all section keys.
 - Rules: The `mainSections` prop of `RepoView` returns `openSections` and `sectionYsByKey`. A linked worktree copies both from the main worktree once for each mount (D66).
 - Limits: The panel height comes from a `ResizeObserver` on the sections container. Before the first measure the sections have no fixed height. GitNeat always shows the six sections, and Source hides some by account type. No manual check in the app: the Tauri window was not started in this task. `test/left-panel.test.ts` covers the rules.
+
+## D68. Graph avatar color from the author email
+
+- Decision: The inner circle of a commit node uses one of the ten lane tints `--lane-N-bg50`. `authorColor` in `src/components/GraphView.tsx` picks N from a hash of the lowercase author email. If the email is empty, it hashes the author name.
+- Reason: Source gives the initials avatar a color for each author. Task T13.
+- Rules: The same author always gets the same color. The hash is `hash * 31 + code`, modulo 10. The ring keeps the lane color.
+- Limits: No image from an external service (D12). Two authors can share a color, because the palette has ten colors. The right panel avatar keeps `--avatar-bg`. Source uses `DEFAULT_AVATAR_BACKGROUND_COLOR` `#199489` when it has no image. Its exact color rule is not in the evidence. No manual check in the app: the Tauri window was not started in this task.

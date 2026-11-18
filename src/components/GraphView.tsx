@@ -65,6 +65,15 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
 }
 
+function authorColor(email: string, name: string): string {
+  const key = (email || name).toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return `var(--lane-${hash % LANE_COLORS}-bg50)`;
+}
+
 export function relativeTime(seconds: number): string | null {
   const then = new Date(seconds * 1000);
   const now = new Date();
@@ -237,7 +246,7 @@ const RowView = memo(function RowView(props: {
           ) : (
             <g>
               <circle cx={cx} cy={cy} r={11} fill={color} />
-              <circle cx={cx} cy={cy} r={9} fill="var(--avatar-bg)" />
+              <circle cx={cx} cy={cy} r={9} fill={authorColor(commit.email, commit.author)} />
               <text x={cx} y={cy + 3} textAnchor="middle" className="avatar-text">
                 {initials(commit.author)}
               </text>
