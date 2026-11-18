@@ -434,8 +434,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 ## D67. Resizable left panel sections with saved heights
 
-- Decision: `RepoPrefs` in `src/RepoView.tsx` has the optional field `sectionHeights`, a map from section name to pixels. `Sidebar` shows a row `Splitter` at the bottom of each open section except the last open section. The drag changes the height of the section above the handle. The app store saves the map with the other tab prefs.
-- Reason: Source saves a height for each section for each repository (see `docs/EVIDENCE.md` section 11). Task T41.
-- Rules: The heights include the 30 px section header. The default height is 162 and the minimum is 138, as in Source (132 + 30 and 108 + 30). The last open section fills the remaining space. A section with no saved height uses the default. The `mainSections` prop of `RepoView` returns `openSections` and `sectionHeights`. A linked worktree copies both from the main worktree once for each mount (D66).
-- Rules: The drag writes the saved heights once, when the user releases the mouse, as Source does.
-- Limits: Source saves the cumulative Y of each section bottom edge. GitNeat saves one height for each section. A drag in Source pushes the later sections. A drag in GitNeat changes only the section above the handle. Source has no handle next to leading or trailing collapsed sections, and GitNeat has no handle on a collapsed section. The maximum is 1200. If the panel is smaller than the sum of the heights, the open sections shrink to the minimum and the panel does not scroll. No manual check in the app: the Tauri window was not started in this task.
+- Decision: `RepoPrefs` in `src/RepoView.tsx` has the optional field `sectionYsByKey`, a map from section name to the Y of the section bottom edge in pixels. This is the Source value. The height of a section is the difference to the previous Y. `src/leftPanel.ts` ports the Source rules, and `Sidebar` draws the handles with `Splitter`.
+- Reason: Source saves `layout.leftPanel.sectionYsByKey` for each repository (see `docs/EVIDENCE.md` section 11). Task T41.
+- Rules: A collapsed section is 30 px high. An open section is at least 138 px high (30 + 108). The default Y step is 162 (132 + 30).
+- Rules: `handleBounds` clamps each Y to the panel height minus the minimums below. `boundedYs` then pushes each later section so that it keeps its minimum height. The last section ends at the panel height.
+- Rules: `resizableHandles` gives no handle to the last section, to leading or trailing sections with a fixed height, or to the last open section before a trailing run of collapsed sections.
+- Rules: The drag writes the saved map once, when the user releases the mouse. During the drag the map is local state. The saved map holds all section keys.
+- Rules: The `mainSections` prop of `RepoView` returns `openSections` and `sectionYsByKey`. A linked worktree copies both from the main worktree once for each mount (D66).
+- Limits: The panel height comes from a `ResizeObserver` on the sections container. Before the first measure the sections have no fixed height. GitNeat always shows the six sections, and Source hides some by account type. No manual check in the app: the Tauri window was not started in this task. `test/left-panel.test.ts` covers the rules.

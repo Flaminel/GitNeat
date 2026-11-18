@@ -219,8 +219,8 @@ export function App() {
             prefs={state.prefs[activePath] ?? NO_PREFS}
             setPrefs={(prefs) => update((s) => ({ ...s, prefs: { ...s.prefs, [activePath]: { ...(s.prefs[activePath] ?? NO_PREFS), ...prefs } } }))}
             mainSections={(main) => {
-              const { openSections, sectionHeights } = state.prefs[main] ?? {};
-              return openSections ? { openSections, sectionHeights } : undefined;
+              const { openSections, sectionYsByKey } = state.prefs[main] ?? {};
+              return openSections ? { openSections, sectionYsByKey } : undefined;
             }}
             openTab={openTab}
             recent={state.recent}

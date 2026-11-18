@@ -18,7 +18,7 @@ export interface RepoPrefs {
   solo: string[];
   closed?: string[];
   openSections?: string[];
-  sectionHeights?: Record<string, number>;
+  sectionYsByKey?: Record<string, number>;
 }
 
 interface Props {
@@ -325,8 +325,8 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
             setClosed={(list) => setPrefs({ closed: list })}
             openSections={openSections}
             setOpenSections={(list) => setPrefs({ openSections: list })}
-            sectionHeights={prefs.sectionHeights ?? {}}
-            setSectionHeights={(heights) => setPrefs({ sectionHeights: heights })}
+            sectionYs={prefs.sectionYsByKey ?? {}}
+            setSectionYs={(ys) => setPrefs({ sectionYsByKey: ys })}
           />
         </div>
         {!leftCollapsed && <Splitter value={leftWidth} set={setLeftWidth} min={180} max={600} />}

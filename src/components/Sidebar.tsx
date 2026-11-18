@@ -1,8 +1,9 @@
-import { MouseEvent, ReactNode, useEffect, useState } from "react";
+import { MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
 import * as A from "../actions";
 import { gitneat } from "../api";
 import { Ctx } from "../actions";
 import * as M from "../menus";
+import { boundedYs, limitsFor, resizableHandles, sectionHeights } from "../leftPanel";
 import { Ref, samePath } from "../repo";
 import { showMenu, Splitter } from "../ui";
 import { Icon } from "./icons";
@@ -17,8 +18,8 @@ interface Props {
   setClosed(closed: string[]): void;
   openSections: string[];
   setOpenSections(sections: string[]): void;
-  sectionHeights: Record<string, number>;
-  setSectionHeights(heights: Record<string, number>): void;
+  sectionYs: Record<string, number>;
+  setSectionYs(ys: Record<string, number>): void;
 }
 
 interface TreeNode {
@@ -51,17 +52,12 @@ function Section(props: {
   children: ReactNode;
   actions?: ReactNode;
   open: boolean;
-  grow: boolean;
   height?: number;
-  split?: ReactNode;
   toggle(): void;
   onMenu?(e: MouseEvent): void;
 }) {
   return (
-    <div
-      className={`section${props.open ? " open" : ""}${props.grow ? " grow" : ""}`}
-      style={props.open && !props.grow ? { flexBasis: props.height } : undefined}
-    >
+    <div className={`section${props.open ? " open" : ""}`} style={{ height: props.height }}>
       <div className="section-head" onClick={props.toggle} onContextMenu={props.onMenu}>
         <span className={`chevron${props.open ? " open" : ""}`}>›</span>
         <span className="section-icon">{props.icon}</span>
@@ -72,7 +68,6 @@ function Section(props: {
         <span className="section-count">{props.count}</span>
       </div>
       {props.open && <div className="section-body">{props.children}</div>}
-      {props.open && props.split}
     </div>
   );
 }
@@ -82,10 +77,6 @@ const cap = (n: number) => (n > 99 ? "99+" : String(n));
 const STASH_REF = "refs/stash";
 
 const SECTION_HEADER_HEIGHT = 30;
-const SECTION_DEFAULT_HEIGHT = 132 + SECTION_HEADER_HEIGHT;
-const SECTION_MINIMUM_HEIGHT = 108 + SECTION_HEADER_HEIGHT;
-const SECTION_MAXIMUM_HEIGHT = 1200;
-
 const SECTIONS = ["LOCAL", "REMOTE", "WORKTREES", "STASHES", "TAGS", "SUBMODULES"];
 
 export function Sidebar({
@@ -98,40 +89,36 @@ export function Sidebar({
   setClosed,
   openSections,
   setOpenSections,
-  sectionHeights,
-  setSectionHeights,
+  sectionYs,
+  setSectionYs,
 }: Props) {
   const [filter, setFilter] = useState("");
   const closed = new Set(closedList);
   const lastOpen = SECTIONS.filter((s) => openSections.includes(s)).pop();
-  const [drag, setDrag] = useState<Record<string, number>>({});
-  const heightOf = (title: string) => drag[title] ?? sectionHeights[title] ?? SECTION_DEFAULT_HEIGHT;
+  const [drag, setDrag] = useState<Record<string, number> | null>(null);
+  const [panelHeight, setPanelHeight] = useState(0);
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  const limits = SECTIONS.map((s) => limitsFor(openSections.includes(s)));
+  const ys = panelHeight ? boundedYs(SECTIONS, limits, panelHeight, drag ?? sectionYs) : null;
+  const heights = ys ? sectionHeights(SECTIONS, ys) : null;
+  const handles = resizableHandles(limits);
   const sectionProps = (title: string) => ({
     open: openSections.includes(title),
-    grow: title === lastOpen,
-    height: heightOf(title),
-    split:
-      title === lastOpen ? undefined : (
-        <Splitter
-          vertical
-          className="section-split"
-          value={heightOf(title)}
-          min={SECTION_MINIMUM_HEIGHT}
-          max={SECTION_MAXIMUM_HEIGHT}
-          set={(n, save) => {
-            const height = Math.round(n);
-            if (save === false) {
-              setDrag({ [title]: height });
-            } else {
-              setDrag({});
-              setSectionHeights({ ...sectionHeights, [title]: height });
-            }
-          }}
-        />
-      ),
+    height: heights?.[title],
     toggle: () =>
       setOpenSections(openSections.includes(title) ? openSections.filter((x) => x !== title) : [...openSections, title]),
   });
+
+  useEffect(() => {
+    const el = sectionsRef.current;
+    if (!el) {
+      return;
+    }
+    const observer = new ResizeObserver(() => setPanelHeight(el.clientHeight));
+    observer.observe(el);
+    setPanelHeight(el.clientHeight);
+    return () => observer.disconnect();
+  }, [collapsed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -287,7 +274,7 @@ export function Sidebar({
           Icon.search
         )}
       </div>
-      <div className="sections">
+      <div className="sections" ref={sectionsRef}>
         <Section
           {...sectionProps("LOCAL")}
           title="LOCAL"
@@ -381,6 +368,30 @@ export function Sidebar({
             </div>
           ))}
         </Section>
+        {ys &&
+          SECTIONS.map(
+            (title, i) =>
+              handles[i] && (
+                <div key={title} className="section-split-wrap" style={{ top: ys[title] }}>
+                  <Splitter
+                    vertical
+                    className="section-split"
+                    value={ys[title]}
+                    min={0}
+                    max={100000}
+                    set={(n, save) => {
+                      const next = { ...ys, [title]: Math.round(n) };
+                      if (save === false) {
+                        setDrag(next);
+                      } else {
+                        setDrag(null);
+                        setSectionYs(next);
+                      }
+                    }}
+                  />
+                </div>
+              ),
+          )}
       </div>
     </aside>
   );

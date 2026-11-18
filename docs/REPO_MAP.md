@@ -45,8 +45,10 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/RepoView.tsx` | Layout of one tab: toolbar, left panel, center, right panel. Cache of the last loaded state for each open tab (`forgetRepos`) |
 | `src/components/` | UI parts: `Toolbar`, `Tabs`, `Sidebar`, `GraphView`, `DetailPanel`, `DiffView` (hunk, inline, split, blame, history), `NewTab` (NEW tab page: Open, Clone, Start buttons and the Recent list), `MergeView` (merge conflict tool), `RebaseModal` |
 | `src/components/icons.tsx` | Inline SVG icons |
+| `src/leftPanel.ts` | Left panel section sizes: bounds, push rule and handle rules (D67) |
 | `src/styles.css` | Theme colors and all styles |
 | `test/reference/` | Frozen TS version of the loaders, the lane layout, the diff parser, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
+| `test/left-panel.test.ts` | Tests for the section size rules in `src/leftPanel.ts` |
 | `test/graph.test.ts` | Lane layout tests for `test/reference/graph.ts` |
 | `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
 | `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |

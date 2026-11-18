@@ -548,34 +548,28 @@ body.resizing-row * {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: none;
   min-height: 0;
+  overflow: hidden;
 }
 
-.section {
-  position: relative;
-}
-
-.section.open {
-  flex: 0 1 162px;
-  min-height: 138px;
-}
-
-.section.open.grow {
-  flex: 1 1 0;
-}
-
-.splitter.row-resize.section-split {
+.section-split-wrap {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -2px;
-  margin: 0;
+  height: 0;
+  z-index: 3;
+}
+
+.splitter.row-resize.section-split {
+  margin: -2px 0 0;
 }
 
 .section-head {
