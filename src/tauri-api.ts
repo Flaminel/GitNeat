@@ -22,6 +22,7 @@ export function tauriApi(): GitNeatApi {
     loadAllFiles: (cwd, sha) => invoke("load_all_files", { cwd, sha }),
     loadDiff: (cwd, source, file, ignoreWhitespace, orig) => invoke("load_diff", { cwd, source, file, ignoreWhitespace, orig }),
     loadSides: (cwd, source, file, orig) => invoke("load_sides", { cwd, source, file, orig }),
+    loadImages: (cwd, source, file, orig) => invoke("load_images", { cwd, source, file, orig }),
     loadBlame: (cwd, file, rev) => invoke("load_blame", { cwd, file, rev }),
     loadFileHistory: (cwd, file, limit) => invoke("load_file_history", { cwd, file, limit }),
     loadFileHistoryPage: (cwd, file, pages) => invoke("load_file_history_page", { cwd, file, pages }),

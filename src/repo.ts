@@ -181,6 +181,22 @@ export interface DiffSides {
   binary: boolean;
 }
 
+export interface ImageData {
+  mime: string;
+  data: string;
+}
+
+export interface ImageSides {
+  original: ImageData | null;
+  modified: ImageData | null;
+}
+
+export const IMAGE_EXTENSIONS = ["tif", "jpeg", "jpg", "png", "gif", "webp", "bmp"];
+
+export const isImagePath = (path: string): boolean => IMAGE_EXTENSIONS.includes(path.slice(path.lastIndexOf(".") + 1).toLowerCase()) && path.includes(".");
+
+export const loadImages = (cwd: string, source: DiffSource, file: string, orig?: string): Promise<ImageSides> => gitneat().loadImages(cwd, source, file, orig);
+
 export const loadSides = (cwd: string, source: DiffSource, file: string, orig?: string): Promise<DiffSides> => gitneat().loadSides(cwd, source, file, orig);
 
 export interface BlameLine {

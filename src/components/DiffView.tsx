@@ -2,7 +2,7 @@ import { MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "rea
 import { hunkPatch, Hunk, linesInRange, linesPatch, ParsedDiff } from "../diff";
 import { gitneat } from "../api";
 import { languageFor, monaco } from "../monaco";
-import { BlameLine, Commit, DiffSides, FileHistoryPage, loadBlame, loadDiff, loadFileHistoryPage, loadSides } from "../repo";
+import { BlameLine, Commit, DiffSides, FileHistoryPage, ImageData, ImageSides, isImagePath, loadBlame, loadDiff, loadImages, loadFileHistoryPage, loadSides } from "../repo";
 import { showMenu, useStored } from "../ui";
 import { OpenFile, StatusIcon } from "./DetailPanel";
 import { relativeTime } from "./GraphView";
@@ -32,6 +32,7 @@ const I = {
   wrap: <path d="M2.5 3.5h11 M2.5 6.5h8 M2.5 9.5h11 M2.5 12.5h8" />,
   blame: <path d="M3 2.5h7l3 3v8H3z M5.5 7h5 M5.5 9.5h5 M5.5 12h3" />,
   history: <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9 M2.5 2.5v2.6h2.6 M8 5v3.2l2 1.3" />,
+  image: <path d="M2.5 2.5h11v11h-11z M2.5 10.5l3.5-3.5 3 3 2-2 2.5 2.5 M10.5 5.5h.01" />,
   edit: <path d="M10.5 2.5l3 3-8 8H2.5v-3z" />,
 };
 
@@ -321,6 +322,75 @@ function HunkView(props: {
   );
 }
 
+const imageSrc = (image: ImageData) => `data:${image.mime};base64,${image.data}`;
+
+function ImageView(props: { images: ImageSides }) {
+  const { original, modified } = props.images;
+  const [overlay, setOverlay] = useState(false);
+  const [pos, setPos] = useState({ left: 10, top: 10 });
+  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+
+  const start = (e: React.PointerEvent<HTMLImageElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY, left: pos.left, top: pos.top };
+  };
+  const move = (e: React.PointerEvent<HTMLImageElement>) => {
+    const from = drag.current;
+    if (from) {
+      setPos({ left: from.left + e.clientX - from.x, top: from.top + e.clientY - from.y });
+    }
+  };
+  const stop = () => {
+    drag.current = null;
+  };
+
+  return (
+    <div className="diff-image">
+      {modified && (
+        <div>
+          <div className="diff-image-header">
+            <span>New image</span>
+            {original && (
+              <span
+                className={`diff-image-overlay-button${overlay ? "" : " off"}`}
+                title="Diff overlay old image"
+                onClick={() => setOverlay(!overlay)}
+              >
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{I.image}</svg>
+              </span>
+            )}
+          </div>
+          <div className="diff-image-container">
+            <img className="diff-image-img" src={imageSrc(modified)} />
+            {overlay && original && (
+              <img
+                className="diff-image-overlay"
+                src={imageSrc(original)}
+                style={{ left: pos.left, top: pos.top }}
+                draggable={false}
+                onPointerDown={start}
+                onPointerMove={move}
+                onPointerUp={stop}
+                onPointerCancel={stop}
+              />
+            )}
+          </div>
+        </div>
+      )}
+      {original && (
+        <div>
+          <div className="diff-image-header">
+            <span>Old image</span>
+          </div>
+          <div className="diff-image-container">
+            <img className="diff-image-img" src={imageSrc(original)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FileView(props: {
   text: string;
   language: string;
@@ -583,6 +653,7 @@ export function DiffView(props: Props) {
   const [wrap, setWrap] = useStored<boolean>("diff.wordWrap", false);
   const [diff, setDiff] = useState<ParsedDiff | null>(null);
   const [sides, setSides] = useState<DiffSides | null>(null);
+  const [images, setImages] = useState<ImageSides | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
@@ -602,11 +673,13 @@ export function DiffView(props: Props) {
   useEffect(() => {
     let live = true;
     setError(null);
-    Promise.all([loadDiff(cwd, file.source, file.path, ignoreWs, file.orig), loadSides(cwd, file.source, file.path, file.orig)]).then(
-      ([t, s]) => {
+    const imagePromise = isImagePath(file.path) ? loadImages(cwd, file.source, file.path, file.orig) : Promise.resolve(null);
+    Promise.all([loadDiff(cwd, file.source, file.path, ignoreWs, file.orig), loadSides(cwd, file.source, file.path, file.orig), imagePromise]).then(
+      ([t, s, i]) => {
         if (live) {
           setDiff(t);
           setSides(s);
+          setImages(i);
         }
       },
       (e) => live && setError(e instanceof Error ? e.message : String(e)),
@@ -628,7 +701,7 @@ export function DiffView(props: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const binary = !!(diff?.binary || sides?.binary);
+  const binary = !!(diff?.binary || sides?.binary || isImagePath(file.path));
   const canStage = !ignoreWs && (kind === "unstaged" || kind === "staged");
   const status = !sides ? "M" : file.orig && file.orig !== file.path ? "R" : sides.original === "" && sides.modified !== "" ? "A" : sides.modified === "" && kind !== "unstaged" ? "D" : "M";
 
@@ -692,6 +765,8 @@ export function DiffView(props: Props) {
     body = <HistoryView cwd={cwd} file={file} onOpenInCommit={props.onOpenInCommit} />;
   } else if (!diff || !sides) {
     body = <div className="diff-empty">Loading diff...</div>;
+  } else if (images && (images.original || images.modified)) {
+    body = <ImageView images={images} />;
   } else if (binary) {
     body = <div className="diff-empty">Binary file</div>;
   } else if (view === "file") {

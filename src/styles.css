@@ -1714,6 +1714,53 @@ a.sha {
   text-align: center;
 }
 
+.diff-image {
+  min-height: 100%;
+}
+
+.diff-image-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-family: var(--mono, Menlo, Consolas, "DejaVu Sans Mono", monospace);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.diff-image-container {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.diff-image-img {
+  display: block;
+  max-width: calc(100% - 20px);
+  margin: 10px;
+}
+
+.diff-image-overlay-button {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.diff-image-overlay-button.off {
+  opacity: 0.5;
+}
+
+.diff-image-overlay {
+  position: absolute;
+  max-width: calc(100% - 20px);
+  cursor: move;
+  filter: invert(100%) opacity(50%);
+  touch-action: none;
+  user-select: none;
+}
+
 .hunk-view {
   padding: 12px 0 24px;
 }

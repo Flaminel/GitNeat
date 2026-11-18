@@ -653,3 +653,12 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Task T29. Source askpass flow (`docs/EVIDENCE.md` section 12).
 - Limits: "Remember me" does not keep the answer after a restart. Source stores it on disk. A git credential helper, for example `osxkeychain`, keeps credentials across restarts, because git calls the helper before the askpass helper and stores the answer after a success. Source also has SSH key settings and hosting service integrations. GitNeat uses the normal SSH config and agent. A prompt waits 10 minutes, then counts as a cancel. A test ran a real `git fetch` against a local server with basic authentication, through the app executable as the helper. The Tauri window was not started, so the dialog was not checked by hand.
 
+
+## D91. Image diff
+
+- Decision: The command `load_images` returns the old and the new image of a file as base64 data with a MIME type. It reads a commit or index version with `git show` and the working tree version from disk. The extensions are tif, jpeg, jpg, png, gif, webp and bmp, in any letter case.
+- Decision: The diff view shows an image file as the New image box first and the Old image box below it. A side that does not exist, for example the old side of an added file, has no box. Each image scales down to the panel width.
+- Decision: If the old image exists, the New image header has an overlay button with the tooltip "Diff overlay old image". The overlay shows the old image on the new image, inverted and at 50% opacity. The user drags it. It starts at 10 px, 10 px.
+- Decision: The mode, whitespace, wrap and navigation buttons stay disabled for an image file.
+- Reason: Task T30. Source `DiffImage-OldImage`, `DiffImage-NewImage`, `DiffImage-ShowDiffOverlay`, the `isImageExtension` list and the `diff-image` styles (`docs/EVIDENCE.md` section 12).
+- Limits: A side larger than 10 MB (Source `maxLoadFilesize`) has no image. If both sides are missing, the view shows "Binary file". Source matches the extension in lower case only. GitNeat also accepts upper case. The overlay does not scale with the window as Source does during a drag. The Tauri window was not started: the build and the tests passed, and the Rust test `images_load_from_commit_and_disk` covers the loader. The web view decides which formats it can draw, so tif can fail to show outside macOS.

@@ -28,7 +28,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
 | `rust/app/src/load.rs` | `load_repo` and `load_commits` (one page, D81): backend choice, the `git` CLI path and the graph rows |
-| `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool, amend message and commit hook check loaders (D45, D47, D86) |
+| `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool, image sides, amend message and commit hook check loaders (D45, D47, D86, D91) |
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |
 | `rust/app/src/actions/discard.rs` | Snapshot, undo and redo of discarded changes (D89) |
@@ -90,6 +90,7 @@ GitNeat is a Tauri 2 app with two parts.
 | Change commit search | `query` and `matches` in `src/components/GraphView.tsx` |
 | Change the commit description in the graph | `describe` in `rust/repo/src/port.rs`, `descMenu` in `src/components/GraphView.tsx`, `.message-body` in `src/styles.css` (D58) |
 | Change hunk view syntax or bracket colors | `renderModelLine` in `src/components/DiffView.tsx`, `.bracket-*` in `src/styles.css` |
+| Change the image diff or its overlay (D91) | `ImageView` in `src/components/DiffView.tsx`, `load_images` in `rust/app/src/loaders.rs`, `.diff-image-*` in `src/styles.css` |
 | Change the diff toolbar or modes | `DiffView` in `src/components/DiffView.tsx` |
 | Change hunk or line staging | `src/diff.ts` for the patch, `applyPatch` in `src/actions.ts` for the git call |
 | Change diff colors | `src/monaco.ts` (Monaco theme) and `.line.add`, `.line.del` in `src/styles.css` |

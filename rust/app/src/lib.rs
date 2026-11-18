@@ -1,7 +1,7 @@
 pub mod actions;
-pub mod askpass;
 #[cfg(target_os = "macos")]
 pub mod appmenu;
+pub mod askpass;
 pub mod commands;
 pub mod git;
 pub mod load;
@@ -89,6 +89,7 @@ pub fn run() {
             commands::load_all_files,
             commands::load_diff,
             commands::load_sides,
+            commands::load_images,
             commands::load_blame,
             commands::load_file_history,
             commands::load_file_history_page,

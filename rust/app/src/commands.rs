@@ -2,7 +2,9 @@ use crate::actions;
 use crate::git;
 use crate::load::Operation;
 use crate::load::{self, CommitPage, RepoData};
-use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad, OperationInfo};
+use crate::loaders::{
+    self, DiffSides, DiffSource, HeadMessage, ImageSides, MergeLoad, OperationInfo,
+};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::menus::{self, MenuKind};
 use crate::paths;
@@ -107,6 +109,18 @@ pub async fn load_sides(
 ) -> Res<DiffSides> {
     let roots = open_roots(&watchers);
     Ok(loaders::load_sides(&cwd, &source, &file, orig.as_deref(), &roots).await)
+}
+
+#[tauri::command]
+pub async fn load_images(
+    watchers: State<'_, Watchers>,
+    cwd: String,
+    source: DiffSource,
+    file: String,
+    orig: Option<String>,
+) -> Res<ImageSides> {
+    let roots = open_roots(&watchers);
+    Ok(loaders::load_images(&cwd, &source, &file, orig.as_deref(), &roots).await)
 }
 
 #[tauri::command]

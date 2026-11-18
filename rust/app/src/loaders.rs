@@ -1,7 +1,10 @@
 use crate::actions::{Res, git, raw};
 use crate::commands::write_temp;
+use crate::git;
 use crate::load::{Operation, js_trim, value, values};
 use crate::paths;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use diff::port::ParsedDiff;
 use merge::port::Typed;
 use repo::port::{BlameLine, read_blame, read_commit, read_log, read_name_status};
@@ -33,6 +36,20 @@ pub struct DiffSides {
     pub modified: String,
     pub binary: bool,
 }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct ImageData {
+    pub mime: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct ImageSides {
+    pub original: Option<ImageData>,
+    pub modified: Option<ImageData>,
+}
+
+const MAX_IMAGE_BYTES: usize = 10_000_000;
 
 fn truthy(text: Option<&str>) -> Option<&str> {
     text.filter(|t| !t.is_empty())
@@ -203,6 +220,96 @@ pub async fn load_sides(
         modified,
         binary,
     }
+}
+
+pub fn image_mime(file: &str) -> Option<&'static str> {
+    let ext = file.rsplit_once('.')?.1.to_ascii_lowercase();
+    match ext.as_str() {
+        "tif" => Some("image/tiff"),
+        "jpeg" | "jpg" => Some("image/jpeg"),
+        "png" => Some("image/png"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "bmp" => Some("image/bmp"),
+        _ => None,
+    }
+}
+
+fn encode_image(mime: &str, bytes: Vec<u8>) -> Option<ImageData> {
+    if bytes.is_empty() || bytes.len() > MAX_IMAGE_BYTES {
+        return None;
+    }
+    Some(ImageData {
+        mime: mime.to_string(),
+        data: STANDARD.encode(bytes),
+    })
+}
+
+async fn blob_image(cwd: &str, spec: String, mime: &str) -> Option<ImageData> {
+    let out = git::command("git")
+        .args(["show", &spec])
+        .current_dir(cwd)
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .output()
+        .await
+        .ok()?;
+    if out.status.success() {
+        encode_image(mime, out.stdout)
+    } else {
+        None
+    }
+}
+
+async fn disk_image(cwd: &str, rel: &str, roots: &[String], mime: &str) -> Option<ImageData> {
+    let target = paths::resolve(cwd, rel);
+    if !paths::inside(roots, &target) {
+        return None;
+    }
+    encode_image(mime, tokio::fs::read(&target).await.ok()?)
+}
+
+pub async fn load_images(
+    cwd: &str,
+    source: &DiffSource,
+    file: &str,
+    orig: Option<&str>,
+    roots: &[String],
+) -> ImageSides {
+    let Some(mime) = image_mime(file) else {
+        return ImageSides {
+            original: None,
+            modified: None,
+        };
+    };
+    let before = orig.unwrap_or(file);
+    let (original, modified) = match source {
+        DiffSource::Commit { sha, parent } => {
+            let old = async {
+                match parent {
+                    Some(parent) if !parent.is_empty() => {
+                        blob_image(cwd, format!("{parent}:{before}"), mime).await
+                    }
+                    _ => None,
+                }
+            };
+            tokio::join!(old, blob_image(cwd, format!("{sha}:{file}"), mime))
+        }
+        DiffSource::Staged => tokio::join!(
+            blob_image(cwd, format!("HEAD:{before}"), mime),
+            blob_image(cwd, format!(":{file}"), mime)
+        ),
+        DiffSource::Unstaged { untracked } => {
+            let index = async {
+                if *untracked {
+                    None
+                } else {
+                    blob_image(cwd, format!(":{file}"), mime).await
+                }
+            };
+            tokio::join!(index, disk_image(cwd, file, roots, mime))
+        }
+    };
+    ImageSides { original, modified }
 }
 
 pub async fn load_blame(cwd: &str, file: &str, rev: Option<&str>) -> Res<Vec<BlameLine>> {
@@ -515,6 +622,47 @@ mod tests {
             ("side", onto.trim())
         );
         sh(&dir, &["rebase", "--abort"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn images_load_from_commit_and_disk() {
+        let dir = std::env::temp_dir().join(format!("gitneat-img-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        sh(&dir, &["init", "-q", "-b", "main"]);
+        std::fs::write(dir.join("a.PNG"), [0u8, 159, 146, 150, 1]).unwrap();
+        sh(&dir, &["add", "."]);
+        sh(&dir, &["commit", "-q", "-m", "one"]);
+        std::fs::write(dir.join("a.PNG"), [0u8, 1, 2]).unwrap();
+        sh(&dir, &["commit", "-q", "-am", "two"]);
+        let cwd = dir.to_str().unwrap();
+        let roots = vec![cwd.to_string()];
+        let source = DiffSource::Commit {
+            sha: "HEAD".into(),
+            parent: Some("HEAD~1".into()),
+        };
+        let sides = load_images(cwd, &source, "a.PNG", None, &roots).await;
+        assert_eq!(
+            sides.original.unwrap().data,
+            STANDARD.encode([0u8, 159, 146, 150, 1])
+        );
+        let modified = sides.modified.unwrap();
+        assert_eq!(modified.mime, "image/png");
+        assert_eq!(modified.data, STANDARD.encode([0u8, 1, 2]));
+        std::fs::write(dir.join("a.PNG"), [9u8]).unwrap();
+        let live = load_images(
+            cwd,
+            &DiffSource::Unstaged { untracked: false },
+            "a.PNG",
+            None,
+            &roots,
+        )
+        .await;
+        assert_eq!(live.modified.unwrap().data, STANDARD.encode([9u8]));
+        assert!(live.original.is_some());
+        let text = load_images(cwd, &source, "a.txt", None, &roots).await;
+        assert!(text.original.is_none() && text.modified.is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
