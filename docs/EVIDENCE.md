@@ -258,6 +258,7 @@ Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offse
 - **Observed (stash)**: `StashThisFile`="Stash file", `StashNFiles`, `Stash-ApplyWithUncommittedChangesPrompt`.
 - **Observed (tools)**: `OpenInDiffTool`, `OpenInMergeTool`, `KeyBinding-OpenFileInExternalDiffOrMergeTool`.
 - **Observed (diff)**: `DiffImage-OldImage`, `DiffImage-NewImage`, `DiffImage-ShowDiffOverlay`. File history: `FileHistory-ContinueLooking`="Go Deeper", `FileHistory-End`="End of History".
+- **Observed (file history paging, R 3102883, 3089679, 394680)**: the saga `GenerateHistoryStarted` calls `Revwalk.fileHistoryWalk(sha, COMMITS_PER_HISTORY_PAGE)` with `COMMITS_PER_HISTORY_PAGE=3e4`. The walk scans 30000 commits for each page and returns only the commits that change the file. It reuses the same revwalk for the next page and ends with `reachedEndOfHistory`. The list ends with "Loading…" while it runs, "End of History" when the history is determined, or else a row with `FileHistory-NothingFound`="Searched until {0} ({1})" (date and short sha of the next commit) and a "Go Deeper" button that calls `generateFileHistory` again.
 - **Observed (submodules)**: `Submodule-Initialize`, `Submodule-Update`, `Submodule-Open`, `Submodule-Create`="Add Submodule".
 - **Observed (worktree)**: `PromptForRemoveWorktree-RemoveWorktreeRequiresForce`, `ForceRemoveWorktreeButtonLabel`.
 - **Observed (rebase banner)**: `ConflictsHeader-Merging`="Merging {0} into {1}", `ConflictsHeader-Rebasing`="Rebasing {0} onto {1}".
