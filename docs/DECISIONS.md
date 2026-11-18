@@ -50,6 +50,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The graph loads at most 2000 commits.
 - Reason: The log parse and layout stay below 100 ms for this size.
 - Limits: Older history is not visible until the user scrolls to the end. D78 loads more.
+- Superseded in part by D81: the first load is 2000 commits, and each later step adds 200.
 
 ## D8. Rebase operations use a prepared todo file
 
@@ -541,6 +542,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: Source loads commits lazily near the bottom (`docs/EVIDENCE.md` section 11). Task T23.
 - Rules: GitNeat shows no "Displaying N commits" footer. Source shows the footer only if lazy loading is off, and its default is on. GitNeat has no setting to turn lazy loading off. The task text asked for the footer, but parity follows the bundle.
 - Limits: Each step loads the whole log again, with the larger limit. Source loads pages of 200. A page of 2000 keeps the number of reloads low. A repository with 100000 commits reloads 50 times to reach the end. No manual check in the app: the Tauri window was not started in this task.
+- Superseded in part by D81: a step appends a page of 200 commits and does not reload the log.
 
 ## D79. Search has no filter mode
 
@@ -555,3 +557,11 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: `user_data` in `rust/app/src/store.rs` picks the state folder in this order. First `GITNEAT_USER_DATA`. Then the folder of the exe, if `portable.txt` is there. Then the app data folder.
 - Reason: The user asked for this task. Source has no portable build, so there is no Source evidence. Task T43.
 - Limits: The exe needs the WebView2 runtime on the machine. The zip does not bundle it. The portable build has no updater. The zip step was not run locally: only the Windows CI job runs it.
+
+## D81. Commit pages
+
+- Decision: A load more step appends a page of 200 commits. The `load_commits` command takes `skip`, `limit` and the lane state. It returns the page commits, the page rows and the new lane state. `layout_from` in `rust/graph/src/port.rs` starts from the given lane state. `RepoData.lanes` holds the lane state after the first load. `RepoView` keeps the lane state in a ref and appends each page to `data.commits` and `data.rows`. A refresh reloads from the top with the loaded count.
+- Reason: Task T44. The step of 200 is the Source step (`pagedLazyLoadCommitCount`). Source reloads the full list on each step (`docs/EVIDENCE.md` section 11, page step). GitNeat appends instead, because a full reload for each step of 200 is too slow for a large repository. The rows are the same as one load with the larger count.
+- Rules: The page skips log commits only. Stash rows do not count. A stash row goes before its base commit in the page that holds the base. The WIP row is only in the first load. `hasMore` is true if the last load or page returned a full count. A page does not start while a full load runs. A page result is dropped if a full load started after the page.
+- Rules: GitNeat has no `enableCommitsLazyLoading` setting and no `maxCommitsInGraph` setting. Source has both in General Preferences. GitNeat has no Preferences view, so the settings wait for that view.
+- Limits: Each page walks the full history to sort it by date (gix) or lets `git log --skip` walk the skipped commits (cli). The page time does not grow with the loaded count: about 190 ms (gix) and 220 ms (cli) per page on a repository with 100000 commits and a merge every 50 commits. A cache of the sort order can remove this cost. The page reads the refs again, but returns no refs, so a ref change shows only after the next refresh. No manual check in the app: the Tauri window was not started in this task.

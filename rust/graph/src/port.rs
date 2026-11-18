@@ -43,8 +43,13 @@ fn free_slot(lanes: &mut Vec<Option<String>>, exclude: Option<usize>) -> usize {
     lanes.len() - 1
 }
 
+pub type Lanes = Vec<Option<String>>;
+
 pub fn layout(commits: &[GraphCommit]) -> Vec<GraphRow> {
-    let mut lanes: Vec<Option<String>> = Vec::new();
+    layout_from(&mut Lanes::new(), commits)
+}
+
+pub fn layout_from(lanes: &mut Lanes, commits: &[GraphCommit]) -> Vec<GraphRow> {
     let mut rows = Vec::with_capacity(commits.len());
     for commit in commits {
         let mut segments = Vec::new();
@@ -57,7 +62,7 @@ pub fn layout(commits: &[GraphCommit]) -> Vec<GraphRow> {
             .collect();
         let col = match incoming.first() {
             Some(&c) => c,
-            None => free_slot(&mut lanes, None),
+            None => free_slot(lanes, None),
         };
         for &i in &incoming {
             segments.push(seg(i, "top", col, "mid"));
@@ -77,7 +82,7 @@ pub fn layout(commits: &[GraphCommit]) -> Vec<GraphRow> {
             {
                 Some(s) => s,
                 None => {
-                    let s = free_slot(&mut lanes, Some(col));
+                    let s = free_slot(lanes, Some(col));
                     lanes[s] = Some(parent.clone());
                     s
                 }
@@ -142,5 +147,28 @@ mod tests {
             rows[2].segments,
             vec![seg(0, "top", 0, "mid"), seg(1, "top", 0, "mid")]
         );
+    }
+
+    #[test]
+    fn pages_equal_one_pass_on_recorded_cases() {
+        let mut checked = 0;
+        for line in include_str!("../cases.jsonl").lines() {
+            let case: serde_json::Value = serde_json::from_str(line).expect("case json");
+            let Ok(commits) = serde_json::from_value::<Vec<GraphCommit>>(case["args"][0].clone())
+            else {
+                continue;
+            };
+            let whole = layout(&commits);
+            for size in 1..=commits.len().max(1) {
+                let mut lanes = Lanes::new();
+                let paged: Vec<GraphRow> = commits
+                    .chunks(size)
+                    .flat_map(|page| layout_from(&mut lanes, page))
+                    .collect();
+                assert_eq!(paged, whole);
+                checked += 1;
+            }
+        }
+        assert!(checked > 0);
     }
 }

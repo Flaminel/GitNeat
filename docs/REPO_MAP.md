@@ -25,7 +25,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |
-| `rust/app/src/load.rs` | `load_repo`: backend choice, the `git` CLI path and the graph rows |
+| `rust/app/src/load.rs` | `load_repo` and `load_commits` (one page, D81): backend choice, the `git` CLI path and the graph rows |
 | `rust/app/src/loaders.rs` | Commit detail, file list, diff, diff sides, blame, file history, merge tool and amend message loaders (D45, D47) |
 | `rust/app/src/load_gix.rs` | `load_repo` with gix, in-process (D40) |
 | `rust/app/src/actions.rs`, `rust/app/src/actions/` | Git logic of each repository action, dispatched by the `action` command (D41) |

@@ -1,10 +1,10 @@
 use crate::git::{GitResult, run_git};
-use crate::load_gix::load_repo_gix;
-use graph::port::{GraphCommit, GraphRow, layout};
+use crate::load_gix::{load_commits_gix, load_repo_gix};
+use graph::port::{GraphCommit, GraphRow, Lanes, layout_from};
 use repo::js::is_undefined;
 use repo::port::{
-    Commit, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log, read_refs,
-    read_status,
+    Commit, Ref, Stash, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log,
+    read_refs, read_status,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -38,6 +38,14 @@ pub struct RepoData {
     pub status: Vec<Value>,
     pub operation: Option<Operation>,
     pub rows: Vec<GraphRow>,
+    pub lanes: Lanes,
+}
+
+#[derive(Serialize, Debug)]
+pub struct CommitPage {
+    pub commits: Vec<Value>,
+    pub rows: Vec<GraphRow>,
+    pub lanes: Lanes,
 }
 
 fn git<'a>(
@@ -113,7 +121,12 @@ pub(crate) fn values<T: Serialize>(items: &[T]) -> Vec<Value> {
     items.iter().map(value).collect()
 }
 
-pub(crate) fn graph_rows(commits: &[Commit], head: Option<&str>, dirty: bool) -> Vec<GraphRow> {
+pub(crate) fn graph_rows(
+    lanes: &mut Lanes,
+    commits: &[Commit],
+    head: Option<&str>,
+    dirty: bool,
+) -> Vec<GraphRow> {
     let mut list: Vec<GraphCommit> = Vec::with_capacity(commits.len() + 1);
     if dirty {
         list.push(GraphCommit {
@@ -125,7 +138,7 @@ pub(crate) fn graph_rows(commits: &[Commit], head: Option<&str>, dirty: bool) ->
         sha: c.sha.clone(),
         parents: c.parents.clone(),
     }));
-    layout(&list)
+    layout_from(lanes, &list)
 }
 
 fn log_format() -> String {
@@ -191,23 +204,147 @@ pub async fn load_repo(cwd: &str, hidden: &[String], solo: &[String], limit: u32
     load_repo_cli(cwd, hidden, solo, limit).await
 }
 
-pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit: u32) -> RepoData {
-    let ref_format = format!(
-        "--format=%(refname){FS}%(objectname){FS}%(*objectname){FS}%(upstream:short){FS}%(upstream:track,nobracket){FS}%(HEAD){FS}%(worktreepath)"
+pub async fn load_commits(
+    cwd: &str,
+    hidden: &[String],
+    solo: &[String],
+    skip: u32,
+    limit: u32,
+    mut lanes: Lanes,
+) -> CommitPage {
+    if std::env::var("GITNEAT_BACKEND").as_deref() != Ok("cli") {
+        let (dir, hide, only, start) = (
+            cwd.to_string(),
+            hidden.to_vec(),
+            solo.to_vec(),
+            lanes.clone(),
+        );
+        let job = tokio::task::spawn_blocking(move || {
+            load_commits_gix(&dir, &hide, &only, skip, limit, start)
+        });
+        if let Ok(Ok(page)) = job.await {
+            return page;
+        }
+    }
+    let ref_args = ref_args();
+    let ref_args: Vec<&str> = ref_args.iter().map(String::as_str).collect();
+    let stash_format = stash_format();
+    let (ref_out, head_out, stash_out) = tokio::join!(
+        try_git(cwd, &ref_args, None),
+        try_git(cwd, &["rev-parse", "--verify", "-q", "HEAD"], None),
+        try_git(cwd, &["stash", "list", &stash_format], None),
     );
-    let stash_format = format!("--format=%H{FS}%gd{FS}%P{FS}%gs");
-    let (ref_out, head_out, branch_out, stash_out, wt_out, remote_out, status_out, sub_out) = tokio::join!(
-        try_git(
-            cwd,
-            &[
-                "for-each-ref",
-                &ref_format,
-                "refs/heads",
-                "refs/remotes",
-                "refs/tags",
-            ],
-            None
+    let refs = read_refs(&ref_out);
+    let head = non_blank(&head_out);
+    let stashes = parse_stashes(&stash_out).unwrap_or_default();
+    let commits = log_cli(
+        cwd,
+        &refs,
+        head.as_deref(),
+        &stashes,
+        hidden,
+        solo,
+        skip,
+        limit,
+    )
+    .await;
+    let rows = graph_rows(&mut lanes, &commits, None, false);
+    CommitPage {
+        commits: values(&commits),
+        rows,
+        lanes,
+    }
+}
+
+fn ref_args() -> [String; 5] {
+    [
+        "for-each-ref".to_string(),
+        format!(
+            "--format=%(refname){FS}%(objectname){FS}%(*objectname){FS}%(upstream:short){FS}%(upstream:track,nobracket){FS}%(HEAD){FS}%(worktreepath)"
         ),
+        "refs/heads".to_string(),
+        "refs/remotes".to_string(),
+        "refs/tags".to_string(),
+    ]
+}
+
+fn stash_format() -> String {
+    format!("--format=%H{FS}%gd{FS}%P{FS}%gs")
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn log_cli(
+    cwd: &str,
+    refs: &[Ref],
+    head: Option<&str>,
+    stashes: &[Stash],
+    hidden: &[String],
+    solo: &[String],
+    skip: u32,
+    limit: u32,
+) -> Vec<Commit> {
+    let mut revs: Vec<String> = if !solo.is_empty() {
+        refs.iter()
+            .filter(|r| solo.contains(&r.full))
+            .map(|r| r.full.clone())
+            .collect()
+    } else if !hidden.is_empty() {
+        refs.iter()
+            .filter(|r| !hidden.contains(&r.full))
+            .map(|r| r.full.clone())
+            .collect()
+    } else {
+        ["--branches", "--remotes", "--tags"]
+            .map(String::from)
+            .to_vec()
+    };
+    if head.is_some() {
+        revs.push("HEAD".to_string());
+    }
+
+    let log_out = if revs.is_empty() {
+        String::new()
+    } else {
+        let limit_arg = format!("-n{limit}");
+        let skip_arg = format!("--skip={skip}");
+        let format = log_format();
+        let mut args = vec![
+            "log",
+            "--date-order",
+            skip_arg.as_str(),
+            limit_arg.as_str(),
+            format.as_str(),
+        ];
+        args.extend(
+            revs.iter()
+                .filter(|r| r.starts_with("--"))
+                .map(|r| r.as_str()),
+        );
+        args.extend(["--stdin", "--"]);
+        let stdin = revs
+            .iter()
+            .filter(|r| !r.starts_with("--"))
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        try_git(cwd, &args, Some(stdin)).await
+    };
+    let mut commits = read_log(&log_out);
+    let shas: Vec<&str> = stashes.iter().map(|s| s.sha.as_str()).collect();
+    let details = stash_times(cwd, &shas).await;
+    if !hidden.iter().any(|h| h == "refs/stash") {
+        insert_stashes(&mut commits, stashes, &details);
+    }
+    commits
+}
+
+pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit: u32) -> RepoData {
+    let ref_args = ref_args();
+    let ref_args: Vec<&str> = ref_args.iter().map(String::as_str).collect();
+    let stash_format = stash_format();
+    let (ref_out, head_out, branch_out, stash_out, wt_out, remote_out, status_out, sub_out) = tokio::join!(
+        try_git(cwd, &ref_args, None),
         try_git(cwd, &["rev-parse", "--verify", "-q", "HEAD"], None),
         try_git(cwd, &["symbolic-ref", "-q", "--short", "HEAD"], None),
         try_git(cwd, &["stash", "list", &stash_format], None),
@@ -235,52 +372,17 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
     let head = non_blank(&head_out);
     let stashes = parse_stashes(&stash_out).unwrap_or_default();
 
-    let mut revs: Vec<String> = if !solo.is_empty() {
-        refs.iter()
-            .filter(|r| solo.contains(&r.full))
-            .map(|r| r.full.clone())
-            .collect()
-    } else if !hidden.is_empty() {
-        refs.iter()
-            .filter(|r| !hidden.contains(&r.full))
-            .map(|r| r.full.clone())
-            .collect()
-    } else {
-        ["--branches", "--remotes", "--tags"]
-            .map(String::from)
-            .to_vec()
-    };
-    if head.is_some() {
-        revs.push("HEAD".to_string());
-    }
-
-    let log_out = if revs.is_empty() {
-        String::new()
-    } else {
-        let limit_arg = format!("-n{limit}");
-        let format = log_format();
-        let mut args = vec!["log", "--date-order", limit_arg.as_str(), format.as_str()];
-        args.extend(
-            revs.iter()
-                .filter(|r| r.starts_with("--"))
-                .map(|r| r.as_str()),
-        );
-        args.extend(["--stdin", "--"]);
-        let stdin = revs
-            .iter()
-            .filter(|r| !r.starts_with("--"))
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n")
-            + "\n";
-        try_git(cwd, &args, Some(stdin)).await
-    };
-    let mut commits = read_log(&log_out);
-    let shas: Vec<&str> = stashes.iter().map(|s| s.sha.as_str()).collect();
-    let details = stash_times(cwd, &shas).await;
-    if !hidden.iter().any(|h| h == "refs/stash") {
-        insert_stashes(&mut commits, &stashes, &details);
-    }
+    let commits = log_cli(
+        cwd,
+        &refs,
+        head.as_deref(),
+        &stashes,
+        hidden,
+        solo,
+        0,
+        limit,
+    )
+    .await;
 
     let submodules = sub_out
         .split('\n')
@@ -289,7 +391,8 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         .collect();
 
     let status = read_status(&status_out);
-    let rows = graph_rows(&commits, head.as_deref(), !status.is_empty());
+    let mut lanes = Lanes::new();
+    let rows = graph_rows(&mut lanes, &commits, head.as_deref(), !status.is_empty());
     RepoData {
         cwd: cwd.to_string(),
         name: cwd.rsplit(['/', '\\']).next().unwrap_or(cwd).to_string(),
@@ -304,5 +407,6 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         status: values(&status),
         operation: detect_operation(cwd).await,
         rows,
+        lanes,
     }
 }

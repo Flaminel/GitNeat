@@ -1,7 +1,7 @@
 use crate::actions;
 use crate::git;
 use crate::load::Operation;
-use crate::load::{self, RepoData};
+use crate::load::{self, CommitPage, RepoData};
 use crate::loaders::{self, DiffSides, DiffSource, HeadMessage, MergeLoad, OperationInfo};
 use crate::menu::{self, Chosen, MenuSpec};
 use crate::menus::{self, MenuKind};
@@ -9,6 +9,7 @@ use crate::paths;
 use crate::store;
 use crate::watch::{self, Watchers};
 use diff::port::ParsedDiff;
+use graph::port::Lanes;
 use repo::port::BlameLine;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -49,6 +50,18 @@ pub async fn load_repo(
     limit: u32,
 ) -> RepoData {
     load::load_repo(&cwd, &hidden, &solo, limit).await
+}
+
+#[tauri::command]
+pub async fn load_commits(
+    cwd: String,
+    hidden: Vec<String>,
+    solo: Vec<String>,
+    skip: u32,
+    limit: u32,
+    lanes: Lanes,
+) -> CommitPage {
+    load::load_commits(&cwd, &hidden, &solo, skip, limit, lanes).await
 }
 
 #[tauri::command]

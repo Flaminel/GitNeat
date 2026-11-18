@@ -330,13 +330,18 @@ for (const [name, build] of Object.entries(fixtures)) {
       if (name === "submodules") {
         assert.deepStrictEqual(expected.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
       }
+      const runs = v.limit === 1000 ? [[String(v.limit)], ["1", "1"], ["2", "3"]] : [[String(v.limit)]];
       for (const backend of backends) {
-        const out = execFileSync(example, [dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), String(v.limit)], {
-          encoding: "utf8",
-          maxBuffer: 512 * 1024 * 1024,
-          env: { ...process.env, GITNEAT_BACKEND: backend === "cli" ? "cli" : "" },
-        });
-        assert.deepStrictEqual(JSON.parse(out), expected, `${name} / ${v.name} / ${backend}`);
+        for (const run of runs) {
+          const out = execFileSync(example, [dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), ...run], {
+            encoding: "utf8",
+            maxBuffer: 512 * 1024 * 1024,
+            env: { ...process.env, GITNEAT_BACKEND: backend === "cli" ? "cli" : "" },
+          });
+          const actual = JSON.parse(out);
+          delete actual.lanes;
+          assert.deepStrictEqual(actual, expected, `${name} / ${v.name} / ${backend} / ${run.join(" ")}`);
+        }
       }
     }
   });

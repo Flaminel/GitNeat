@@ -16,6 +16,7 @@ export function tauriApi(): GitNeatApi {
     windowControls: platform() !== "darwin",
     action: (cwd, name, args) => invoke("action", { cwd, name, args }),
     loadRepo: (cwd, hidden, solo, limit) => invoke("load_repo", { cwd, hidden, solo, limit }),
+    loadCommits: (cwd, hidden, solo, skip, limit, lanes) => invoke("load_commits", { cwd, hidden, solo, skip, limit, lanes }),
     loadCommit: (cwd, sha) => invoke("load_commit", { cwd, sha }),
     loadAllFiles: (cwd, sha) => invoke("load_all_files", { cwd, sha }),
     loadDiff: (cwd, source, file, ignoreWhitespace, orig) => invoke("load_diff", { cwd, source, file, ignoreWhitespace, orig }),

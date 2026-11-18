@@ -71,6 +71,15 @@ export interface RepoData {
   status: StatusEntry[];
   operation: Operation;
   rows: GraphRow[];
+  lanes: Lanes;
+}
+
+export type Lanes = (string | null)[];
+
+export interface CommitPage {
+  commits: Commit[];
+  rows: GraphRow[];
+  lanes: Lanes;
 }
 
 export interface Segment {
@@ -119,6 +128,9 @@ export function samePath(a: string, b: string): boolean {
 }
 
 export const loadRepo = (cwd: string, hidden: string[], solo: string[], limit: number): Promise<RepoData> => gitneat().loadRepo(cwd, hidden, solo, limit);
+
+export const loadCommits = (cwd: string, hidden: string[], solo: string[], skip: number, limit: number, lanes: Lanes): Promise<CommitPage> =>
+  gitneat().loadCommits(cwd, hidden, solo, skip, limit, lanes);
 
 export const loadCommit = (cwd: string, sha: string): Promise<CommitDetail> => gitneat().loadCommit(cwd, sha);
 

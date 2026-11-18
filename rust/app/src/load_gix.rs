@@ -1,11 +1,12 @@
-use crate::load::{Operation, RepoData, graph_rows, non_blank, values};
+use crate::load::{CommitPage, Operation, RepoData, graph_rows, non_blank, values};
 use gix::ObjectId;
 use gix::bstr::{BString, ByteSlice};
 use gix::remote::Direction;
 use gix_status::index_as_worktree::{Change, Conflict, EntryStatus};
+use graph::port::Lanes;
 use repo::port::{
-    Commit, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log, read_refs,
-    read_status,
+    Commit, Ref, Stash, insert_stashes, parse_remotes, parse_stashes, parse_worktrees, read_log,
+    read_refs, read_status,
 };
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
@@ -506,33 +507,52 @@ fn check_supported(repo: &gix::Repository) -> Result<(), String> {
     Ok(())
 }
 
-pub fn load_repo_gix(
-    cwd: &str,
-    hidden: &[String],
-    solo: &[String],
-    limit: u32,
-) -> Result<RepoData, String> {
-    let mut gix_repo = gix::open(cwd).map_err(err)?;
-    gix_repo.object_cache_size_if_unset(32 * 1024 * 1024);
-    let repo = &gix_repo;
-    check_supported(repo)?;
+fn open(cwd: &str) -> Result<gix::Repository, String> {
+    let mut repo = gix::open(cwd).map_err(err)?;
+    repo.object_cache_size_if_unset(32 * 1024 * 1024);
+    check_supported(&repo)?;
+    Ok(repo)
+}
 
+struct Tips {
+    refs: Vec<Ref>,
+    head_id: Option<ObjectId>,
+    head: Option<String>,
+    stashes: Vec<Stash>,
+    wts: Vec<Wt>,
+}
+
+fn tips(repo: &gix::Repository) -> Result<(Tips, Vec<(String, ObjectId)>), String> {
     let wts = worktrees(repo)?;
     let (ref_out, rows) = refs_text(repo, &wts)?;
-    let refs = read_refs(&ref_out);
     let head_id = repo.head_id().ok().map(|i| i.detach());
-    let head = head_id.map(|i| i.to_string()).and_then(|h| non_blank(&h));
-    let branch = repo
-        .head_name()
-        .ok()
-        .flatten()
-        .map(|n| n.shorten().to_string());
-    let stashes = parse_stashes(&stash_text(repo)?)?;
+    Ok((
+        Tips {
+            refs: read_refs(&ref_out),
+            head_id,
+            head: head_id.map(|i| i.to_string()).and_then(|h| non_blank(&h)),
+            stashes: parse_stashes(&stash_text(repo)?)?,
+            wts,
+        },
+        rows,
+    ))
+}
 
+fn log_gix(
+    repo: &gix::Repository,
+    known: &Tips,
+    rows: &[(String, ObjectId)],
+    hidden: &[String],
+    solo: &[String],
+    skip: u32,
+    limit: u32,
+) -> Result<Vec<Commit>, String> {
     let mut tips: Vec<ObjectId> = if !solo.is_empty() || !hidden.is_empty() {
         let by_name: HashMap<&str, ObjectId> =
             rows.iter().map(|(n, id)| (n.as_str(), *id)).collect();
-        refs.iter()
+        known
+            .refs
+            .iter()
             .filter(|r| {
                 if solo.is_empty() {
                     !hidden.contains(&r.full)
@@ -545,16 +565,17 @@ pub fn load_repo_gix(
     } else {
         rows.iter().map(|(_, id)| *id).collect()
     };
-    if let Some(id) = head_id {
+    if let Some(id) = known.head_id {
         tips.push(id);
     }
     let mut log_out = String::new();
-    for id in date_order(repo, tips, limit as usize)? {
+    let order = date_order(repo, tips, skip as usize + limit as usize)?;
+    for id in order.into_iter().skip(skip as usize) {
         log_out.push_str(&record(repo, id)?);
     }
     let mut commits = read_log(&log_out);
     let mut detail_out = String::new();
-    for stash in &stashes {
+    for stash in &known.stashes {
         let id = ObjectId::from_hex(stash.sha.as_bytes()).map_err(err)?;
         detail_out.push_str(&record(repo, id)?);
     }
@@ -563,24 +584,67 @@ pub fn load_repo_gix(
         .map(|c| (c.sha.clone(), c))
         .collect();
     if !hidden.iter().any(|h| h == "refs/stash") {
-        insert_stashes(&mut commits, &stashes, &details);
+        insert_stashes(&mut commits, &known.stashes, &details);
     }
+    Ok(commits)
+}
 
+pub fn load_commits_gix(
+    cwd: &str,
+    hidden: &[String],
+    solo: &[String],
+    skip: u32,
+    limit: u32,
+    mut lanes: Lanes,
+) -> Result<CommitPage, String> {
+    let repo = open(cwd)?;
+    let (known, rows) = tips(&repo)?;
+    let commits = log_gix(&repo, &known, &rows, hidden, solo, skip, limit)?;
+    let rows = graph_rows(&mut lanes, &commits, None, false);
+    Ok(CommitPage {
+        commits: values(&commits),
+        rows,
+        lanes,
+    })
+}
+
+pub fn load_repo_gix(
+    cwd: &str,
+    hidden: &[String],
+    solo: &[String],
+    limit: u32,
+) -> Result<RepoData, String> {
+    let gix_repo = open(cwd)?;
+    let repo = &gix_repo;
+    let (known, rows) = tips(repo)?;
+    let branch = repo
+        .head_name()
+        .ok()
+        .flatten()
+        .map(|n| n.shorten().to_string());
+    let commits = log_gix(repo, &known, &rows, hidden, solo, 0, limit)?;
     let status = read_status(&status_text(repo)?);
-    let rows = graph_rows(&commits, head.as_deref(), !status.is_empty());
+    let mut lanes = Lanes::new();
+    let rows = graph_rows(
+        &mut lanes,
+        &commits,
+        known.head.as_deref(),
+        !status.is_empty(),
+    );
     Ok(RepoData {
         cwd: cwd.to_string(),
         name: cwd.rsplit(['/', '\\']).next().unwrap_or(cwd).to_string(),
-        head,
+        head: known.head,
         branch,
         commits: values(&commits),
-        refs: values(&refs),
-        stashes: values(&stashes),
-        worktrees: values(&parse_worktrees(&worktree_text(&wts))),
+        refs: values(&known.refs),
+        stashes: values(&known.stashes),
+        worktrees: values(&parse_worktrees(&worktree_text(&known.wts))),
         remotes: values(&parse_remotes(&remote_text(repo)?)),
         submodules: submodule_paths(cwd)?,
         status: values(&status),
         operation: operation(repo),
         rows,
+        lanes,
     })
 }

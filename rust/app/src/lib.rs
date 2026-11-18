@@ -63,6 +63,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::action,
             commands::load_repo,
+            commands::load_commits,
             commands::load_commit,
             commands::load_all_files,
             commands::load_diff,

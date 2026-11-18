@@ -10,7 +10,7 @@ import { RebaseModal } from "./components/RebaseModal";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
 import * as M from "./menus";
-import { Commit, loadRepo, RepoData, samePath } from "./repo";
+import { Commit, Lanes, loadCommits, loadRepo, RepoData, samePath } from "./repo";
 import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
@@ -31,7 +31,7 @@ interface Props {
 }
 
 const COMMIT_LIMIT = 2000;
-const COMMIT_STEP = 2000;
+const COMMIT_STEP = 200;
 
 interface Cached {
   data: RepoData;
@@ -79,6 +79,9 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
   const loadSeq = useRef(0);
   const limit = useRef(COMMIT_LIMIT);
   const loadingMore = useRef(false);
+  const loadedSeq = useRef(-1);
+  const lanes = useRef<Lanes>([]);
+  const [hasMore, setHasMore] = useState(true);
   const [shown, setShown] = useState(selected);
   const held = useRef(false);
   const copied = useRef(false);
@@ -89,6 +92,9 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
       if (seq !== loadSeq.current) {
         return;
       }
+      loadedSeq.current = seq;
+      lanes.current = next.lanes;
+      setHasMore(next.commits.filter((c) => !c.stash).length >= limit.current);
       setData(next);
       setMulti((list) => list.filter((sha) => next.commits.some((c) => c.sha === sha)));
       setSelected((s) => (s && s !== WIP && !next.commits.some((c) => c.sha === s) ? next.head : s));
@@ -97,8 +103,6 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
       setSelected((s) => s ?? (next.status.length ? WIP : next.head));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      loadingMore.current = false;
     }
   }, [path, prefs.hidden, prefs.solo]);
 
@@ -106,14 +110,27 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
     void load();
   }, [load]);
 
-  const loadMore = useCallback(() => {
-    if (loadingMore.current) {
+  const loadMore = useCallback(async () => {
+    const seq = loadSeq.current;
+    if (loadingMore.current || loadedSeq.current !== seq) {
       return;
     }
     loadingMore.current = true;
-    limit.current += COMMIT_STEP;
-    void load();
-  }, [load]);
+    try {
+      const page = await loadCommits(path, prefs.hidden, prefs.solo, limit.current, COMMIT_STEP, lanes.current);
+      if (seq !== loadSeq.current) {
+        return;
+      }
+      limit.current += COMMIT_STEP;
+      lanes.current = page.lanes;
+      setHasMore(page.commits.filter((c) => !c.stash).length >= COMMIT_STEP);
+      setData((d) => d && { ...d, commits: [...d.commits, ...page.commits], rows: [...d.rows, ...page.rows], lanes: page.lanes });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      loadingMore.current = false;
+    }
+  }, [path, prefs.hidden, prefs.solo]);
 
   useEffect(() => {
     if (!data || copied.current) {
@@ -381,8 +398,8 @@ export function RepoView({ path, prefs, setPrefs, mainSections, openTab, recent 
               selected={selected}
               multi={multi}
               wipCount={data.status.length}
-              hasMore={data.commits.length >= limit.current}
-              onLoadMore={loadMore}
+              hasMore={hasMore}
+              onLoadMore={() => void loadMore()}
               onSelect={select}
               onCommitMenu={(c) =>
                 c.sha === WIP
