@@ -1,5 +1,5 @@
 import { gitneat } from "../../src/api";
-import type { Commit, Operation, Ref, RepoData, Remote, StatusEntry, Stash, Worktree } from "../../src/repo";
+import type { BlameLine, Commit, CommitDetail, DiffSides, DiffSource, FileChange, Operation, Ref, RepoData, Remote, StatusEntry, Stash, Worktree } from "../../src/repo";
 
 export class GitError extends Error {}
 
@@ -233,4 +233,127 @@ function parseRemotes(out: string): Remote[] {
     }
   }
   return [...map].map(([name, url]) => ({ name, url }));
+}
+
+export async function loadCommit(cwd: string, sha: string): Promise<CommitDetail> {
+  const meta = await git(cwd, ["show", "-s", `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%cn${FS}%ct${FS}%B`, sha]);
+  const [full, parents, author, email, at, committer, ct, message] = meta.split(FS);
+  const parentList = parents ? parents.split(" ") : [];
+  const diffArgs = parentList.length
+    ? ["diff-tree", "-r", "-M", "--name-status", "-z", parentList[0], full]
+    : ["diff-tree", "-r", "-M", "--name-status", "-z", "--root", full];
+  const files = parseNameStatus(await git(cwd, diffArgs));
+  return {
+    sha: full,
+    parents: parentList,
+    author,
+    email,
+    authorTime: Number(at),
+    committer,
+    commitTime: Number(ct),
+    message: message.trim(),
+    files,
+  };
+}
+
+export function parseNameStatus(out: string): FileChange[] {
+  const parts = out.split("\0").filter((p, i, arr) => p !== "" || i < arr.length - 1);
+  const files: FileChange[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const status = parts[i];
+    if (!status || !/^[A-Z]/.test(status)) {
+      continue;
+    }
+    if (status[0] === "R" || status[0] === "C") {
+      files.push({ status: status[0], orig: parts[i + 1], path: parts[i + 2] });
+      i += 2;
+    } else {
+      files.push({ status: status[0], path: parts[i + 1] });
+      i += 1;
+    }
+  }
+  return files;
+}
+
+export async function loadAllFiles(cwd: string, sha: string): Promise<string[]> {
+  return (await git(cwd, ["ls-tree", "-r", "-z", "--name-only", sha])).split("\0").filter(Boolean);
+}
+
+export type DiffSource = { kind: "commit"; sha: string; parent?: string } | { kind: "staged" } | { kind: "unstaged"; untracked: boolean };
+
+export async function loadDiff(cwd: string, source: DiffSource, file: string, ignoreWhitespace = false, orig?: string): Promise<string> {
+  const ws = ignoreWhitespace ? ["--ignore-space-at-eol", "-b"] : [];
+  const paths = orig && orig !== file ? [orig, file] : [file];
+  if (source.kind === "commit") {
+    const args = source.parent
+      ? ["diff", "-M", ...ws, source.parent, source.sha, "--", ...paths]
+      : ["show", "--format=", ...ws, source.sha, "--", file];
+    return git(cwd, args);
+  }
+  if (source.kind === "staged") {
+    return git(cwd, ["diff", "--cached", "-M", ...ws, "--", ...paths]);
+  }
+  if (source.untracked) {
+    const result = await gitneat().git(cwd, ["diff", "--no-index", ...ws, "--", "/dev/null", file]);
+    return result.stdout;
+  }
+  return git(cwd, ["diff", ...ws, "--", file]);
+}
+
+async function showBlob(cwd: string, spec: string): Promise<string> {
+  const r = await gitneat().git(cwd, ["show", spec]);
+  return r.code === 0 ? r.stdout : "";
+}
+
+export async function loadSides(cwd: string, source: DiffSource, file: string, orig?: string): Promise<DiffSides> {
+  let original = "";
+  let modified = "";
+  const before = orig ?? file;
+  if (source.kind === "commit") {
+    [original, modified] = await Promise.all([source.parent ? showBlob(cwd, `${source.parent}:${before}`) : Promise.resolve(""), showBlob(cwd, `${source.sha}:${file}`)]);
+  } else if (source.kind === "staged") {
+    [original, modified] = await Promise.all([showBlob(cwd, `HEAD:${before}`), showBlob(cwd, `:${file}`)]);
+  } else {
+    const index = source.untracked ? Promise.resolve("") : showBlob(cwd, `:${file}`);
+    [original, modified] = await Promise.all([index, gitneat().readFile(cwd, file).then((t) => t ?? "")]);
+  }
+  return { original, modified, binary: original.includes("\0") || modified.includes("\0") };
+}
+
+export interface BlameLine {
+  sha: string;
+  author: string;
+  time: number;
+  summary: string;
+  text: string;
+}
+
+export async function loadBlame(cwd: string, file: string, rev?: string): Promise<BlameLine[]> {
+  const out = await git(cwd, ["blame", "--porcelain", ...(rev ? [rev] : []), "--", file]);
+  const info = new Map<string, { author: string; time: number; summary: string }>();
+  const lines: BlameLine[] = [];
+  let sha = "";
+  for (const line of out.split("\n")) {
+    const head = /^([0-9a-f]{40}) \d+ \d+/.exec(line);
+    if (head) {
+      sha = head[1];
+      if (!info.has(sha)) {
+        info.set(sha, { author: "", time: 0, summary: "" });
+      }
+    } else if (line.startsWith("author ")) {
+      (info.get(sha) as { author: string }).author = line.slice(7);
+    } else if (line.startsWith("author-time ")) {
+      (info.get(sha) as { time: number }).time = Number(line.slice(12));
+    } else if (line.startsWith("summary ")) {
+      (info.get(sha) as { summary: string }).summary = line.slice(8);
+    } else if (line.startsWith("\t")) {
+      const meta = info.get(sha) as { author: string; time: number; summary: string };
+      lines.push({ sha, ...meta, text: line.slice(1) });
+    }
+  }
+  return lines;
+}
+
+export async function loadFileHistory(cwd: string, file: string, limit = 200): Promise<Commit[]> {
+  return parseLog(await git(cwd, ["log", "--follow", `-n${limit}`, `--format=%H${FS}%P${FS}%an${FS}%ae${FS}%at${FS}%s${RS}`, "--", file]));
 }
