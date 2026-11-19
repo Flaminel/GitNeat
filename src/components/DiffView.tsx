@@ -786,7 +786,7 @@ export function DiffView(props: Props) {
       diff.hunks.length === 0 ? (
         <div className="diff-empty">{status === "D" ? "File was deleted" : "File contents are unchanged"}</div>
       ) : (
-        <HunkView diff={diff} sides={sides} language={language} kind={kind} wrap={wrap} canStage={canStage} canRevert={kind === "commit" && status === "M"} onPatch={props.onPatch} />
+        <HunkView diff={diff} sides={sides} language={language} kind={kind} wrap={wrap} canStage={canStage} canRevert={(kind === "commit" || kind === "worktree") && status === "M"} onPatch={props.onPatch} />
       );
   } else {
     body = (

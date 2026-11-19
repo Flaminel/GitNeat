@@ -97,7 +97,7 @@ impl PatchAction {
             PatchAction::Stage => &["apply", "--cached"],
             PatchAction::Unstage => &["apply", "--cached", "-R"],
             PatchAction::Discard => &["apply", "-R"],
-            PatchAction::Revert => &["apply", "-R", "--3way"],
+            PatchAction::Revert => &["apply", "-R", "-C0"],
         }
     }
 }
