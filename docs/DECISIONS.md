@@ -703,6 +703,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: Each pill has its own context menu, double click, drag and drop target. A drop on a pill acts on that ref. The tooltip of the collapsed pill lists all labels.
 - Decision: While a ref context menu opens, a mouse leave does not close the overlay for 250 ms, as Source does with `isRefContextMenuShown`.
 - Decision: A local branch pill with an upstream shows the behind count and then the ahead count, each capped at "99+". The tooltip is the Source text, for example "{0} commit(s) behind {1}" and the line "Double-click to pull changes" (push if only ahead).
+- Decision: The pill context menu handler calls `preventDefault` and `stopPropagation`. The `stopPropagation` call alone stops the document listener that hides the native menu.
 - Reason: Task T33. Source `RefZone`, `overflow-count`, `onRefZoneHovered` and `getUpstreamIndicatorIconsAndTooltipsForRef` (`docs/EVIDENCE.md` section 11).
 - Limits: The double click on a pill checks out the branch, as in Source (`onDoubleClickGraphRef` ignores the indicator). So the tooltip text "Double-click to pull changes" does not match the action. This follows Source. The Tauri window was not started: the type check and the tests pass.
 

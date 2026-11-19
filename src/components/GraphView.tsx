@@ -234,6 +234,7 @@ const RowView = memo(function RowView(props: {
         className={`pill${p.current ? " current" : ""}`}
         title={expanded ? undefined : pills.map((x) => x.label).join("\n")}
         onContextMenu={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           menuOpen.current = true;
           setTimeout(() => {
