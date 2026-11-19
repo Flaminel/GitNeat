@@ -633,16 +633,29 @@ async fn multi_menu(cwd: &str, env: &Env, shas: &[String], wip: bool) -> Res<Vec
             all_in_history = false;
         }
     }
+    let adjacent = all_in_history && {
+        let chain = actions::git(cwd, &["rev-list", "--first-parent", "HEAD"]).await?;
+        let positions: Vec<usize> = shas
+            .iter()
+            .filter_map(|sha| chain.lines().position(|line| line == sha))
+            .collect();
+        positions.len() == n
+            && positions
+                .iter()
+                .max()
+                .zip(positions.iter().min())
+                .is_some_and(|(hi, lo)| hi - lo + 1 == n)
+    };
+    let mut rewrite = Vec::new();
+    if adjacent {
+        rewrite.push(item("squash", format!("Squash {n} commits")));
+    }
+    if all_in_history {
+        rewrite.push(item("drop", format!("Drop {n} commits")));
+    }
     Ok(groups(vec![
         vec![item("cherryPickMany", format!("Cherry pick {n} commits"))],
-        if all_in_history {
-            vec![
-                item("squash", format!("Squash {n} commits")),
-                item("drop", format!("Drop {n} commits")),
-            ]
-        } else {
-            Vec::new()
-        },
+        rewrite,
         vec![item("copyShas", "Copy commit shas")],
     ]))
 }
