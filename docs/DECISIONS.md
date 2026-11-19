@@ -825,4 +825,5 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The right panel shows and edits the stash message from the stash list, not from the stash commit. The Delete button of the stash panel has white text.
 - Reason: The stash store command changes only the stash list message, so the panel kept the old text. The red text on the red button was unreadable. Found in the T03 app test.
 - Rules: For the top stash, `stashEdit` now drops and stores. Before, the store did nothing and the drop deleted the next stash. See D72.
-- Limits: A stash whose parent commit is not in the graph, for example after an amend of HEAD, has no graph row. Selection from the stash list falls back to HEAD.
+- Rules: A stash whose parent commit is not among the loaded commits, for example after an amend of HEAD, still gets a graph row. The row goes in by commit time and has no parent edge. Source does the same: stash rows are graph heads and a missing parent gets no edge.
+- Limits: A stash list click for a stash without a graph row selects nothing, as in Source. Source edits a stash message with several git steps (`stash push`, checkout, `stash apply`, `stash drop`). GitNeat uses the stash store and drop. Both give the stash a new place at the top of the list.

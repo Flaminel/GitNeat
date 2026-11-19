@@ -113,13 +113,15 @@ async function stashTimes(cwd: string, stashes: Stash[]): Promise<Map<string, Co
 
 function insertStashes(commits: Commit[], stashes: Stash[], details: Map<string, Commit>): void {
   for (const stash of stashes) {
-    const parentIndex = commits.findIndex((c) => c.sha === stash.base);
     const detail = details.get(stash.sha);
-    if (parentIndex < 0 || !detail) {
+    if (!detail) {
       continue;
     }
+    const baseIndex = commits.findIndex((c) => c.sha === stash.base);
+    const found = commits.findIndex((c) => c.time < detail.time);
+    const index = baseIndex >= 0 ? baseIndex : found >= 0 ? found : commits.length;
     const { body: _body, ...rest } = detail;
-    commits.splice(parentIndex, 0, { ...rest, parents: [stash.base], subject: stash.message, stash: stash.ref });
+    commits.splice(index, 0, { ...rest, parents: baseIndex >= 0 ? [stash.base] : [], subject: stash.message, stash: stash.ref });
   }
 }
 

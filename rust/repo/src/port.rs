@@ -660,16 +660,20 @@ pub fn insert_stashes(
     details: &HashMap<String, Commit>,
 ) {
     for stash in stashes {
-        let Some(index) = commits.iter().position(|c| c.sha == stash.base) else {
-            continue;
-        };
         let Some(detail) = details.get(&stash.sha) else {
             continue;
         };
+        let base = commits.iter().position(|c| c.sha == stash.base);
+        let index = base.unwrap_or_else(|| {
+            commits
+                .iter()
+                .position(|c| c.time < detail.time)
+                .unwrap_or(commits.len())
+        });
         commits.insert(
             index,
             Commit {
-                parents: vec![stash.base.clone()],
+                parents: base.map(|_| stash.base.clone()).into_iter().collect(),
                 subject: stash.message.clone(),
                 body: None,
                 stash: Some(stash.reference.clone()),
@@ -922,5 +926,22 @@ mod tests {
         assert_eq!(commits[1].stash, Some(Some("stash@{0}".to_string())));
         assert_eq!(commits[1].subject.as_deref(), Some("WIP on main"));
         assert_eq!(commits[1].parents, vec!["B1"]);
+    }
+
+    #[test]
+    fn stash_without_base_row_inserts_by_time() {
+        let s = parse_stashes("S1\x1fstash@{0}\x1fGONE X\x1fWIP on main\n").unwrap();
+        let mut newer = commit("N");
+        newer.time = 9.0;
+        let mut older = commit("O");
+        older.time = 1.0;
+        let mut detail = commit("S1");
+        detail.time = 5.0;
+        let mut details = HashMap::new();
+        details.insert("S1".to_string(), detail);
+        let mut commits = vec![newer, older];
+        insert_stashes(&mut commits, &s, &details);
+        assert_eq!(commits[1].sha, "S1");
+        assert!(commits[1].parents.is_empty());
     }
 }

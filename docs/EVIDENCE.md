@@ -430,3 +430,9 @@ Not found: the label CSS of the header, the internals of `GraphAvatar`, and the 
 - Minified single-line bundles; offsets are byte offsets and may differ by re-extraction. Variable names are mangled (e.g. `Ao`, `No`); group names in section 1.1 are mine.
 - Several predicate selectors (`getIsDroppableBySha`, `getCanMoveUpForSha`, `getIsRewordableBySha`, branch `Pull/Push` builders, `Vr`) were not traced.
 - Telemetry wrapper `wrapMenuItemWithTelemetry` adds `telemetryId` to every item (not user-visible).
+
+## Stash rows and stash edit in the graph (T03 test)
+- **Observed (graph rows)**: stash shas are graph heads. `getStashCommitShasForRevWalk` (R 3971765) feeds the revwalk, and the shas come from the reflog of `refs/stash` (R 3811894). A stash commit gets `stashNodeType` and keeps its git parents (R 3805346). Rows go by commit time. `buildCommitOrderAndTopology` (R 2378293) makes a placeholder for a missing parent and draws no edge.
+- **Observed (left panel click)**: the click calls `selectCommit(stashOid)` (R 3318577). `selectCommitSaga` returns without a change if the commit is not loaded (R 2405401).
+- **Observed (edit stash message)**: `gitAmendStashMessage` (R 3963584) runs `stash push -u -m "Temp amend stash"`, a detached checkout of `stash@{n}^`, `stash apply --index`, `stash drop`, `stash push -m <new message>`, and restores the branch. The stash gets a new sha and moves to `stash@{0}`.
+
