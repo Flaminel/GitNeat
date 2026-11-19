@@ -815,3 +815,8 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: On Windows and Linux, Ctrl shortcuts other than Ctrl+` go to the shell while the terminal has focus.
 - Reason: Task T46. Source `View-ToggleTerminalPanel`, `TerminalContextMenu-*`, `CLIPreferences-*` and `GeneralPreferences-SourceTerminal` (`docs/EVIDENCE.md` section 9).
 - Limits: Source has command suggestions and the setting "Tab Behavior" (Navigation, Enter, Ignore) over its terminal. GitNeat has neither. GitNeat has no setting "Default In-App Terminal" for Windows. The shell starts with the login flag only on macOS and Linux. The font setting applies to a new session and to a running one at the next render. The Windows ConPTY path was not run.
+
+## D104. The webview blocks its own context menu
+- Decision: `src/main.tsx` calls `preventDefault` on each `contextmenu` event, except in `input`, `textarea`, `.monaco-editor` and `.xterm`.
+- Reason: Without it, the WebKit menu (Reload, Inspect Element) opens at the right-click and the native menu from `context_menu` does not show. Found in the T03 app test.
+- Limits: The text fields keep the WebKit menu.
