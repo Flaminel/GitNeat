@@ -349,7 +349,6 @@ fn status_text(repo: &gix::Repository) -> Result<String, String> {
 fn operation(repo: &gix::Repository) -> Option<Operation> {
     let dir = repo.path();
     for (file, op) in [
-        ("REBASE_HEAD", Operation::Rebase),
         ("MERGE_HEAD", Operation::Merge),
         ("CHERRY_PICK_HEAD", Operation::CherryPick),
         ("REVERT_HEAD", Operation::Revert),

@@ -161,24 +161,13 @@ async fn stash_times(cwd: &str, shas: &[&str]) -> HashMap<String, Commit> {
 
 async fn detect_operation(cwd: &str) -> Option<Operation> {
     let checks = [
-        ("REBASE_HEAD", Operation::Rebase),
         ("MERGE_HEAD", Operation::Merge),
         ("CHERRY_PICK_HEAD", Operation::CherryPick),
         ("REVERT_HEAD", Operation::Revert),
     ];
     let probe = |name: &str| git(cwd, &["rev-parse", "-q", "--verify", name], None);
-    let results = tokio::join!(
-        probe(checks[0].0),
-        probe(checks[1].0),
-        probe(checks[2].0),
-        probe(checks[3].0)
-    );
-    let codes = [
-        results.0.code,
-        results.1.code,
-        results.2.code,
-        results.3.code,
-    ];
+    let results = tokio::join!(probe(checks[0].0), probe(checks[1].0), probe(checks[2].0));
+    let codes = [results.0.code, results.1.code, results.2.code];
     if let Some(hit) = codes.iter().position(|c| *c == 0) {
         return Some(checks[hit].1);
     }
