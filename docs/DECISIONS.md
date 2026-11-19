@@ -512,6 +512,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Limits: Source keeps the commit message box during a merge. GitNeat hides it, and "Commit and Merge" uses the default merge message (`commit --no-edit`).
 - Limits: Source reads the merge base name from the HEAD branch shorthand. GitNeat shows the branch name, or the short sha if HEAD is detached.
 - Decision: If `rebase --continue` or `rebase --skip` stops on the next commit with conflicts, the action succeeds. The check is `REBASE_HEAD` plus unmerged index entries. The WIP panel then shows the new conflicts and no error toast.
+- Decision: Continue and Skip of a rebase and Abort of any operation write no undo entry. An undo would move HEAD to a commit inside the stopped rebase.
 - Limits: The app was checked by hand in T20 (rebase with two conflicting commits, merge with two conflicting files). The Rust test `operation_info_names_branches` covers a conflicted merge and rebase.
 
 ## D76. Checkout with local changes

@@ -309,7 +309,7 @@ async fn rebase_conflicted(cwd: &str) -> bool {
 
 async fn abort_operation(cwd: &str, args: &Value) -> Res<Value> {
     let a: Op = parse(args)?;
-    run(cwd, true, git(cwd, &[a.op.word(), "--abort"])).await
+    run(cwd, false, git(cwd, &[a.op.word(), "--abort"])).await
 }
 
 async fn skip_operation(cwd: &str) -> Res<Value> {
