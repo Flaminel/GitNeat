@@ -276,7 +276,7 @@ async fn continue_operation(cwd: &str, args: &Value) -> Res<Value> {
         return run(cwd, true, git_env(cwd, &["commit", "--no-edit"], editor)).await;
     }
     if let Operation::Rebase = a.op {
-        return run(cwd, true, rebase_step(cwd, "--continue")).await;
+        return run(cwd, false, rebase_step(cwd, "--continue")).await;
     }
     run(
         cwd,
@@ -313,7 +313,7 @@ async fn abort_operation(cwd: &str, args: &Value) -> Res<Value> {
 }
 
 async fn skip_operation(cwd: &str) -> Res<Value> {
-    run(cwd, true, rebase_step(cwd, "--skip")).await
+    run(cwd, false, rebase_step(cwd, "--skip")).await
 }
 
 #[derive(Deserialize)]
@@ -326,4 +326,57 @@ async fn mark_resolved(cwd: &str, args: &Value) -> Res<Value> {
     let mut list = vec!["add", "--"];
     list.extend(a.paths.iter().map(String::as_str));
     run(cwd, true, git(cwd, &list)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn sh(dir: &Path, args: &[&str]) {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .output()
+            .unwrap();
+        let _ = out;
+    }
+
+    fn write_commit(dir: &Path, file: &str, text: &str, message: &str) {
+        std::fs::write(dir.join(file), text).unwrap();
+        sh(dir, &["add", "."]);
+        sh(dir, &["commit", "-q", "-m", message]);
+    }
+
+    #[tokio::test]
+    async fn rebase_continue_and_skip_stop_on_conflicts_without_undo_record() {
+        let dir = std::env::temp_dir().join(format!("gitneat-step-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let cwd = dir.to_str().unwrap();
+        sh(&dir, &["init", "-q", "-b", "main"]);
+        write_commit(&dir, "f", "a\n", "base");
+        write_commit(&dir, "g", "a\n", "base2");
+        sh(&dir, &["checkout", "-q", "-b", "side"]);
+        write_commit(&dir, "f", "side\n", "side1");
+        write_commit(&dir, "g", "side\n", "side2");
+        sh(&dir, &["checkout", "-q", "main"]);
+        write_commit(&dir, "f", "main\n", "main1");
+        write_commit(&dir, "g", "main\n", "main2");
+        sh(&dir, &["checkout", "-q", "side"]);
+        sh(&dir, &["rebase", "main"]);
+        std::fs::write(dir.join("f"), "fixed\n").unwrap();
+        sh(&dir, &["add", "f"]);
+        let step = continue_operation(cwd, &json!({ "op": "rebase" })).await;
+        assert_eq!(step, Ok(json!({ "record": null })));
+        assert!(rebase_conflicted(cwd).await);
+        let step = skip_operation(cwd).await;
+        assert_eq!(step, Ok(json!({ "record": null })));
+        assert!(!rebase_conflicted(cwd).await);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
