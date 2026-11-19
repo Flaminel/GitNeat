@@ -81,6 +81,10 @@ export function NewTab(props: Props) {
       {favorites.length + recent.length > 10 && (
         <input
           className="new-tab-search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           autoFocus
           placeholder="Search repositories"
           value={query}
