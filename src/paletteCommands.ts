@@ -17,6 +17,7 @@ export interface RepoApi {
   openFile(file: OpenFile): void;
   toggleLeft(): void;
   toggleDetails(): void;
+toggleTerminal(): void;
   openInTool(): unknown;
   editFile(path: string): void;
   createFile(path: string): unknown;
@@ -33,6 +34,7 @@ export interface AppApi {
   toggleSetting(key: "toolbarLabels" | "syntaxHighlighting"): void;
   openRepo(path: string): void;
   openInEditor(path: string): unknown;
+  openTerminal(path: string): unknown;
   recent: string[];
   favorites: string[];
   aliases: Record<string, string>;
@@ -93,7 +95,7 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("cloneRepo", "Clone", app.clone),
     command("initRepo", "Initialize a Repo", app.init, { hidden: "initialize" }),
     command("openInFileManager", "Open in File Manager", need((_, c) => gitneat().openPath(c.cwd)), { hidden: "folder explorer finder", flags: r }),
-    command("openInTerminal", "Open in default terminal", need((_, c) => gitneat().openTerminal(c.cwd)), { hidden: "in-app terminal command line console", flags: r }),
+    command("openInTerminal", "Open in default terminal", need((_, c) => app.openTerminal(c.cwd)), { hidden: "in-app terminal command line console", flags: r }),
     command("openInExternalEditor", "Open in external editor", need((_, c) => app.openInEditor(c.cwd)), { hidden: "ide vscode code", flags: r }),
     command("closeRepo", "Close Tab", app.closeTab),
     command("settings", "Settings", app.preferences, { hidden: "preferences options" }),
@@ -104,6 +106,7 @@ export function buildCommands(app: AppApi, repo: RepoApi | null): Command[] {
     command("toggleToolbarLabels", "Toggle Toolbar Labels", () => app.toggleSetting("toolbarLabels")),
     command("toggleSyntaxHighlighting", "Toggle Syntax Highlighting", () => app.toggleSetting("syntaxHighlighting")),
     command("toggleLeftPanel", "Toggle Left Panel", need((p) => p.toggleLeft()), { flags: r }),
+    command("toggleTerminalPanel", "Toggle terminal panel", need((p) => p.toggleTerminal()), { hidden: "in-app terminal command line console", flags: r }),
     command("toggleDetailPanel", "Toggle Commit Details Panel", need((p) => p.toggleDetails()), { flags: r }),
     command("zoomUp", "Increase Zoom", () => app.zoom(1)),
     command("zoomDown", "Decrease Zoom", () => app.zoom(-1)),

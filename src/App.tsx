@@ -5,10 +5,11 @@ import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { MenuBar } from "./components/MenuBar";
 import { NewTab } from "./components/NewTab";
 import { TabsList } from "./components/TabsList";
+import { TERMINAL_EVENT } from "./terminalSessions";
 import { AppMenu, matchAccel, menuAccels } from "./keymap";
 import { repoName, Tab, Tabs } from "./components/Tabs";
 import { samePath } from "./repo";
-import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings, SubmoduleAutoUpdate } from "./RepoView";
+import { AUTO_FETCH_MAX, DEFAULT_SETTINGS, forgetRepos, MAX_COMMITS_MIN, RepoPrefs, RepoView, Settings, SubmoduleAutoUpdate, TERMINAL_FONT_SIZE, TERMINAL_LINE_HEIGHT, TerminalCursor } from "./RepoView";
 import { Palette } from "./components/Palette";
 import { RepoModal, RepoModalTab } from "./components/RepoModal";
 import { RepoManagement } from "./components/RepoManagement";
@@ -97,7 +98,7 @@ export function App() {
   const [menus, setMenus] = useState<AppMenu[]>([]);
   const [shortcuts, setShortcuts] = useState(false);
   const [tabsList, setTabsList] = useState(false);
-  const [panels, setPanels] = useState<{ left: boolean; details: boolean } | null>(null);
+  const [panels, setPanels] = useState<{ left: boolean; details: boolean; terminal: boolean } | null>(null);
   const mac = gitneat().platform === "darwin";
 
   useEffect(() => {
@@ -105,7 +106,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void gitneat().setPanelChecks(panels && panels.left, panels && panels.details);
+    void gitneat().setPanelChecks(panels && panels.left, panels && panels.details, panels && panels.terminal);
   }, [panels]);
 
   useEffect(() => {
@@ -206,7 +207,7 @@ export function App() {
     if (!state) {
       return;
     }
-    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting, autoUpdateSubmodules, externalEditor, externalEditorPath } = state.settings;
+    const { autoFetch, lazyLoad, maxCommits, autoPrune, defaultBranch, rememberTabs, toolbarLabels, syntaxHighlighting, autoUpdateSubmodules, externalEditor, externalEditorPath, inAppTerminal, terminalFont, terminalFontSize, terminalLineHeight, terminalCursor } = state.settings;
     const editorLabel = (id: string) => (id === "custom" ? CUSTOM_EDITOR : editors.find((e) => e.id === id)?.label ?? NO_EDITOR);
     const v = await ui.prompt(
       "Preferences",
@@ -228,6 +229,11 @@ export function App() {
           help: `Path to the editor executable. Used when External Editor is ${CUSTOM_EDITOR}.`,
           value: externalEditorPath,
         },
+        { name: "inAppTerminal", label: "Use In-App Terminal Instead", help: "Open Repo in Terminal shows the terminal panel instead of an external terminal.", kind: "checkbox", value: String(inAppTerminal) },
+        { name: "terminalFont", label: "In-App Terminal Font", help: "Font family. Changes apply on the next terminal start.", value: terminalFont },
+        { name: "terminalFontSize", label: "In-App Terminal Font Size", help: `From ${TERMINAL_FONT_SIZE.min} to ${TERMINAL_FONT_SIZE.max}.`, value: String(terminalFontSize) },
+        { name: "terminalLineHeight", label: "In-App Terminal Line Height", help: `From ${TERMINAL_LINE_HEIGHT.min} to ${TERMINAL_LINE_HEIGHT.max}.`, value: String(terminalLineHeight) },
+        { name: "terminalCursor", label: "In-App Terminal Cursor Style", kind: "select", options: ["Block", "Underline", "Bar"], value: terminalCursor.replace(/^./, (c) => c.toUpperCase()) },
         { name: "rememberTabs", label: "Remember tabs", kind: "checkbox", value: String(rememberTabs) },
         { name: "toolbarLabels", label: "Show toolbar icon labels", kind: "checkbox", value: String(toolbarLabels) },
         { name: "syntaxHighlighting", label: "Syntax Highlighting", kind: "checkbox", value: String(syntaxHighlighting) },
@@ -254,9 +260,24 @@ export function App() {
       ui.toast(`The maximum commit count must be a whole number of at least ${MAX_COMMITS_MIN}.`, "error", "Preferences");
       return;
     }
+    const fontSize = Number(v.terminalFontSize.trim());
+    const lineHeight = Number(v.terminalLineHeight.trim());
+    if (!Number.isInteger(fontSize) || fontSize < TERMINAL_FONT_SIZE.min || fontSize > TERMINAL_FONT_SIZE.max) {
+      ui.toast(`The terminal font size must be a whole number from ${TERMINAL_FONT_SIZE.min} to ${TERMINAL_FONT_SIZE.max}.`, "error", "Preferences");
+      return;
+    }
+    if (!(lineHeight >= TERMINAL_LINE_HEIGHT.min && lineHeight <= TERMINAL_LINE_HEIGHT.max)) {
+      ui.toast(`The terminal line height must be a number from ${TERMINAL_LINE_HEIGHT.min} to ${TERMINAL_LINE_HEIGHT.max}.`, "error", "Preferences");
+      return;
+    }
     update((s) => ({
       ...s,
       settings: {
+        inAppTerminal: v.inAppTerminal === "true",
+        terminalFont: v.terminalFont.trim(),
+        terminalFontSize: fontSize,
+        terminalLineHeight: lineHeight,
+        terminalCursor: v.terminalCursor.toLowerCase() as TerminalCursor,
         autoFetch: fetchMinutes,
         lazyLoad: v.lazyLoad === "true",
         maxCommits: commitCount,
@@ -328,6 +349,14 @@ export function App() {
     }
   };
 
+  const openTerminal = (path: string) => {
+    if (state?.settings.inAppTerminal) {
+      window.dispatchEvent(new CustomEvent(TERMINAL_EVENT, { detail: "open" }));
+    } else {
+      void gitneat().openTerminal(path);
+    }
+  };
+
   const newTab = () => update((s) => ({ ...s, tabs: [...s.tabs, NEW_TAB], active: s.tabs.length }));
 
   const closeTabs = (keep: (i: number) => boolean) =>
@@ -380,7 +409,8 @@ export function App() {
       init: init,
       open: openDialog,
       "repo-management": openManagement,
-      terminal: () => path && gitneat().openTerminal(path),
+      terminal: () => path && openTerminal(path),
+      "terminal-panel": () => window.dispatchEvent(new CustomEvent(TERMINAL_EVENT, { detail: "toggle" })),
       "file-manager": () => path && gitneat().openPath(path),
       "external-editor": () => path && openInEditor([path]),
       undo: () => pressKey("KeyZ"),
@@ -426,12 +456,19 @@ export function App() {
         return;
       }
       const hit = accels.find((a) => matchAccel(a.accel, e));
+      if (!mac && hit?.id !== "terminal-panel" && (e.target as HTMLElement).closest(".xterm")) {
+        return;
+      }
       if (hit && !PANEL_IDS.includes(hit.id)) {
         e.preventDefault();
         runMenu(hit.id);
-      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === "KeyO") {
+      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && ["KeyO", "KeyH", "KeyP"].includes(e.code)) {
         e.preventDefault();
-        setPalette("openRepo");
+        const domains: Record<string, Domain | null> = { KeyO: "openRepo", KeyH: state.tabs[state.active]?.path ? "history" : null, KeyP: "top" };
+        const domain = domains[e.code];
+        if (domain) {
+          setPalette(e.code === "KeyP" ? (p) => (p ? null : domain) : domain);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -475,6 +512,7 @@ export function App() {
     toggleSetting: (key) => update((s) => ({ ...s, settings: { ...s.settings, [key]: !s.settings[key] } })),
     openRepo: openTab,
     openInEditor: (path) => openInEditor([path]),
+    openTerminal,
     recent: state.recent,
     favorites: state.favorites,
     aliases: state.aliases,
@@ -482,7 +520,7 @@ export function App() {
   return (
     <LayoutContext.Provider value={layoutStore}>
       <div className={`app${state.settings.toolbarLabels ? "" : " no-tool-labels"}`}>
-        {!mac && <MenuBar menus={menus} checks={panels ? { "left-panel": panels.left, "details-panel": panels.details } : {}} run={runMenu} />}
+        {!mac && <MenuBar menus={menus} checks={panels ? { "left-panel": panels.left, "details-panel": panels.details, "terminal-panel": panels.terminal } : {}} run={runMenu} />}
         <Tabs
           tabs={state.tabs}
           active={state.active}

@@ -29,8 +29,11 @@ export const keymapGroups = (mac: boolean): KeymapGroup[] => {
         { label: "Create Branch", keys: [`${mod} B`] },
         { label: "Fetch All", keys: [`${mod} L`] },
         { label: "Commit (when in message input)", keys: [`${mod} Enter`] },
+        { label: "Stage Current File", keys: ["S"] },
+        { label: "Unstage Current File", keys: ["U"] },
         { label: "Stage All Files", keys: [`${mod} Shift S`] },
         { label: "Unstage All Files", keys: [`${mod} Shift U`] },
+        { label: "Stage All + Commit (when in message input)", keys: [`${mod} Shift Enter`] },
         { label: "Focus commit message", keys: [`${mod} Shift M`] },
         { label: "Open in default terminal", keys: [`${alt} T`] },
       ],
@@ -38,8 +41,11 @@ export const keymapGroups = (mac: boolean): KeymapGroup[] => {
     {
       name: "Navigation",
       keymaps: [
-        { label: "Select Previous Item", keys: ["↑"] },
-        { label: "Select Next Item", keys: ["↓"] },
+        { label: "Select Previous Item", keys: ["↑", "K"] },
+        { label: "Select Next Item", keys: ["↓", "J"] },
+        { label: "Select the Item to the Right", keys: ["L"] },
+        { label: "Select Next Item in Branch", keys: ["Shift J"] },
+        { label: "Select Previous Item in Branch", keys: ["Shift K"] },
         { label: "Select First Item", keys: [`${mod} ${first}`] },
         { label: "Select Last Item", keys: [`${mod} ${last}`] },
         { label: "Undo", keys: [`${mod} Z`] },
@@ -52,6 +58,7 @@ export const keymapGroups = (mac: boolean): KeymapGroup[] => {
         { label: "Toggle Command Palette", keys: [`${mod} P`] },
         { label: "Search commits", keys: [`${mod} F`] },
         { label: "Open Repo", keys: [`${mod} Shift O`] },
+        { label: "Search for a file to view its history / blame", keys: [`${mod} Shift H`] },
         { label: "Open Selected File in External Diff/Merge Tool", keys: [`${mod} D`] },
       ],
     },
@@ -60,11 +67,13 @@ export const keymapGroups = (mac: boolean): KeymapGroup[] => {
       keymaps: [
         { label: "Open a new tab", keys: [`${mod} T`] },
         { label: "Close File/Tab", keys: [`${mod} W`] },
+        { label: "Close View", keys: ["Escape"] },
         { label: "Jump to the next open tab", keys: ["Ctrl Tab"] },
         { label: "Jump to the previous open tab", keys: ["Ctrl Shift Tab"] },
         { label: "Jump to a specific tab", keys: [`${mod} 1 through 9`] },
         { label: "Toggle Left Panel", keys: [`${mod} J`] },
         { label: "Toggle Commit Details Panel", keys: [`${mod} K`] },
+        { label: "Toggle Terminal Panel", keys: ["Ctrl `"] },
         { label: "Increase Zoom", keys: [`${mod} +`] },
         { label: "Decrease Zoom", keys: [`${mod} -`] },
         { label: "Reset Zoom", keys: [`${mod} 0`] },
@@ -86,7 +95,7 @@ export const filterKeymapGroups = (groups: KeymapGroup[], query: string): Keymap
     .filter((g) => g.keymaps.length);
 };
 
-const CODES: Record<string, string> = { Tab: "Tab", "=": "Equal", "-": "Minus", ",": "Comma", "/": "Slash", F11: "F11" };
+const CODES: Record<string, string> = { "`": "Backquote", Tab: "Tab", "=": "Equal", "-": "Minus", ",": "Comma", "/": "Slash", F11: "F11" };
 
 const codeOf = (key: string) => CODES[key] ?? (/^\d$/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`);
 

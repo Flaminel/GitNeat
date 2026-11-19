@@ -13,6 +13,8 @@ import * as M from "./menus";
 import { setRepoApi } from "./paletteCommands";
 import { Commit, Lanes, loadCommits, loadRepo, RepoData, samePath } from "./repo";
 import { canLoadMore, pageSize, showsFooter } from "./commitLimit";
+import { TerminalPanel } from "./components/TerminalPanel";
+import { closeSession, terminalPaths, TERMINAL_EVENT } from "./terminalSessions";
 import { LayoutContext, Splitter, useStoredFlag, useStoredWidth, useUi } from "./ui";
 
 export interface RepoPrefs {
@@ -44,9 +46,18 @@ export interface Settings {
   autoUpdateSubmodules: boolean;
   externalEditor: string;
   externalEditorPath: string;
+  inAppTerminal: boolean;
+  terminalFont: string;
+  terminalFontSize: number;
+  terminalLineHeight: number;
+  terminalCursor: TerminalCursor;
 }
 
-export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true, autoUpdateSubmodules: true, externalEditor: "", externalEditorPath: "" };
+export type TerminalCursor = "block" | "underline" | "bar";
+export const TERMINAL_FONT_SIZE = { min: 12, max: 72 };
+export const TERMINAL_LINE_HEIGHT = { min: 1, max: 5 };
+
+export const DEFAULT_SETTINGS: Settings = { autoFetch: 1, lazyLoad: true, maxCommits: 2000, autoPrune: true, defaultBranch: "", rememberTabs: true, toolbarLabels: true, syntaxHighlighting: true, autoUpdateSubmodules: true, externalEditor: "", externalEditorPath: "", inAppTerminal: false, terminalFont: "", terminalFontSize: 14, terminalLineHeight: 1, terminalCursor: "block" };
 export const MAX_COMMITS_MIN = 500;
 export const AUTO_FETCH_MAX = 60;
 
@@ -63,7 +74,7 @@ interface Props {
   aliases: Record<string, string>;
   onViewAll(): void;
   onPalette(): void;
-  onPanels(panels: { left: boolean; details: boolean } | null): void;
+  onPanels(panels: { left: boolean; details: boolean; terminal: boolean } | null): void;
 }
 
 interface Cached {
@@ -82,6 +93,11 @@ export function forgetRepos(open: string[]) {
   for (const key of [...cache.keys()]) {
     if (!open.includes(key)) {
       cache.delete(key);
+    }
+  }
+  for (const key of terminalPaths()) {
+    if (!open.includes(key)) {
+      closeSession(key);
     }
   }
 }
@@ -108,6 +124,8 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   const [leftWidth, setLeftWidth] = useStoredWidth("left", 296);
   const [leftCollapsed, setLeftCollapsed] = useStoredFlag("left.collapsed", false);
   const [rightCollapsed, setRightCollapsed] = useStoredFlag("right.collapsed", false);
+  const [terminalOpen, setTerminalOpen] = useStoredFlag("terminal.open", false);
+  const [terminalHeight, setTerminalHeight] = useStoredWidth("terminal", 260);
   const [rightWidth, setRightWidth] = useStoredWidth("right", Math.max(380, Math.round(window.innerWidth * 0.325)));
 
   const loadSeq = useRef(0);
@@ -336,6 +354,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
       },
       toggleLeft: () => setLeftCollapsed(!leftCollapsed),
       toggleDetails: () => setRightCollapsed(!rightCollapsed),
+      toggleTerminal: () => setTerminalOpen(!terminalOpen),
       openInTool,
       editFile: (file) => {
         const entry = ctx.data.status.find((e) => e.path === file);
@@ -358,8 +377,14 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   });
 
   useEffect(() => {
-    onPanels({ left: !leftCollapsed, details: !rightCollapsed });
-  }, [leftCollapsed, rightCollapsed, onPanels]);
+    onPanels({ left: !leftCollapsed, details: !rightCollapsed, terminal: terminalOpen });
+  }, [leftCollapsed, rightCollapsed, terminalOpen, onPanels]);
+
+  useEffect(() => {
+    const onTerminal = (e: Event) => setTerminalOpen((e as CustomEvent<string>).detail === "open" ? true : !terminalOpen);
+    window.addEventListener(TERMINAL_EVENT, onTerminal);
+    return () => window.removeEventListener(TERMINAL_EVENT, onTerminal);
+  }, [terminalOpen]);
   useEffect(() => () => onPanels(null), [onPanels]);
 
   useEffect(() => {
@@ -377,7 +402,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
         "Shift+KeyZ": redo,
         KeyB: () => ctx.data.head && A.createBranch(ctx, "HEAD"),
         KeyL: () => A.pull(ctx, "fetch"),
-        "Shift+KeyS": () => ctx.data.status.some((s) => s.work !== " " || s.index === "?") && A.stageAll(ctx),
+        "Shift+KeyS": () => ctx.data.status.some((s) => s.work !== " " || s.index === "?") && A.stageAll(ctx).then(focusMessage),
         "Shift+KeyU": () => ctx.data.status.some((s) => s.index !== " " && s.index !== "?") && A.unstageAll(ctx),
         "Shift+KeyM": focusMessage,
         KeyD: () => openInTool(),
@@ -396,6 +421,21 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
       setShown(selected);
     }
   }, [selected]);
+
+  useEffect(() => {
+    const onRight = (e: KeyboardEvent) => {
+      if (e.code !== "KeyL" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || openFile || (e.target as HTMLElement).closest("input, textarea, select, .monaco-editor")) {
+        return;
+      }
+      const first = document.querySelector<HTMLElement>(".right-panel .files .file");
+      if (first) {
+        e.preventDefault();
+        first.click();
+      }
+    };
+    window.addEventListener("keydown", onRight);
+    return () => window.removeEventListener("keydown", onRight);
+  }, [openFile]);
 
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
@@ -579,6 +619,12 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
           </>
         )}
       </div>
+      {terminalOpen && (
+        <>
+          <Splitter vertical invert value={terminalHeight} set={setTerminalHeight} min={80} max={Math.max(120, window.innerHeight - 200)} />
+          <TerminalPanel cwd={path} settings={settings} height={terminalHeight} onClose={() => setTerminalOpen(false)} />
+        </>
+      )}
       {rebase && (
         <RebaseModal
           base={rebase.base}

@@ -84,7 +84,19 @@ export function tauriApi(): GitNeatApi {
     askpassReply: (request, reply) => invoke("askpass_reply", { request, reply }),
     setZoom: (factor) => getCurrentWebview().setZoom(factor),
     appMenu: () => invoke("app_menu"),
-    setPanelChecks: (left, details) => invoke("set_panel_checks", { left, details }),
+    setPanelChecks: (left, details, terminal) => invoke("set_panel_checks", { left, details, terminal }),
+    termOpen: (cwd, cols, rows) => invoke("term_open", { cwd, cols, rows }),
+    termWrite: (id, data) => invoke("term_write", { id, data }),
+    termResize: (id, cols, rows) => invoke("term_resize", { id, cols, rows }),
+    termClose: (id) => invoke("term_close", { id }),
+    onTermData: (fn) => {
+      const stop = listen<{ id: number; data: string }>("term-data", (e) => fn(e.payload.id, e.payload.data));
+      return () => void stop.then((off) => off());
+    },
+    onTermExit: (fn) => {
+      const stop = listen<number>("term-exit", (e) => fn(e.payload));
+      return () => void stop.then((off) => off());
+    },
     toggleFullscreen: async () => {
       const win = getCurrentWindow();
       await win.setFullscreen(!(await win.isFullscreen()));

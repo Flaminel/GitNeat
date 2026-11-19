@@ -159,6 +159,7 @@ fn view(mac: bool) -> Menu {
         Entry::Sep,
         check("left-panel", "Show Left Panel", "CmdOrCtrl+J"),
         check("details-panel", "Show Commit Details Panel", "CmdOrCtrl+K"),
+        check("terminal-panel", "Show Terminal Panel", "Ctrl+`"),
         Entry::Sep,
         item("zoom-in", "Increase Zoom", Some("CmdOrCtrl+=")),
         item("zoom-out", "Decrease Zoom", Some("CmdOrCtrl+-")),
@@ -240,9 +241,18 @@ pub struct Checks(
 );
 
 #[tauri::command]
-pub fn set_panel_checks(checks: tauri::State<Checks>, left: Option<bool>, details: Option<bool>) {
+pub fn set_panel_checks(
+    checks: tauri::State<Checks>,
+    left: Option<bool>,
+    details: Option<bool>,
+    terminal: Option<bool>,
+) {
     if let Ok(held) = checks.0.lock() {
-        for (id, value) in [("left-panel", left), ("details-panel", details)] {
+        for (id, value) in [
+            ("left-panel", left),
+            ("details-panel", details),
+            ("terminal-panel", terminal),
+        ] {
             if let Some(item) = held.get(id) {
                 let _ = item.set_enabled(value.is_some());
                 let _ = item.set_checked(value.unwrap_or(false));
@@ -372,6 +382,7 @@ mod tests {
         let other = all(false);
         for id in [
             "details-panel",
+            "terminal-panel",
             "left-panel",
             "tabs-list",
             "shortcuts",

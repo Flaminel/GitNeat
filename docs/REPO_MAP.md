@@ -20,6 +20,9 @@ GitNeat is a Tauri 2 app with two parts.
 | `src/components/KeyboardShortcuts.tsx` | Keyboard Shortcuts modal (D102) |
 | `src/components/MenuBar.tsx` | Menu bar for Windows and Linux (D102) |
 | `src/components/TabsList.tsx` | Tabs list popup (D102) |
+| `src/components/TerminalPanel.tsx` | Terminal panel view and context menu (D103) |
+| `src/terminalSessions.ts` | xterm sessions by repository path (D103) |
+| `src/graphNav.ts` | Next and previous commit on the branch for Shift+J and Shift+K (D102) |
 | `src/tauri-api.ts` | `window.gitneat` for the Tauri app, through Tauri `invoke` and `listen` |
 | `rust/MAP.md` | Rust port status: units, waves, claims |
 | `rust/app/src/main.rs` | Tauri window, plugins, menu event handler, command list |
@@ -28,6 +31,7 @@ GitNeat is a Tauri 2 app with two parts.
 | `rust/app/src/askpass.rs` | Askpass server and helper for credential and SSH passphrase prompts (D90) |
 | `rust/app/src/menu.rs` | Native context menu from `MenuSpec` |
 | `rust/app/src/appmenu.rs` | App menu table for all platforms. The macOS menu and the webview menu bar come from it. The command `set_panel_checks` sets the panel check items (D83, D102) |
+| `rust/app/src/terminal.rs` | Terminal PTY sessions: the commands `term_*` and the events `term-data` and `term-exit` (D103) |
 | `rust/app/src/watch.rs` | Repository folder watcher with a 400 ms debounce |
 | `rust/app/src/store.rs` | Saved state file. Folder choice: `GITNEAT_USER_DATA`, portable marker (D80), app data folder |
 | `rust/app/src/paths.rs` | Path normalize and the check for paths inside an open repository |

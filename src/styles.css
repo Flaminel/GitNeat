@@ -3107,3 +3107,16 @@ a.sha {
   padding: 12px 4px;
   color: var(--text-dim);
 }
+
+.terminal-panel {
+  flex-shrink: 0;
+  padding: 6px 0 0 8px;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.terminal-host,
+.terminal-host .xterm {
+  height: 100%;
+}

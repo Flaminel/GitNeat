@@ -134,8 +134,14 @@ export interface GitNeatApi {
   askpassReply(request: number, reply: AskpassReply | null): Promise<void>;
   setZoom(factor: number): Promise<void>;
   appMenu(): Promise<AppMenu[]>;
-  setPanelChecks(left: boolean | null, details: boolean | null): Promise<void>;
+  setPanelChecks(left: boolean | null, details: boolean | null, terminal: boolean | null): Promise<void>;
   toggleFullscreen(): Promise<void>;
+  termOpen(cwd: string, cols: number, rows: number): Promise<number>;
+  termWrite(id: number, data: string): Promise<void>;
+  termResize(id: number, cols: number, rows: number): Promise<void>;
+  termClose(id: number): Promise<void>;
+  onTermData(fn: (id: number, data: string) => void): () => void;
+  onTermExit(fn: (id: number) => void): () => void;
 }
 
 declare global {

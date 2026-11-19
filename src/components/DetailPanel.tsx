@@ -585,11 +585,42 @@ function WipInfo({ ctx, openFile, onOpenFile }: Props) {
   const commitLabel = staged.length || amend ? `${baseLabel}${pushAfter ? " and Push" : ""}${skip ? " (Skip Hooks)" : ""}` : baseLabel;
   const canCommit = !!summary.trim() && (staged.length > 0 || amend);
   const commitKey = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
+    if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") {
+      return;
+    }
+    if (e.shiftKey && summary.trim() && status.length && !amend) {
+      e.preventDefault();
+      void A.stageAll(ctx).then(async (ok) => {
+        if (ok) {
+          await doCommit();
+        }
+      });
+    } else if (!e.shiftKey && canCommit) {
       e.preventDefault();
       void doCommit();
     }
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || ctx.data.operation === "rebase" || (e.target as HTMLElement).closest("input, textarea, select, .monaco-editor")) {
+        return;
+      }
+      const stage = e.code === "KeyS";
+      if (!stage && e.code !== "KeyU") {
+        return;
+      }
+      const fromOpen = openFile && openFile.source.kind === (stage ? "unstaged" : "staged") ? [openFile.path] : [];
+      const paths = picked.staged === !stage && picked.paths.length ? picked.paths : fromOpen;
+      if (paths.length) {
+        e.preventDefault();
+        setPicked({ staged: false, paths: [] });
+        void (stage ? A.stageFiles(ctx, paths) : A.unstageFiles(ctx, paths));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const pick = (list: string[], isStaged: boolean) => (p: string, range: boolean) => {
     const current = picked.staged === isStaged ? picked.paths.filter((x) => list.includes(x)) : [];

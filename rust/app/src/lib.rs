@@ -14,6 +14,7 @@ pub mod setup;
 pub mod shellpath;
 pub mod store;
 pub mod templates;
+pub mod terminal;
 pub mod watch;
 pub mod workspaces;
 
@@ -38,6 +39,7 @@ pub fn run() {
         .manage(watch::Watchers::default())
         .manage(menu::Chosen::default())
         .manage(appmenu::Checks::default())
+        .manage(terminal::Terminals::default())
         .on_menu_event(|app, event| {
             if let Some(id) = menu::picked(&event.id().0)
                 && let Ok(mut chosen) = app.state::<menu::Chosen>().0.lock()
@@ -128,6 +130,10 @@ pub fn run() {
             commands::read_file,
             commands::write_file,
             commands::menu,
+            terminal::term_open,
+            terminal::term_write,
+            terminal::term_resize,
+            terminal::term_close,
             appmenu::app_menu,
             appmenu::set_panel_checks,
             commands::context_menu,

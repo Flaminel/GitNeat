@@ -1,5 +1,6 @@
 import { memo, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { topologicalStep } from "../graphNav";
 import { Commit, GraphRow, Ref, Segment } from "../repo";
 import { cap, showMenu, Splitter, useStored, useStoredWidth } from "../ui";
 import { Icon } from "./icons";
@@ -515,6 +516,19 @@ export function GraphView(props: Props) {
         if (props.head) {
           e.preventDefault();
           props.onSelect(props.head);
+        }
+        return;
+      }
+      const letter = { KeyJ: "ArrowDown", KeyK: "ArrowUp" }[e.code];
+      if (letter) {
+        const i = props.commits.findIndex((c) => c.sha === props.selected);
+        const next = e.shiftKey
+          ? topologicalStep(props.commits, props.selected, letter === "ArrowUp")
+          : props.commits[Math.max(0, Math.min(props.commits.length - 1, i + (letter === "ArrowDown" ? 1 : -1)))];
+        if (next) {
+          e.preventDefault();
+          cursor.current = next.sha;
+          props.onSelect(next.sha);
         }
         return;
       }
