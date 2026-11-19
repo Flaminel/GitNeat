@@ -106,6 +106,8 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
+const hasWip = (d: RepoData) => d.status.length > 0 || d.operation !== null;
+
 export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainSections, openTab, recent, favorites, aliases, onViewAll,onPalette, onPanels }: Props) {
   const ui = useUi();
   const { layout, set: setLayout } = useContext(LayoutContext);
@@ -148,11 +150,11 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
       lanes.current = next.lanes;
       setHasMore(canLoadMore(settings.lazyLoad, next.commits.filter((c) => !c.stash).length, limit.current));
       setData(next);
-      setMulti((list) => list.filter((sha) => (sha === WIP ? next.status.length > 0 : next.commits.some((c) => c.sha === sha))));
+      setMulti((list) => list.filter((sha) => (sha === WIP ? hasWip(next) : next.commits.some((c) => c.sha === sha))));
       setSelected((s) => (s && s !== WIP && !next.commits.some((c) => c.sha === s) ? next.head : s));
       setError(null);
       setRefreshKey((k) => k + 1);
-      setSelected((s) => s ?? (next.status.length ? WIP : next.head));
+      setSelected((s) => s ?? (hasWip(next) ? WIP : next.head));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -242,7 +244,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
     if (!data) {
       return [];
     }
-    if (data.status.length === 0) {
+    if (!hasWip(data)) {
       return data.commits;
     }
     const wip: Commit = { sha: WIP, parents: data.head ? [data.head] : [], author: "", email: "", time: Date.now() / 1000, subject: "" };
@@ -480,7 +482,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   }, [selected]);
 
   useEffect(() => {
-    if (selected === WIP && data && data.status.length === 0) {
+    if (selected === WIP && data && !hasWip(data)) {
       setSelected(data.head);
     }
   }, [data, selected]);

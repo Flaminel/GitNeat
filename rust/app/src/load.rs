@@ -391,8 +391,14 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         .collect();
 
     let status = read_status(&status_out);
+    let operation = detect_operation(cwd).await;
     let mut lanes = Lanes::new();
-    let rows = graph_rows(&mut lanes, &commits, head.as_deref(), !status.is_empty());
+    let rows = graph_rows(
+        &mut lanes,
+        &commits,
+        head.as_deref(),
+        !status.is_empty() || operation.is_some(),
+    );
     RepoData {
         cwd: cwd.to_string(),
         name: cwd.rsplit(['/', '\\']).next().unwrap_or(cwd).to_string(),
@@ -405,7 +411,7 @@ pub async fn load_repo_cli(cwd: &str, hidden: &[String], solo: &[String], limit:
         remotes: values(&parse_remotes(&remote_out)),
         submodules,
         status: values(&status),
-        operation: detect_operation(cwd).await,
+        operation,
         rows,
         lanes,
     }

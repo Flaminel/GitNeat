@@ -624,12 +624,13 @@ pub fn load_repo_gix(
         .map(|n| n.shorten().to_string());
     let commits = log_gix(repo, &known, &rows, hidden, solo, 0, limit)?;
     let status = read_status(&status_text(repo)?);
+    let operation = operation(repo);
     let mut lanes = Lanes::new();
     let rows = graph_rows(
         &mut lanes,
         &commits,
         known.head.as_deref(),
-        !status.is_empty(),
+        !status.is_empty() || operation.is_some(),
     );
     Ok(RepoData {
         cwd: cwd.to_string(),
@@ -643,7 +644,7 @@ pub fn load_repo_gix(
         remotes: values(&parse_remotes(&remote_text(repo)?)),
         submodules: submodule_paths(cwd)?,
         status: values(&status),
-        operation: operation(repo),
+        operation,
         rows,
         lanes,
     })
