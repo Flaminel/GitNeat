@@ -438,6 +438,15 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   }, [openFile]);
 
   useEffect(() => {
+    if (!data || !openFile || openFile.view || openFile.merge || (openFile.source.kind !== "unstaged" && openFile.source.kind !== "staged")) {
+      return;
+    }
+    if (!data.status.some((e) => e.path === openFile.path)) {
+      setOpenFile(null);
+    }
+  }, [data, openFile]);
+
+  useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
       const el = document.activeElement;
       if (e.key !== "Escape" || multi.length < 2 || openFile || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.closest(".monaco-editor")) {

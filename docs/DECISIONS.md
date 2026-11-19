@@ -625,6 +625,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The unstaged and staged file lists support multi-select. Cmd or Ctrl click toggles a file. Shift click selects a range in the same list. A right click on a selected file with 2 or more selected shows only "Stash N files" (`count` in the `wip` menu argument). A plain click opens the file and clears the selection.
 - Decision: "Stash file" and "Stash N files" use the commit box text (summary and description) as the stash message, as Source passes `pendingCommitMessage`. After the stash, the commit box and the selection clear (`resetPendingCommitMessage`).
 - Decision: `load_commit` adds `untracked` (the file names of the third parent) for a stash that holds untracked files. The right panel lists them as added files. A click opens the diff of the third parent against nothing. A stash shows only its first parent.
+- Decision: `RepoView` closes the open diff of a WIP file when the file leaves the status list, for example after a stash or a discard. A file open in a view (blame, history, file) or in the merge tool stays open.
 - Limits: Source stages all files and then runs `git stash push` without `--include-untracked`, so untracked files sit in the stash commit. GitNeat keeps `--include-untracked` and reads the third parent. The Tauri window was not started for D87 and D88.
 
 ## D88. File menus for the WIP lists and for stash files
