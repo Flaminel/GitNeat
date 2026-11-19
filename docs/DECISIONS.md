@@ -827,3 +827,10 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: For the top stash, `stashEdit` now drops and stores. Before, the store did nothing and the drop deleted the next stash. See D72.
 - Rules: A stash whose parent commit is not among the loaded commits, for example after an amend of HEAD, still gets a graph row. The row goes in by commit time and has no parent edge. Source does the same: stash rows are graph heads and a missing parent gets no edge.
 - Limits: A stash list click for a stash without a graph row selects nothing, as in Source. Source edits a stash message with several git steps (`stash push`, checkout, `stash apply`, `stash drop`). GitNeat uses the stash store and drop. Both give the stash a new place at the top of the list.
+
+## D106. The graph message column keeps 50 px
+
+- Decision: The message cell and its header have a minimum width of 50 px. The header and the graph list clip the columns that do not fit.
+- Reason: With the default widths, a graph panel of 715 px gave the message column 0 px. The headers Commit message and Author overlapped. Source sets a minimum of 50 px for the message zone (see `docs/EVIDENCE.md` section 11). Found in the T05 app test.
+- Rules: The header labels do not wrap. The graph list has no horizontal scroll bar. The columns after the message are cut at the right edge when the panel is too narrow.
+- Limits: GitNeat does not shrink the author, date and sha columns by itself. The user hides a column or widens the panel.
