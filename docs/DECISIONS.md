@@ -777,6 +777,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The user leaves the compare with Escape or by a click on one row. This is the exit of D93. The right panel then shows the selected commit again.
 - Decision: If the working tree becomes clean while the compare is open, the WIP leaves the selection and the panel shows the commit.
 - Reason: Task T42. Source `ContextMenu-CompareAgainstWorkingCopy` with the condition `getMaybeWipNodeType` and `!inLeftPanel` (`docs/EVIDENCE.md` sections 1.1 and 2.8). The task text said no compare view exists. D93 added it after the task was written.
+- Decision: A file diff opened from the compare closes first on Escape. The compare stays. The diff view marks the key event as handled with `preventDefault`. The compare handler skips handled events. Before, one Escape closed both, because React re-rendered between the two listeners and the compare handler saw no open diff. The Tauri window test of T42 found this.
 - Limits: The group appears in the single branch case too, as in Source where group Do follows group Fo. The Tauri window was not started. The Rust and TS menu tests, the type check and the comparison tests pass.
 
 ## D100. Repo Management tab and local workspaces

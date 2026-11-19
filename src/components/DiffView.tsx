@@ -699,6 +699,7 @@ export function DiffView(props: Props) {
       if (e.key !== "Escape" || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.closest(".monaco-editor")) {
         return;
       }
+      e.preventDefault();
       onClose();
     };
     window.addEventListener("keydown", onKey);

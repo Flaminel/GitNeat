@@ -460,7 +460,7 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
       const el = document.activeElement;
-      if (e.key !== "Escape" || multi.length < 2 || openFile || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.closest(".monaco-editor")) {
+      if (e.key !== "Escape" || e.defaultPrevented || multi.length < 2 || openFile || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.closest(".monaco-editor")) {
         return;
       }
       setMulti([]);
