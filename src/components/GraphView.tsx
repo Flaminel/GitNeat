@@ -621,7 +621,7 @@ export function GraphView(props: Props) {
       <div className="graph-header" onContextMenu={columnsMenu}>
         {cols.ref && (
           <div style={{ width: refsWidth }} className="col-head">
-            BRANCH / TAG
+            {refsWidth > AUTHOR_MIN && "BRANCH / TAG"}
             <Splitter className="col-resize" value={refsWidth} set={setRefsWidth} min={32} max={300} />
           </div>
         )}

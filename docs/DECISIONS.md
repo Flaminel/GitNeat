@@ -536,7 +536,8 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: Compact layout hides Date / Time, sets Branch / Tag and Author to 32 px, and sets the Graph width to 150 px. Default layout shows all columns and sets the Graph width to automatic.
 - Reason: Source `graphZoneMetaData` and `popupGraphHeaderContextMenu` (`docs/EVIDENCE.md` section 11). Task T22.
 - Limits: The Changes column is not built (it needs `--shortstat` for each commit). The column order is fixed, and the user cannot drag a header. The commit message column fills the free width, so it has no resize handle. The menu has no "Compact Graph Column" item, because GitNeat has no graph column mode. Source sets the Sha default to 130 and the maximum to 100. GitNeat uses 100. The visible flags are for the app, not for each repository. Source saves the visibility in the profile and the widths for each repository.
-- Limits: No manual check in the Tauri window. `tsc`, the tests and a Vite build pass.
+- Rules: At the minimum width of 32 px, the Branch / Tag header shows no label, as the Author header does. Found in the T22 app test.
+- Limits: The time break pill (`7 months ago`) sits at the right edge of the row and covers part of the Sha cell. The T22 app test checked the columns in the Tauri window.
 
 ## D78. Lazy commit loading
 
