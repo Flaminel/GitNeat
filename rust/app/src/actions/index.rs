@@ -183,6 +183,11 @@ async fn stash_edit(cwd: &str, args: &Value) -> Res<Value> {
         .ok_or_else(|| format!("Not a stash reference: {}", a.name))?;
     run(cwd, false, async {
         let sha = git(cwd, &["rev-parse", &a.name]).await?;
+        if index == 0 {
+            git(cwd, &["stash", "drop", &a.name]).await?;
+            git(cwd, &["stash", "store", "-m", &a.message, sha.trim()]).await?;
+            return Ok(String::new());
+        }
         git(cwd, &["stash", "store", "-m", &a.message, sha.trim()]).await?;
         git(cwd, &["stash", "drop", &format!("stash@{{{}}}", index + 1)]).await
     })
