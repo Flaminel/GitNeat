@@ -401,6 +401,7 @@ function FileView(props: {
   editorRef: React.MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const loaded = useRef(false);
   useEffect(() => {
     const editor = monaco.editor.create(host.current as HTMLDivElement, {
       theme: "gitneat",
@@ -427,9 +428,10 @@ function FileView(props: {
     const model = editor.getModel();
     if (!model) {
       editor.setModel(monaco.editor.createModel(props.text, props.language));
-    } else if (!props.editing && model.getValue() !== props.text) {
+    } else if ((!props.editing || !loaded.current) && model.getValue() !== props.text) {
       model.setValue(props.text);
     }
+    loaded.current = true;
     if (model) {
       monaco.editor.setModelLanguage(model, props.language);
     }
