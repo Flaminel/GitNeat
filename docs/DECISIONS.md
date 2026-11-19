@@ -511,7 +511,8 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Reason: `ConflictsHeader-Merging`, `ConflictsHeader-Rebasing`, `RightPanel-*ConflictsDetected`, `CommitAndMergeButtonLabel`, `DisabledMergeButtonLabel`, `ContinueRebaseButtonLabel`, `SkipCommitButtonLabel`, `Abort*ButtonLabel` and `getGitRebaseBaseSha` (`docs/EVIDENCE.md` sections 10 and 12). Task T20.
 - Limits: Source keeps the commit message box during a merge. GitNeat hides it, and "Commit and Merge" uses the default merge message (`commit --no-edit`).
 - Limits: Source reads the merge base name from the HEAD branch shorthand. GitNeat shows the branch name, or the short sha if HEAD is detached.
-- Limits: No visual check in the app. The Tauri window started, but `screencapture` returned a black image. The Rust test `operation_info_names_branches` covers a conflicted merge and rebase.
+- Decision: If `rebase --continue` or `rebase --skip` stops on the next commit with conflicts, the action succeeds. The check is `REBASE_HEAD` plus unmerged index entries. The WIP panel then shows the new conflicts and no error toast.
+- Limits: The app was checked by hand in T20 (rebase with two conflicting commits, merge with two conflicting files). The Rust test `operation_info_names_branches` covers a conflicted merge and rebase.
 
 ## D76. Checkout with local changes
 

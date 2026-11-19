@@ -275,6 +275,9 @@ async fn continue_operation(cwd: &str, args: &Value) -> Res<Value> {
     if let Operation::Merge = a.op {
         return run(cwd, true, git_env(cwd, &["commit", "--no-edit"], editor)).await;
     }
+    if let Operation::Rebase = a.op {
+        return run(cwd, true, rebase_step(cwd, "--continue")).await;
+    }
     run(
         cwd,
         true,
@@ -283,14 +286,34 @@ async fn continue_operation(cwd: &str, args: &Value) -> Res<Value> {
     .await
 }
 
+async fn rebase_step(cwd: &str, flag: &str) -> Res<String> {
+    let editor = env(&[("GIT_EDITOR", ":")]);
+    let result = git_env(cwd, &["rebase", flag], editor).await;
+    if result.is_err() && rebase_conflicted(cwd).await {
+        return Ok(String::new());
+    }
+    result
+}
+
+async fn rebase_conflicted(cwd: &str) -> bool {
+    let head = raw(
+        cwd,
+        &["rev-parse", "-q", "--verify", "REBASE_HEAD"],
+        None,
+        None,
+    )
+    .await;
+    let unmerged = raw(cwd, &["ls-files", "-u"], None, None).await;
+    head.code == 0 && !unmerged.stdout.trim().is_empty()
+}
+
 async fn abort_operation(cwd: &str, args: &Value) -> Res<Value> {
     let a: Op = parse(args)?;
     run(cwd, true, git(cwd, &[a.op.word(), "--abort"])).await
 }
 
 async fn skip_operation(cwd: &str) -> Res<Value> {
-    let editor = env(&[("GIT_EDITOR", ":")]);
-    run(cwd, true, git_env(cwd, &["rebase", "--skip"], editor)).await
+    run(cwd, true, rebase_step(cwd, "--skip")).await
 }
 
 #[derive(Deserialize)]
