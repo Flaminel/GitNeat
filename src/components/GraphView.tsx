@@ -29,6 +29,7 @@ const COLUMNS: { key: ColumnKey; head: string; label: string }[] = [
   { key: "sha", head: "SHA", label: "Sha" },
 ];
 
+const MESSAGE_SHOWN = 120;
 const AUTHOR_MIN = 32;
 const AUTHOR_MAX = 175;
 const DATE_MIN = 50;
@@ -419,6 +420,7 @@ export function GraphView(props: Props) {
   const cursor = useRef<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(800);
+  const [width, setWidth] = useState(0);
   const [refsWidth, setRefsWidth] = useStoredWidth("refs", 220);
   const [graphUser, setGraphUser] = useStoredWidth("graph", -1);
   const [authorWidth, setAuthorWidth] = useStoredWidth("author", AUTHOR_DEFAULT);
@@ -430,7 +432,7 @@ export function GraphView(props: Props) {
   const [showAuthor, setShowAuthor] = useStored<boolean>("col.author", true);
   const [showDate, setShowDate] = useStored<boolean>("col.date", true);
   const [showSha, setShowSha] = useStored<boolean>("col.sha", true);
-  const cols = useMemo<Columns>(
+  const userCols = useMemo<Columns>(
     () => ({ ref: showRef, graph: showGraph, message: showMessage, author: showAuthor, date: showDate, sha: showSha }),
     [showRef, showGraph, showMessage, showAuthor, showDate, showSha],
   );
@@ -449,15 +451,15 @@ export function GraphView(props: Props) {
     setDateWidth(130);
     setShaWidth(SHA_MAX);
   };
-  const visibleCount = COLUMNS.filter((c) => cols[c.key]).length;
+  const visibleCount = COLUMNS.filter((c) => userCols[c.key]).length;
   const columnsMenu = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     return showMenu([
       ...COLUMNS.map((c) => ({
-        label: `${cols[c.key] ? "✓ " : ""}${c.label}`,
-        enabled: !(cols[c.key] && visibleCount === 1),
-        run: () => setters[c.key](!cols[c.key]),
+        label: `${userCols[c.key] ? "✓ " : ""}${c.label}`,
+        enabled: !(userCols[c.key] && visibleCount === 1),
+        run: () => setters[c.key](!userCols[c.key]),
       })),
       "-",
       { label: "Reset columns to default layout", run: () => resetColumns(false) },
@@ -475,7 +477,10 @@ export function GraphView(props: Props) {
     if (!el) {
       return;
     }
-    const observer = new ResizeObserver(() => setHeight(el.clientHeight));
+    const observer = new ResizeObserver(() => {
+      setHeight(el.clientHeight);
+      setWidth(el.clientWidth);
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -493,6 +498,18 @@ export function GraphView(props: Props) {
     return Math.min(lanes * LANE + 2 * GUTTER + 2 * ZONE_MARGIN, 360);
   }, [props.rows]);
   const graphWidth = graphUser > 0 ? graphUser : autoGraphWidth;
+  const cols = useMemo<Columns>(() => {
+    const next = { ...userCols };
+    let used = (next.ref ? refsWidth : 0) + (next.graph ? graphWidth : 0) + (next.author ? authorWidth : 0) + (next.date ? dateWidth : 0) + (next.sha ? shaWidth : 0);
+    const widths = { date: dateWidth, sha: shaWidth, author: authorWidth };
+    for (const key of ["date", "sha", "author"] as const) {
+      if (width > 0 && next.message && next[key] && width - used < MESSAGE_SHOWN) {
+        next[key] = false;
+        used -= widths[key];
+      }
+    }
+    return next;
+  }, [userCols, width, refsWidth, graphWidth, authorWidth, dateWidth, shaWidth]);
 
   const dateLabels = useMemo(() => {
     let previous: string | null = null;

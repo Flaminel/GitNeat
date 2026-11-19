@@ -832,5 +832,5 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 
 - Decision: The message cell and its header have a minimum width of 50 px. The header and the graph list clip the columns that do not fit.
 - Reason: With the default widths, a graph panel of 715 px gave the message column 0 px. The headers Commit message and Author overlapped. Source sets a minimum of 50 px for the message zone (see `docs/EVIDENCE.md` section 11). Found in the T05 app test.
-- Rules: The header labels do not wrap. The graph list has no horizontal scroll bar. The columns after the message are cut at the right edge when the panel is too narrow.
-- Limits: GitNeat does not shrink the author, date and sha columns by itself. The user hides a column or widens the panel.
+- Rules: The header labels do not wrap. The graph list has no horizontal scroll bar. If the message column is narrower than 120 px, `GraphView` hides the Date / Time, then the Sha, then the Author column, until the message column has 120 px. The saved column flags do not change, and the columns return when the panel grows.
+- Limits: The columns Branch / Tag and Graph never hide. If they fill the panel, the message column keeps 50 px and the rest is clipped. The 120 px threshold is a GitNeat value, not a Source value.
