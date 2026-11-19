@@ -609,7 +609,8 @@ export function GraphView(props: Props) {
       return;
     }
     const i = matchList.indexOf(props.selected ?? "");
-    props.onSelect(matchList[(i + step + matchList.length) % matchList.length]);
+    const next = i < 0 && step < 0 ? matchList.length - 1 : (i + step + matchList.length) % matchList.length;
+    props.onSelect(matchList[next]);
   };
 
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 10);
@@ -633,29 +634,6 @@ export function GraphView(props: Props) {
         {cols.message ? (
           <div className="col-head grow">
             COMMIT MESSAGE
-            {query !== null && (
-              <span className="graph-search">
-                {Icon.search}
-                <input
-                  id="graph-search"
-                  placeholder="Search commits"
-                  value={query}
-                  spellCheck={false}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      jump(e.shiftKey ? -1 : 1);
-                    } else if (e.key === "Escape") {
-                      setQuery(null);
-                    }
-                  }}
-                />
-                <span className="search-count">{matches === null ? "" : matchList.length === 0 ? "0 results" : `${matchIndex + 1} of ${matchList.length}`}</span>
-                <button className="icon-btn" onClick={() => setQuery(null)}>
-                  ×
-                </button>
-              </span>
-            )}
           </div>
         ) : (
           <div className="col-head grow" />
@@ -678,6 +656,29 @@ export function GraphView(props: Props) {
             <Splitter className="col-resize left" value={shaWidth} set={setShaWidth} min={SHA_MIN} max={SHA_MAX} invert />
           </div>
         )}
+          {query !== null && (
+            <span className="graph-search">
+              {Icon.search}
+              <input
+                id="graph-search"
+                placeholder="Search commits"
+                value={query}
+                spellCheck={false}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    jump(e.shiftKey ? -1 : 1);
+                  } else if (e.key === "Escape") {
+                    setQuery(null);
+                  }
+                }}
+              />
+              <span className="search-count">{matches === null ? "" : matchList.length === 0 ? "0 results" : `${matchIndex + 1} of ${matchList.length}`}</span>
+              <button className="icon-btn" onClick={() => setQuery(null)}>
+                ×
+              </button>
+            </span>
+          )}
         <button className="icon-btn columns-btn" title="Columns settings" onClick={columnsMenu}>
           {Icon.gear}
         </button>

@@ -2339,8 +2339,12 @@ a.sha {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
-  margin-right: 8px;
+  position: absolute;
+  right: 28px;
+  top: 2px;
+  z-index: 2;
+  padding-left: 6px;
+  background: var(--bg);
   color: var(--text-dim);
   letter-spacing: normal;
 }
