@@ -323,14 +323,15 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   if (!detail) {
     return <div className="detail-empty">{loadError ?? "Loading…"}</div>;
   }
-  const [subject, ...body] = detail.message.split("\n");
+  const stash = ctx.data.stashes.find((s) => s.sha === detail.sha);
+  const fullMessage = stash?.message ?? detail.message;
+  const [subject, ...body] = fullMessage.split("\n");
   const source: DiffSource = { kind: "commit", sha: detail.sha, parent: detail.parents[0] };
   const changed = new Map(detail.files.map((f) => [f.path, f]));
   const listed: FileChange[] = showAll && all ? all.map((p) => changed.get(p) ?? { path: p, status: " " }) : detail.files;
   const extra = detail.untracked ?? [];
   const withUntracked: FileChange[] = [...listed, ...extra.filter((p) => !listed.some((f) => f.path === p)).map((p) => ({ path: p, status: "A" }))];
   const files = [...withUntracked].sort((a, b) => (desc ? b.path.localeCompare(a.path) : a.path.localeCompare(b.path)));
-  const stash = ctx.data.stashes.find((s) => s.sha === detail.sha);
   const isHead = detail.sha === ctx.data.head;
   const depth = stash ? 0 : A.rewordDepth(ctx.data, detail.sha);
   const saveMessage = async () => {
@@ -338,7 +339,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
       return;
     }
     const message = editing.description.trim() ? `${editing.summary.trim()}\n\n${editing.description.trim()}` : editing.summary.trim();
-    if (message === detail.message.trim()) {
+    if (message === fullMessage.trim()) {
       setEditing(null);
       return;
     }

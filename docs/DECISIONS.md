@@ -335,7 +335,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: In `CommitInfo` in `src/components/DetailPanel.tsx`, a click on an editable message opens an edit mode. The edit mode has a summary input, a description textarea, an "Update Message" button and a cancel button. `saveMessage` in `src/actions.ts` amends HEAD or rewords an older commit through the rebase plan.
 - Reason: Source edits the message in place in the right panel (see `docs/EVIDENCE.md` section 10). Task T03 of the parity plan (D50).
 - Rules: `rewordDepth` returns the number of commits above the commit, or null if the commit cannot be edited. The walk starts at HEAD and follows the first parent. Each commit above the target must have one parent. The target must have one parent or none, but HEAD can be a merge commit. If an operation (merge, rebase, cherry-pick or revert) runs, no commit is editable. An editable message has the class `editable-message` with a blue border on hover. The tooltip is "Click to amend your commit message" for HEAD and "Click to reword your commit message" for other commits. For an older commit, the edit mode shows "Rewording this commit message will cause N commits to be rebased.", with N = depth + 1. The cancel button is "Cancel Amend" for HEAD and "Cancel Reword" for other commits. If the new message is equal to the old message, the save closes the edit mode and runs no git command.
-- Limits: The context menu item "Edit commit message" still opens the modal prompt, but it uses the same `saveMessage` function. The menu shows the item for merge commits and for commits below a merge. GitNeat cannot amend a stash message. After the save, `RepoView` selects HEAD, because the old sha is gone. The selection does not follow the rewritten commit. The tooltip is the native `title`, without the 250 ms delay.
+- Limits: The context menu item "Edit commit message" still opens the modal prompt, but it uses the same `saveMessage` function. The menu shows the item for merge commits and for commits below a merge. The same edit mode amends a stash message through `stashEdit` (D72). After the save, `RepoView` selects HEAD, because the old sha is gone. The selection does not follow the rewritten commit. The tooltip is the native `title`, without the 250 ms delay.
 
 ## D54. The commit message box has a fixed height and scrolls
 
@@ -477,7 +477,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The stash menu has "Edit stash message" and Hide. The remote menu has Hide and Solo. The tag submenu "Push tag to remote" has "Push {tag} to all remotes". A local tag delete asks to delete the tag from the remotes. A worktree remove that git refuses asks for a Force Remove.
 - Reason: The Source menus have these items (`docs/EVIDENCE.md` sections 2.3, 2.4, 2.8 and 11). Task T17.
 - Rules: Stash Hide toggles `refs/stash`, the same key as "Hide all stashes". Remote Hide and Solo act on all refs of the remote. The labels read Show or Stop soloing if all refs of the remote are hidden or soloed. The menu omits both items if the remote has no refs.
-- Rules: `stashEdit` runs `git stash store -m` for the same commit, then drops the old entry. The `removeWorktree` action returns `needs-confirm:force-remove` when git asks for `--force`. After the confirm, the retry uses `--force --force`, so it also removes a locked worktree.
+- Rules: `stashEdit` for a stash above the top drops the old entry after `git stash store -m`. For the top stash, `git stash store` does nothing for the same commit, so `stashEdit` drops the stash first and then stores it again. The `removeWorktree` action returns `needs-confirm:force-remove` when git asks for `--force`. After the confirm, the retry uses `--force --force`, so it also removes a locked worktree.
 - Limits: "Edit stash message" moves the stash to the top of the stash list, because git cannot change a message in place. The tag prompt does not check which remotes hold the tag. A remote without the tag shows a toast error.
 - Limits: "Compare commit against working directory" is not added. GitNeat has no compare view in the right panel. The task needs a new loader and a new detail mode. Follow-up task.
 - Limits: No manual check in the app: the Tauri window was not started in this task. The menu trees and handlers are covered by the comparison tests. The Rust actions were run on a temporary repository.
@@ -820,3 +820,9 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: `src/main.tsx` calls `preventDefault` on each `contextmenu` event, except in `input`, `textarea`, `.monaco-editor` and `.xterm`.
 - Reason: Without it, the WebKit menu (Reload, Inspect Element) opens at the right-click and the native menu from `context_menu` does not show. Found in the T03 app test.
 - Limits: The text fields keep the WebKit menu.
+
+## D105. Stash message edit fixes
+- Decision: The right panel shows and edits the stash message from the stash list, not from the stash commit. The Delete button of the stash panel has white text.
+- Reason: The stash store command changes only the stash list message, so the panel kept the old text. The red text on the red button was unreadable. Found in the T03 app test.
+- Rules: For the top stash, `stashEdit` now drops and stores. Before, the store did nothing and the drop deleted the next stash. See D72.
+- Limits: A stash whose parent commit is not in the graph, for example after an amend of HEAD, has no graph row. Selection from the stash list falls back to HEAD.

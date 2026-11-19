@@ -1117,10 +1117,6 @@ a.sha {
   flex: 1;
 }
 
-.stash-actions .danger {
-  color: var(--red);
-}
-
 .message-edit {
   display: flex;
   flex-direction: column;
