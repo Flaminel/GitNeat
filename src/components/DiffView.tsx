@@ -187,6 +187,7 @@ function HunkView(props: {
   kind: OpenFile["source"]["kind"];
   wrap: boolean;
   canStage: boolean;
+  canRevert: boolean;
   onPatch(patch: string, action: PatchAction): Promise<unknown>;
 }) {
   const { diff, kind } = props;
@@ -283,7 +284,7 @@ function HunkView(props: {
                   Unstage Hunk
                 </button>
               )}
-              {kind === "commit" && (
+              {props.canRevert && (
                 <button className="hunk-btn" title="Apply the inverse of this hunk to your working directory" onClick={() => props.onPatch(patch(), "revert")}>
                   Revert Hunk
                 </button>
@@ -785,7 +786,7 @@ export function DiffView(props: Props) {
       diff.hunks.length === 0 ? (
         <div className="diff-empty">{status === "D" ? "File was deleted" : "File contents are unchanged"}</div>
       ) : (
-        <HunkView diff={diff} sides={sides} language={language} kind={kind} wrap={wrap} canStage={canStage} onPatch={props.onPatch} />
+        <HunkView diff={diff} sides={sides} language={language} kind={kind} wrap={wrap} canStage={canStage} canRevert={kind === "commit" && status === "M"} onPatch={props.onPatch} />
       );
   } else {
     body = (
