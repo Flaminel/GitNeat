@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { gitneat, MenuSpec } from "./api";
 import { BAD_REF_NAME } from "./repoSetup";
 
@@ -208,6 +208,17 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
     close();
     request.resolve(result);
   };
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        finishRef.current(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <div className="modal-backdrop" onMouseDown={() => finish(null)}>
       <form
@@ -216,11 +227,6 @@ function Dialog({ request, close }: { request: DialogRequest; close: () => void 
         onSubmit={(e) => {
           e.preventDefault();
           finish(values);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            finish(null);
-          }
         }}
       >
         {request.title && <h3>{request.title}</h3>}
