@@ -352,13 +352,14 @@ export function Splitter(props: {
   max: number;
   invert?: boolean;
   vertical?: boolean;
+  measure?(): number;
   className?: string;
 }) {
   const start = (e: React.MouseEvent) => {
     e.preventDefault();
     const pos = (ev: MouseEvent | React.MouseEvent) => (props.vertical ? ev.clientY : ev.clientX);
     const x0 = pos(e);
-    const w0 = props.value;
+    const w0 = props.measure?.() ?? props.value;
     let last = w0;
     const mode = props.vertical ? "resizing-row" : "resizing";
     const move = (ev: MouseEvent) => {

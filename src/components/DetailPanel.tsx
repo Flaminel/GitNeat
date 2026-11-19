@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import * as A from "../actions";
 import { Ctx } from "../actions";
 import { gitneat } from "../api";
@@ -289,6 +289,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
   const [editing, setEditing] = useState<{ summary: string; description: string } | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [messageHeight, setMessageHeight] = useStoredWidth("message", 130);
+  const messageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!copied) {
@@ -398,6 +399,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
       ) : (
         <>
           <div
+            ref={messageRef}
             style={{ height: messageHeight }}
             className={`message-box${depth !== null ? " editable-message" : ""}`}
             title={depth === null ? undefined : stash ? "Click to amend your stash message" : isHead ? "Click to amend your commit message" : "Click to reword your commit message"}
@@ -410,7 +412,7 @@ function CommitInfo({ ctx, sha, openFile, onOpenFile, onSelectSha }: Props) {
             <div className="subject">{subject}</div>
             {body.join("\n").trim() && <pre className="body">{body.join("\n").trim()}</pre>}
           </div>
-          <Splitter vertical value={messageHeight} set={setMessageHeight} min={60} max={600} />
+          <Splitter vertical value={messageHeight} set={setMessageHeight} min={60} max={600} measure={() => messageRef.current?.offsetHeight ?? messageHeight} />
         </>
       )}
       <div className="author">

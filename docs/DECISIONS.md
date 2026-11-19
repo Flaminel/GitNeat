@@ -342,7 +342,7 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: In `CommitInfo` in `src/components/DetailPanel.tsx`, the message box has a fixed height. A long message scrolls inside the box. A handle below the box changes the height. `useStoredWidth("message", 130)` in `src/ui.tsx` saves the height.
 - Reason: A long message overlapped the author block and the file list. Source gives the message container a saved height, a bottom resize handle, `overflow-x: hidden` and a scrollable description (see `docs/EVIDENCE.md` section 10). Task T04 of the parity plan (D50).
 - Rules: `.message-box` has `overflow-y: auto`, `overflow-x: hidden` and `overflow-wrap: anywhere`, so a long word breaks. The height is 130 px at first, 60 px minimum and 600 px maximum. `Splitter` has a `vertical` prop for a row handle. The handle sets the class `resizing-row` on the body while the drag runs.
-- Limits: The height is a value in the app state file (D55), not a profile setting. A short message keeps the full box height. If the panel is short, the box shrinks to a minimum of 60 px, and the file list keeps a minimum height of 120 px. The saved height does not change. A drag from a shrunk box starts from the saved height. The edit mode does not use the saved height.
+- Limits: The height is a value in the app state file (D55), not a profile setting. A short message keeps the full box height. If the panel is short, the box shrinks to a minimum of 60 px, and the file list keeps a minimum height of 120 px. The saved height does not change. A drag starts from the shown height of the box: `Splitter` has a `measure` prop for this. The edit mode does not use the saved height.
 
 ## D55. Layout sizes and view options live in the app state file
 
