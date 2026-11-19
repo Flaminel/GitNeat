@@ -440,6 +440,15 @@ export function RepoView({ path, settings, onPreferences, prefs, setPrefs, mainS
   }, [openFile]);
 
   useEffect(() => {
+    if (!data || !openFile?.merge) {
+      return;
+    }
+    if (!data.status.some((e) => e.path === openFile.path && (e.index === "U" || e.work === "U"))) {
+      setOpenFile(null);
+    }
+  }, [data, openFile]);
+
+  useEffect(() => {
     if (!data || !openFile || openFile.view || openFile.merge || (openFile.source.kind !== "unstaged" && openFile.source.kind !== "staged")) {
       return;
     }

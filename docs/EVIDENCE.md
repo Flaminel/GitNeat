@@ -340,6 +340,8 @@ Source: gap analysis of 2026-11-18. R offsets in sections 9 to 13 are byte offse
 
 ## 12. Git operation flows
 
+- **Observed (merge editor close, R 3819296, 3378332)**: the work dir refresh saga computes `Boolean(fileBeingResolved && !conflictedByName[fileBeingResolved])` and sends it as `fileBeingResolvedConflictsVanished`. The merge reducer then clears the diff3 data of that file and sets `fileBeingResolved` to null. The editor closes. The event `FileClosed` does the same (R 3378669).
+
 - **Observed (push rejected, R 3737988)**: the prompt has a Pull button, a "Force Push" button that asks a second time (`PromptForPush-ConfirmForcePush`) and Cancel. Texts: `PromptForPush-LocalIsBehindRemote`, `PromptForPush-RemoteChanged` (R 3739320).
 - **Observed (push flow, R 3742342, 3738576)**: the push saga retries up to 4 times (`Error-MaxRetryReached`="Maximum retry limit reached"). The prompts have no title, only a message. It picks the prompt from the git hint text.
   - Hint "remote contains work that you do not have locally" or "tip of the remote-tracking branch has been updated since the last checkout" (also `stale info` after a lease push): the message is `PromptForPush-RemoteChanged`="{0} '{1}' has changed on the remote since the last fetch." with {0}=bold `PromptForPush-Warning`="WARNING!". Buttons: Fetch, "Force Push Anyway" (`ForcePushWithoutLeaseButtonLabel`), Cancel. Force Push Anyway asks a confirm with `PromptForPush-ConfirmForcePush`="Force push is a destructive action and cannot be undone. Are you sure?" and the buttons "Force Push" and Cancel. The push then runs with plain `--force`. Fetch runs a fetch and ends the push.
