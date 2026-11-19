@@ -285,6 +285,9 @@ const RowView = memo(function RowView(props: {
         ["--tint-x" as string]: `${(cols.ref ? props.refsWidth : 0) + cx}px` }}
       onMouseDown={(e) => {
         if (e.button === 0) {
+          if (e.shiftKey) {
+            e.preventDefault();
+          }
           props.onSelect(commit.sha, e.metaKey || e.ctrlKey ? "toggle" : e.shiftKey ? "range" : undefined);
         }
       }}
