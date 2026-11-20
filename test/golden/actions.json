@@ -1698,7 +1698,7 @@
   "ret": false,
   "log": [
    "task Fast-forward",
-   "toast error From .\n ! [rejected]        origin/main -> main  (non-fast-forward)",
+   "toast error From .\n ! [rejected] origin/main -> main  (non-fast-forward)",
    "refresh"
   ],
   "state": {
@@ -2136,7 +2136,7 @@
   "ret": false,
   "log": [
    "task Pull main",
-   "toast error From <tmp>/<R>/<T>/pullBranch-other-error/remote\n ! [rejected]        main       -> main  (non-fast-forward)",
+   "toast error From <tmp>/<R>/<T>/pullBranch-other-error/remote\n ! [rejected] main       -> main  (non-fast-forward)",
    "refresh"
   ],
   "state": {
@@ -3332,7 +3332,7 @@
   "ret": null,
   "log": [
    "task Create patch",
-   "saveFile 10d7a0a.patch From 10d7a0a1dd6bf16abc54c35a33581451ac1d42ba Mon Sep 17 00:00:00 2001\nFrom: t <t@x>\nDate: Wed, 1 Jan 2020 00:00:00 +0000\nSubject: [PATCH] second\n\n---\n b.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 b.txt\n\ndiff --git a/b.txt b/b.txt\nnew file mode 100644\nindex 0000000..f719efd\n--- /dev/null\n+++ b/b.txt\n@@ -0,0 +1 @@\n+two\n-- \n2.50.1 (Apple Git-155)\n\n"
+   "saveFile 10d7a0a.patch From 10d7a0a1dd6bf16abc54c35a33581451ac1d42ba Mon Sep 17 00:00:00 2001\nFrom: t <t@x>\nDate: Wed, 1 Jan 2020 00:00:00 +0000\nSubject: [PATCH] second\n\n---\n b.txt | 1 +\n 1 file changed, 1 insertion(+)\n create mode 100644 b.txt\n\ndiff --git a/b.txt b/b.txt\nnew file mode 100644\nindex 0000000..f719efd\n--- /dev/null\n+++ b/b.txt\n@@ -0,0 +1 @@\n+two\n-- \n<git>\n\n"
   ],
   "state": {
    "refs": "refs/heads/main 10d7a0a1dd6bf16abc54c35a33581451ac1d42ba  second\n",

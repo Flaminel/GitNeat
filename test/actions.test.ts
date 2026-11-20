@@ -809,7 +809,14 @@ after(() => {
   }
 });
 
-const check = golden("actions");
+const record = golden("actions");
+
+function check(key: string, value: unknown): void {
+  const text = JSON.stringify(value)
+    .replace(/\\n-- \\n[0-9][^\\]*\\n/g, "\\n-- \\n<git>\\n")
+    .replace(/\[rejected\] +/g, "[rejected] ");
+  record(key, JSON.parse(text));
+}
 
 for (const s of scenarios) {
   test(`actions: ${s.name}`, { skip: !enabled, timeout: 120000 }, async () => {
