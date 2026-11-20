@@ -14,20 +14,118 @@ pub struct Editor {
 }
 
 pub const EDITORS: &[Editor] = &[
-    Editor { id: "atom", label: "Atom", bins: &["atom"], apps: &["Atom.app"], multi: false, os: None },
-    Editor { id: "cursor", label: "Cursor", bins: &["cursor"], apps: &["Cursor.app"], multi: true, os: None },
-    Editor { id: "windsurf", label: "Windsurf", bins: &["windsurf"], apps: &["Windsurf.app"], multi: true, os: None },
-    Editor { id: "vscode", label: "Visual Studio Code", bins: &["code"], apps: &["Visual Studio Code.app"], multi: true, os: None },
-    Editor { id: "zed", label: "Zed", bins: &["zed"], apps: &["Zed.app"], multi: true, os: None },
-    Editor { id: "eclipse", label: "Eclipse", bins: &["eclipse"], apps: &["Eclipse.app"], multi: false, os: None },
-    Editor { id: "xcode", label: "Xcode", bins: &["xed"], apps: &["Xcode.app"], multi: false, os: Some("macos") },
-    Editor { id: "sublime", label: "Sublime Text", bins: &["subl"], apps: &["Sublime Text.app"], multi: true, os: None },
-    Editor { id: "intellij-ce", label: "IntelliJ IDEA CE", bins: &["idea"], apps: &["IntelliJ IDEA CE.app"], multi: true, os: None },
-    Editor { id: "intellij", label: "IntelliJ IDEA", bins: &["idea"], apps: &["IntelliJ IDEA.app"], multi: true, os: None },
-    Editor { id: "pycharm", label: "PyCharm", bins: &["pycharm", "charm"], apps: &["PyCharm.app"], multi: true, os: None },
-    Editor { id: "pycharm-ce", label: "PyCharm CE", bins: &["pycharm", "charm"], apps: &["PyCharm CE.app"], multi: true, os: None },
-    Editor { id: "rider", label: "Rider", bins: &["rider"], apps: &["Rider.app"], multi: false, os: None },
-    Editor { id: "visualstudio", label: "Visual Studio", bins: &["devenv"], apps: &[], multi: false, os: Some("windows") },
+    Editor {
+        id: "atom",
+        label: "Atom",
+        bins: &["atom"],
+        apps: &["Atom.app"],
+        multi: false,
+        os: None,
+    },
+    Editor {
+        id: "cursor",
+        label: "Cursor",
+        bins: &["cursor"],
+        apps: &["Cursor.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "windsurf",
+        label: "Windsurf",
+        bins: &["windsurf"],
+        apps: &["Windsurf.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "vscode",
+        label: "Visual Studio Code",
+        bins: &["code"],
+        apps: &["Visual Studio Code.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "zed",
+        label: "Zed",
+        bins: &["zed"],
+        apps: &["Zed.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "eclipse",
+        label: "Eclipse",
+        bins: &["eclipse"],
+        apps: &["Eclipse.app"],
+        multi: false,
+        os: None,
+    },
+    Editor {
+        id: "xcode",
+        label: "Xcode",
+        bins: &["xed"],
+        apps: &["Xcode.app"],
+        multi: false,
+        os: Some("macos"),
+    },
+    Editor {
+        id: "sublime",
+        label: "Sublime Text",
+        bins: &["subl"],
+        apps: &["Sublime Text.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "intellij-ce",
+        label: "IntelliJ IDEA CE",
+        bins: &["idea"],
+        apps: &["IntelliJ IDEA CE.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "intellij",
+        label: "IntelliJ IDEA",
+        bins: &["idea"],
+        apps: &["IntelliJ IDEA.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "pycharm",
+        label: "PyCharm",
+        bins: &["pycharm", "charm"],
+        apps: &["PyCharm.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "pycharm-ce",
+        label: "PyCharm CE",
+        bins: &["pycharm", "charm"],
+        apps: &["PyCharm CE.app"],
+        multi: true,
+        os: None,
+    },
+    Editor {
+        id: "rider",
+        label: "Rider",
+        bins: &["rider"],
+        apps: &["Rider.app"],
+        multi: false,
+        os: None,
+    },
+    Editor {
+        id: "visualstudio",
+        label: "Visual Studio",
+        bins: &["devenv"],
+        apps: &[],
+        multi: false,
+        os: Some("windows"),
+    },
 ];
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -59,7 +157,11 @@ fn find_binary(names: &[&str]) -> Option<PathBuf> {
         dirs.push(PathBuf::from("/usr/local/bin"));
         dirs.push(PathBuf::from("/opt/homebrew/bin"));
     }
-    let suffixes: &[&str] = if cfg!(windows) { &[".exe", ".cmd"] } else { &[""] };
+    let suffixes: &[&str] = if cfg!(windows) {
+        &[".exe", ".cmd"]
+    } else {
+        &[""]
+    };
     for name in names {
         for dir in &dirs {
             for suffix in suffixes {
@@ -105,7 +207,11 @@ pub fn plan(launcher: &Launcher, multi: bool, paths: &[String]) -> Vec<(String, 
     let build = |chunk: &[String]| match launcher {
         Launcher::Binary(bin) => (bin.to_string_lossy().into_owned(), chunk.to_vec()),
         Launcher::Bundle(app) => {
-            let mut args = vec!["-na".to_string(), app.to_string_lossy().into_owned(), "--args".to_string()];
+            let mut args = vec![
+                "-na".to_string(),
+                app.to_string_lossy().into_owned(),
+                "--args".to_string(),
+            ];
             args.extend(chunk.iter().cloned());
             ("open".to_string(), args)
         }
@@ -113,11 +219,13 @@ pub fn plan(launcher: &Launcher, multi: bool, paths: &[String]) -> Vec<(String, 
     if multi {
         vec![build(paths)]
     } else {
-        paths.iter().map(|p| build(std::slice::from_ref(p))).collect()
+        paths
+            .iter()
+            .map(|p| build(std::slice::from_ref(p)))
+            .collect()
     }
 }
 
-#[tauri::command]
 pub async fn external_editors() -> Vec<ExternalEditor> {
     tokio::task::spawn_blocking(|| {
         EDITORS
@@ -144,8 +252,11 @@ fn spawn(label: &str, program: &str, args: &[String]) -> Result<(), String> {
         .map_err(|e| format!("Failed to open {label}: {e}"))
 }
 
-#[tauri::command]
-pub async fn open_in_editor(editor: String, custom_path: String, paths: Vec<String>) -> Result<(), String> {
+pub async fn open_in_editor(
+    editor: String,
+    custom_path: String,
+    paths: Vec<String>,
+) -> Result<(), String> {
     if editor.is_empty() {
         return Err("There is no external editor configured in your settings".into());
     }
@@ -189,7 +300,10 @@ mod tests {
     fn plan_binary_multi_and_single() {
         let bin = Launcher::Binary(PathBuf::from("/bin/code"));
         let paths = vec!["a".to_string(), "b".to_string()];
-        assert_eq!(plan(&bin, true, &paths), vec![("/bin/code".to_string(), paths.clone())]);
+        assert_eq!(
+            plan(&bin, true, &paths),
+            vec![("/bin/code".to_string(), paths.clone())]
+        );
         assert_eq!(
             plan(&bin, false, &paths),
             vec![
@@ -204,6 +318,9 @@ mod tests {
         let app = Launcher::Bundle(PathBuf::from("/Applications/Zed.app"));
         let planned = plan(&app, true, &["a".to_string()]);
         assert_eq!(planned[0].0, "open");
-        assert_eq!(planned[0].1, vec!["-na", "/Applications/Zed.app", "--args", "a"]);
+        assert_eq!(
+            planned[0].1,
+            vec!["-na", "/Applications/Zed.app", "--args", "a"]
+        );
     }
 }

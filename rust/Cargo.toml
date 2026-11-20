@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["app", "graph", "diff", "merge", "repo", "spike"]
+members = ["app", "graph", "diff", "merge", "repo", "addon"]
 
 [profile.release]
 lto = true

@@ -1,25 +1,21 @@
 use crate::actions;
+use crate::appmenu;
+use crate::askpass;
+use crate::editors;
 use crate::git;
-use crate::load::Operation;
-use crate::load::{self, CommitPage, RepoData};
-use crate::loaders::{
-    self, DiffSides, DiffSource, HeadMessage, ImageSides, MergeLoad, OperationInfo,
-};
-use crate::menu::{self, Chosen, MenuSpec};
+use crate::load::{self, Operation};
+use crate::loaders::{self, DiffSource};
 use crate::menus::{self, MenuKind};
 use crate::paths;
+use crate::setup;
 use crate::store;
-use crate::watch::{self, Watchers};
-use diff::port::ParsedDiff;
-use graph::port::Lanes;
-use repo::port::BlameLine;
-use serde_json::Value;
+use crate::terminal;
+use crate::watch;
+use crate::workspaces;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State, Window};
-use tauri_plugin_clipboard_manager::ClipboardExt;
-use tauri_plugin_dialog::{DialogExt, FilePath};
-use tauri_plugin_opener::OpenerExt;
-use tokio::sync::oneshot;
 
 type Res<T> = Result<T, String>;
 
@@ -27,237 +23,19 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-fn open_roots(watchers: &Watchers) -> Vec<String> {
-    watchers
-        .0
-        .lock()
-        .map(|m| m.keys().cloned().collect())
-        .unwrap_or_default()
+fn arg<T: DeserializeOwned>(args: &Value, key: &str) -> Res<T> {
+    serde_json::from_value(args.get(key).cloned().unwrap_or(Value::Null))
+        .map_err(|e| format!("Bad argument {key}: {e}"))
 }
 
-fn to_path(picked: Option<FilePath>) -> Option<PathBuf> {
-    picked.and_then(|p| p.into_path().ok())
+fn out<T: Serialize>(value: T) -> Res<Value> {
+    serde_json::to_value(value).map_err(err)
 }
 
-#[tauri::command]
-pub fn askpass_reply(request: u64, reply: Option<crate::askpass::Reply>) {
-    crate::askpass::reply(request, reply);
+fn done<T: Serialize>(result: Res<T>) -> Res<Value> {
+    out(result?)
 }
 
-#[tauri::command]
-pub async fn action(cwd: String, name: String, args: Value) -> Res<Value> {
-    actions::dispatch(&cwd, &name, args).await
-}
-
-#[tauri::command]
-pub async fn load_repo(
-    cwd: String,
-    hidden: Vec<String>,
-    solo: Vec<String>,
-    limit: u32,
-) -> RepoData {
-    load::load_repo(&cwd, &hidden, &solo, limit).await
-}
-
-#[tauri::command]
-pub async fn load_commits(
-    cwd: String,
-    hidden: Vec<String>,
-    solo: Vec<String>,
-    skip: u32,
-    limit: u32,
-    lanes: Lanes,
-) -> CommitPage {
-    load::load_commits(&cwd, &hidden, &solo, skip, limit, lanes).await
-}
-
-#[tauri::command]
-pub async fn load_commit(cwd: String, sha: String) -> Res<Value> {
-    loaders::load_commit(&cwd, &sha).await
-}
-
-#[tauri::command]
-pub async fn load_compare(
-    cwd: String,
-    shas: Vec<String>,
-    wip: bool,
-) -> Res<Vec<loaders::CompareFile>> {
-    loaders::load_compare(&cwd, &shas, wip).await
-}
-
-#[tauri::command]
-pub async fn load_all_files(cwd: String, sha: String) -> Res<Vec<String>> {
-    loaders::load_all_files(&cwd, &sha).await
-}
-
-#[tauri::command]
-pub async fn load_diff(
-    cwd: String,
-    source: DiffSource,
-    file: String,
-    ignore_whitespace: Option<bool>,
-    orig: Option<String>,
-) -> Res<ParsedDiff> {
-    loaders::load_diff(
-        &cwd,
-        &source,
-        &file,
-        ignore_whitespace.unwrap_or(false),
-        orig.as_deref(),
-    )
-    .await
-}
-
-#[tauri::command]
-pub async fn load_sides(
-    watchers: State<'_, Watchers>,
-    cwd: String,
-    source: DiffSource,
-    file: String,
-    orig: Option<String>,
-) -> Res<DiffSides> {
-    let roots = open_roots(&watchers);
-    Ok(loaders::load_sides(&cwd, &source, &file, orig.as_deref(), &roots).await)
-}
-
-#[tauri::command]
-pub async fn load_images(
-    watchers: State<'_, Watchers>,
-    cwd: String,
-    source: DiffSource,
-    file: String,
-    orig: Option<String>,
-) -> Res<ImageSides> {
-    let roots = open_roots(&watchers);
-    Ok(loaders::load_images(&cwd, &source, &file, orig.as_deref(), &roots).await)
-}
-
-#[tauri::command]
-pub async fn load_blame(cwd: String, file: String, rev: Option<String>) -> Res<Vec<BlameLine>> {
-    loaders::load_blame(&cwd, &file, rev.as_deref()).await
-}
-
-#[tauri::command]
-pub async fn load_file_history_page(cwd: String, file: String, pages: u32) -> Res<Value> {
-    loaders::load_file_history_page(&cwd, &file, pages.max(1) as usize * 30000).await
-}
-
-#[tauri::command]
-pub async fn load_file_history(cwd: String, file: String, limit: Option<u32>) -> Res<Vec<Value>> {
-    loaders::load_file_history(&cwd, &file, limit.unwrap_or(200)).await
-}
-
-#[tauri::command]
-pub async fn load_merge(cwd: String, path: String, operation: Option<Operation>) -> Res<MergeLoad> {
-    loaders::load_merge(&cwd, &path, operation).await
-}
-
-#[tauri::command]
-pub async fn load_operation(cwd: String, operation: Option<Operation>) -> OperationInfo {
-    loaders::load_operation(&cwd, operation).await
-}
-
-#[tauri::command]
-pub async fn load_submodules(cwd: String) -> Vec<crate::actions::submodule::Submodule> {
-    crate::actions::submodule::load(&cwd).await
-}
-
-#[tauri::command]
-pub async fn load_head_message(cwd: String) -> HeadMessage {
-    loaders::load_head_message(&cwd).await
-}
-
-#[tauri::command]
-pub async fn has_commit_hook(cwd: String) -> bool {
-    loaders::has_commit_hook(&cwd).await
-}
-
-async fn pick_folder(window: &Window, create: bool) -> Option<PathBuf> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(window)
-        .set_can_create_directories(create)
-        .pick_folder(move |p| {
-            let _ = tx.send(to_path(p));
-        });
-    rx.await.ok().flatten()
-}
-
-#[tauri::command]
-pub async fn open_repo_dialog(window: Window) -> Value {
-    let Some(dir) = pick_folder(&window, false).await else {
-        return Value::Null;
-    };
-    let dir_text = dir.to_string_lossy().into_owned();
-    let top = git::run_git(
-        &dir_text,
-        &["rev-parse".into(), "--show-toplevel".into()],
-        None,
-        None,
-    )
-    .await;
-    if top.code == 0 {
-        let path = paths::normalize(&PathBuf::from(top.stdout.trim()));
-        Value::String(path.to_string_lossy().into_owned())
-    } else {
-        serde_json::json!({ "error": format!("Not a git repository: {dir_text}") })
-    }
-}
-
-#[tauri::command]
-pub async fn pick_directory(window: Window) -> Option<String> {
-    pick_folder(&window, true)
-        .await
-        .map(|p| p.to_string_lossy().into_owned())
-}
-
-#[tauri::command]
-pub async fn missing_paths(paths: Vec<String>) -> Vec<String> {
-    paths
-        .into_iter()
-        .filter(|p| !std::path::Path::new(p).is_dir())
-        .collect()
-}
-
-#[tauri::command]
-pub async fn save_file(window: Window, default_name: String, content: String) -> Res<bool> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_file_name(default_name)
-        .save_file(move |p| {
-            let _ = tx.send(to_path(p));
-        });
-    let Some(target) = rx.await.ok().flatten() else {
-        return Ok(false);
-    };
-    tokio::fs::write(target, content).await.map_err(err)?;
-    Ok(true)
-}
-
-#[tauri::command]
-pub async fn open_patch(window: Window) -> Res<Option<String>> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .add_filter("Patch", &["patch", "diff"])
-        .pick_file(move |p| {
-            let _ = tx.send(to_path(p));
-        });
-    let Some(source) = rx.await.ok().flatten() else {
-        return Ok(None);
-    };
-    let bytes = tokio::fs::read(source).await.map_err(err)?;
-    Ok(Some(String::from_utf8_lossy(&bytes).into_owned()))
-}
-
-#[tauri::command]
 pub async fn write_temp(content: String) -> Res<String> {
     let dir = tempfile::Builder::new()
         .prefix("gitneat-")
@@ -269,152 +47,297 @@ pub async fn write_temp(content: String) -> Res<String> {
     Ok(file.to_string_lossy().replace('\\', "/"))
 }
 
-#[tauri::command]
-pub async fn read_file(
-    watchers: State<'_, Watchers>,
-    cwd: String,
-    rel: String,
-) -> Res<Option<String>> {
-    let target = paths::resolve(&cwd, &rel);
-    if !paths::inside(&open_roots(&watchers), &target) {
-        return Ok(None);
+async fn resolve_repo(dir: String) -> Value {
+    let top = git::run_git(
+        &dir,
+        &["rev-parse".into(), "--show-toplevel".into()],
+        None,
+        None,
+    )
+    .await;
+    if top.code == 0 {
+        let path = paths::normalize(&PathBuf::from(top.stdout.trim()));
+        Value::String(path.to_string_lossy().into_owned())
+    } else {
+        json!({ "error": format!("Not a git repository: {dir}") })
     }
-    Ok(tokio::fs::read(&target)
-        .await
-        .ok()
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
 }
 
-#[tauri::command]
-pub async fn write_file(
-    watchers: State<'_, Watchers>,
-    cwd: String,
-    rel: String,
-    content: String,
-) -> Res<bool> {
+async fn read_file(cwd: String, rel: String) -> Option<String> {
     let target = paths::resolve(&cwd, &rel);
-    if !paths::inside(&open_roots(&watchers), &target) {
+    if !paths::inside(&watch::roots(), &target) {
+        return None;
+    }
+    tokio::fs::read(&target)
+        .await
+        .ok()
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+}
+
+async fn write_file(cwd: String, rel: String, content: String) -> Res<bool> {
+    let target = paths::resolve(&cwd, &rel);
+    if !paths::inside(&watch::roots(), &target) {
         return Ok(false);
     }
     tokio::fs::write(&target, content).await.map_err(err)?;
     Ok(true)
 }
 
-async fn show(window: &Window, items: &[MenuSpec]) -> Res<Option<String>> {
-    if let Ok(mut chosen) = window.state::<Chosen>().0.lock() {
-        *chosen = None;
-    }
-    menu::popup(window, items).map_err(err)?;
-    let (tx, rx) = oneshot::channel();
-    let handle = window.app_handle().clone();
-    window
-        .run_on_main_thread(move || {
-            let picked = handle
-                .state::<Chosen>()
-                .0
-                .lock()
-                .ok()
-                .and_then(|mut c| c.take());
-            let _ = tx.send(picked);
-        })
-        .map_err(err)?;
-    Ok(rx.await.ok().flatten())
-}
-
-#[tauri::command]
-pub async fn menu(window: Window, items: Vec<MenuSpec>) -> Res<Option<String>> {
-    show(&window, &items).await
-}
-
-#[tauri::command]
-pub async fn context_menu(
-    window: Window,
-    cwd: String,
-    kind: MenuKind,
-    args: Value,
-) -> Res<Option<String>> {
-    match menus::build(&cwd, kind, &args).await? {
-        Some(items) => show(&window, &items).await,
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub fn clipboard(app: AppHandle, text: String) -> Res<()> {
-    app.clipboard().write_text(text).map_err(err)
-}
-
-#[tauri::command]
-pub fn open_external(app: AppHandle, url: String) -> Res<()> {
-    if url.starts_with("http://") || url.starts_with("https://") {
-        app.opener().open_url(url, None::<&str>).map_err(err)?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn open_path(app: AppHandle, watchers: State<'_, Watchers>, target: String) -> String {
-    if !paths::inside(&open_roots(&watchers), &PathBuf::from(&target)) {
-        return "GitNeat opens only files inside an open repository.".into();
-    }
-    match app.opener().open_path(target, None::<&str>) {
-        Ok(()) => String::new(),
-        Err(e) => e.to_string(),
-    }
-}
-
-#[tauri::command]
-pub fn show_item(app: AppHandle, watchers: State<'_, Watchers>, target: String) -> Res<()> {
-    if paths::inside(&open_roots(&watchers), &PathBuf::from(&target)) {
-        app.opener().reveal_item_in_dir(target).map_err(err)?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn open_terminal(cwd: String) -> Res<()> {
+fn open_terminal(cwd: &str) -> Res<()> {
     let mut cmd = if cfg!(target_os = "macos") {
         let mut c = std::process::Command::new("open");
-        c.args(["-a", "Terminal", &cwd]);
+        c.args(["-a", "Terminal", cwd]);
         c
     } else if cfg!(windows) {
         let mut c = std::process::Command::new("cmd.exe");
-        c.args(["/c", "start", "cmd.exe"]).current_dir(&cwd);
+        c.args(["/c", "start", "cmd.exe"]).current_dir(cwd);
         c
     } else {
         let mut c = std::process::Command::new("x-terminal-emulator");
-        c.current_dir(&cwd);
+        c.current_dir(cwd);
         c
     };
     cmd.spawn().map(|_| ()).map_err(err)
 }
 
-#[tauri::command]
-pub async fn store_get() -> Value {
-    store::get().await
-}
-
-#[tauri::command]
-pub async fn store_set(data: Value) -> Res<()> {
-    store::set(&data).await.map_err(err)
-}
-
-#[tauri::command]
-pub fn watch(app: AppHandle, watchers: State<'_, Watchers>, cwd: String) {
-    let Ok(mut map) = watchers.0.lock() else {
-        return;
-    };
-    if map.contains_key(&cwd) {
-        return;
-    }
-    if let Ok(watcher) = watch::start(app, cwd.clone()) {
-        map.insert(cwd, watcher);
-    }
-}
-
-#[tauri::command]
-pub fn unwatch(watchers: State<'_, Watchers>, cwd: String) {
-    if let Ok(mut map) = watchers.0.lock() {
-        map.remove(&cwd);
+pub async fn invoke(name: &str, args: Value) -> Res<Value> {
+    let a = &args;
+    match name {
+        "init" => {
+            let exe: String = arg(a, "askpass")?;
+            let started = askpass::start(
+                exe,
+                Box::new(|request| crate::emit::emit("askpass", request)),
+            );
+            if let Ok(server) = started {
+                askpass::install(server);
+            }
+            Ok(Value::Null)
+        }
+        "askpass_reply" => {
+            askpass::reply(arg(a, "request")?, arg(a, "reply")?);
+            Ok(Value::Null)
+        }
+        "action" => done(
+            actions::dispatch(
+                &arg::<String>(a, "cwd")?,
+                &arg::<String>(a, "name")?,
+                arg(a, "args")?,
+            )
+            .await,
+        ),
+        "load_repo" => out(load::load_repo(
+            &arg::<String>(a, "cwd")?,
+            &arg::<Vec<String>>(a, "hidden")?,
+            &arg::<Vec<String>>(a, "solo")?,
+            arg(a, "limit")?,
+        )
+        .await),
+        "load_commits" => out(load::load_commits(
+            &arg::<String>(a, "cwd")?,
+            &arg::<Vec<String>>(a, "hidden")?,
+            &arg::<Vec<String>>(a, "solo")?,
+            arg(a, "skip")?,
+            arg(a, "limit")?,
+            arg(a, "lanes")?,
+        )
+        .await),
+        "load_commit" => {
+            done(loaders::load_commit(&arg::<String>(a, "cwd")?, &arg::<String>(a, "sha")?).await)
+        }
+        "load_compare" => done(
+            loaders::load_compare(
+                &arg::<String>(a, "cwd")?,
+                &arg::<Vec<String>>(a, "shas")?,
+                arg(a, "wip")?,
+            )
+            .await,
+        ),
+        "load_all_files" => done(
+            loaders::load_all_files(&arg::<String>(a, "cwd")?, &arg::<String>(a, "sha")?).await,
+        ),
+        "load_diff" => {
+            let source: DiffSource = arg(a, "source")?;
+            let orig: Option<String> = arg(a, "orig")?;
+            let ignore: Option<bool> = arg(a, "ignoreWhitespace")?;
+            done(
+                loaders::load_diff(
+                    &arg::<String>(a, "cwd")?,
+                    &source,
+                    &arg::<String>(a, "file")?,
+                    ignore.unwrap_or(false),
+                    orig.as_deref(),
+                )
+                .await,
+            )
+        }
+        "load_sides" => {
+            let source: DiffSource = arg(a, "source")?;
+            let orig: Option<String> = arg(a, "orig")?;
+            out(loaders::load_sides(
+                &arg::<String>(a, "cwd")?,
+                &source,
+                &arg::<String>(a, "file")?,
+                orig.as_deref(),
+                &watch::roots(),
+            )
+            .await)
+        }
+        "load_images" => {
+            let source: DiffSource = arg(a, "source")?;
+            let orig: Option<String> = arg(a, "orig")?;
+            out(loaders::load_images(
+                &arg::<String>(a, "cwd")?,
+                &source,
+                &arg::<String>(a, "file")?,
+                orig.as_deref(),
+                &watch::roots(),
+            )
+            .await)
+        }
+        "load_blame" => {
+            let rev: Option<String> = arg(a, "rev")?;
+            done(
+                loaders::load_blame(
+                    &arg::<String>(a, "cwd")?,
+                    &arg::<String>(a, "file")?,
+                    rev.as_deref(),
+                )
+                .await,
+            )
+        }
+        "load_file_history_page" => {
+            let pages: u32 = arg(a, "pages")?;
+            done(
+                loaders::load_file_history_page(
+                    &arg::<String>(a, "cwd")?,
+                    &arg::<String>(a, "file")?,
+                    pages.max(1) as usize * 30000,
+                )
+                .await,
+            )
+        }
+        "load_file_history" => {
+            let limit: Option<u32> = arg(a, "limit")?;
+            done(
+                loaders::load_file_history(
+                    &arg::<String>(a, "cwd")?,
+                    &arg::<String>(a, "file")?,
+                    limit.unwrap_or(200),
+                )
+                .await,
+            )
+        }
+        "load_merge" => {
+            let operation: Option<Operation> = arg(a, "operation")?;
+            done(
+                loaders::load_merge(
+                    &arg::<String>(a, "cwd")?,
+                    &arg::<String>(a, "path")?,
+                    operation,
+                )
+                .await,
+            )
+        }
+        "load_operation" => {
+            let operation: Option<Operation> = arg(a, "operation")?;
+            out(loaders::load_operation(&arg::<String>(a, "cwd")?, operation).await)
+        }
+        "load_submodules" => out(actions::submodule::load(&arg::<String>(a, "cwd")?).await),
+        "load_head_message" => out(loaders::load_head_message(&arg::<String>(a, "cwd")?).await),
+        "has_commit_hook" => out(loaders::has_commit_hook(&arg::<String>(a, "cwd")?).await),
+        "resolve_repo" => out(resolve_repo(arg(a, "dir")?).await),
+        "repo_templates" => out(setup::repo_templates().await),
+        "clone_repo" => done(
+            setup::clone_repo(
+                arg(a, "parent")?,
+                arg(a, "url")?,
+                arg(a, "target")?,
+                arg(a, "shallow")?,
+            )
+            .await,
+        ),
+        "init_repo" => done(
+            setup::init_repo(
+                arg(a, "parent")?,
+                arg(a, "name")?,
+                arg(a, "branch")?,
+                arg(a, "gitignore")?,
+                arg(a, "license")?,
+                arg(a, "lfs")?,
+            )
+            .await,
+        ),
+        "missing_paths" => {
+            let list: Vec<String> = arg(a, "paths")?;
+            out(list
+                .into_iter()
+                .filter(|p| !std::path::Path::new(p).is_dir())
+                .collect::<Vec<_>>())
+        }
+        "repo_summaries" => out(workspaces::repo_summaries(arg(a, "paths")?, arg(a, "wip")?).await),
+        "find_repos" => out(workspaces::find_repos(arg(a, "dirs")?).await),
+        "import_code_workspace" => out(workspaces::import_code_workspace(arg(a, "file")?).await),
+        "repo_readme" => out(workspaces::repo_readme(arg(a, "path")?).await),
+        "create_readme" => done(workspaces::create_readme(arg(a, "path")?).await),
+        "copy_icon" => out(workspaces::copy_icon(arg(a, "source")?).await),
+        "icon_data" => out(workspaces::icon_data(arg(a, "name")?).await),
+        "external_editors" => out(editors::external_editors().await),
+        "open_in_editor" => done(
+            editors::open_in_editor(arg(a, "editor")?, arg(a, "customPath")?, arg(a, "paths")?)
+                .await,
+        ),
+        "write_temp" => done(write_temp(arg(a, "content")?).await),
+        "read_file" => out(read_file(arg(a, "cwd")?, arg(a, "rel")?).await),
+        "write_file" => done(write_file(arg(a, "cwd")?, arg(a, "rel")?, arg(a, "content")?).await),
+        "context_menu_items" => {
+            let kind: MenuKind = arg(a, "kind")?;
+            done(
+                menus::build(
+                    &arg::<String>(a, "cwd")?,
+                    kind,
+                    a.get("args").unwrap_or(&Value::Null),
+                )
+                .await,
+            )
+        }
+        "app_menu" => out(appmenu::app_menu("GitNeat")),
+        "inside_roots" => {
+            let target: String = arg(a, "target")?;
+            out(paths::inside(&watch::roots(), &PathBuf::from(target)))
+        }
+        "open_terminal" => done(open_terminal(&arg::<String>(a, "cwd")?)),
+        "store_get" => out(store::get().await),
+        "store_set" => {
+            let data: Value = arg(a, "data")?;
+            store::set(&data).await.map_err(err)?;
+            Ok(Value::Null)
+        }
+        "watch" => {
+            watch::watch(arg(a, "cwd")?);
+            Ok(Value::Null)
+        }
+        "unwatch" => {
+            watch::unwatch(&arg::<String>(a, "cwd")?);
+            Ok(Value::Null)
+        }
+        "term_open" => done(terminal::term_open(
+            arg(a, "cwd")?,
+            arg(a, "cols")?,
+            arg(a, "rows")?,
+        )),
+        "term_write" => {
+            terminal::term_write(arg(a, "id")?, arg(a, "data")?);
+            Ok(Value::Null)
+        }
+        "term_resize" => {
+            terminal::term_resize(arg(a, "id")?, arg(a, "cols")?, arg(a, "rows")?);
+            Ok(Value::Null)
+        }
+        "term_close" => {
+            terminal::term_close(arg(a, "id")?);
+            Ok(Value::Null)
+        }
+        other => Err(format!("Unknown command {other}")),
     }
 }

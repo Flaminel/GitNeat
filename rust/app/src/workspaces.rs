@@ -4,9 +4,6 @@ use base64::Engine;
 use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use tauri::Window;
-use tauri_plugin_dialog::{DialogExt, FilePath};
-use tokio::sync::oneshot;
 use tokio::task::JoinSet;
 
 const UNREACHABLE: &str = "Repo is unreachable and may have been deleted";
@@ -110,10 +107,12 @@ pub async fn summary(path: String, wip: bool) -> RepoSummary {
     let mut s = parse_status(&status, wip);
     let remotes = git_out(&path, &["remote"]).await.unwrap_or_default();
     let names: Vec<&str> = remotes.lines().filter(|l| !l.is_empty()).collect();
-    let from_upstream = s
-        .upstream
-        .as_deref()
-        .and_then(|u| names.iter().find(|n| u.starts_with(&format!("{n}/"))).copied());
+    let from_upstream = s.upstream.as_deref().and_then(|u| {
+        names
+            .iter()
+            .find(|n| u.starts_with(&format!("{n}/")))
+            .copied()
+    });
     let remote = from_upstream
         .or_else(|| names.iter().find(|n| **n == "origin").copied())
         .or_else(|| names.first().copied());
@@ -127,7 +126,6 @@ pub async fn summary(path: String, wip: bool) -> RepoSummary {
     s
 }
 
-#[tauri::command]
 pub async fn repo_summaries(paths: Vec<String>, wip: bool) -> Vec<RepoSummary> {
     let mut set = JoinSet::new();
     for (i, path) in paths.into_iter().enumerate() {
@@ -178,33 +176,10 @@ pub fn find(dirs: &[String]) -> Vec<String> {
     out
 }
 
-#[tauri::command]
 pub async fn find_repos(dirs: Vec<String>) -> Vec<String> {
     tokio::task::spawn_blocking(move || find(&dirs))
         .await
         .unwrap_or_default()
-}
-
-fn to_paths(picked: Option<Vec<FilePath>>) -> Vec<String> {
-    picked
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|p| p.into_path().ok())
-        .map(|p| p.to_string_lossy().into_owned())
-        .collect()
-}
-
-#[tauri::command]
-pub async fn pick_directories(window: Window) -> Vec<String> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .pick_folders(move |p| {
-            let _ = tx.send(to_paths(p));
-        });
-    rx.await.unwrap_or_default()
 }
 
 pub fn code_workspace_folders(file: &Path, text: &str) -> Vec<String> {
@@ -215,26 +190,18 @@ pub fn code_workspace_folders(file: &Path, text: &str) -> Vec<String> {
         .map(|list| {
             list.iter()
                 .filter_map(|f| f.get("path").and_then(Value::as_str))
-                .map(|p| paths::normalize(&base.join(p)).to_string_lossy().into_owned())
+                .map(|p| {
+                    paths::normalize(&base.join(p))
+                        .to_string_lossy()
+                        .into_owned()
+                })
                 .collect()
         })
         .unwrap_or_default()
 }
 
-#[tauri::command]
-pub async fn import_code_workspace(window: Window) -> Vec<String> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .add_filter("Workspaces", &["code-workspace"])
-        .pick_file(move |p| {
-            let _ = tx.send(p.and_then(|f| f.into_path().ok()));
-        });
-    let Some(file) = rx.await.ok().flatten() else {
-        return Vec::new();
-    };
+pub async fn import_code_workspace(file: String) -> Vec<String> {
+    let file = PathBuf::from(file);
     let text = tokio::fs::read_to_string(&file).await.unwrap_or_default();
     code_workspace_folders(&file, &text)
 }
@@ -346,15 +313,39 @@ fn render_readme(root: &Path, name: &str, text: &str) -> String {
         return format!("<pre>{}</pre>", escape_html(text));
     }
     use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
-    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
-    let readme_dir = root.join(name).parent().map(Path::to_path_buf).unwrap_or_else(|| root.to_path_buf());
+    let options =
+        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
+    let readme_dir = root
+        .join(name)
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| root.to_path_buf());
     let events = Parser::new_ext(text, options).map(|e| match e {
         Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
-        Event::Start(Tag::Link { link_type, dest_url, title, id }) => {
-            let dest_url = if url_allowed(&dest_url) { dest_url } else { CowStr::Borrowed("") };
-            Event::Start(Tag::Link { link_type, dest_url, title, id })
+        Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) => {
+            let dest_url = if url_allowed(&dest_url) {
+                dest_url
+            } else {
+                CowStr::Borrowed("")
+            };
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            })
         }
-        Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
+        Event::Start(Tag::Image {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) => {
             let dest_url = if !url_allowed(&dest_url) {
                 CowStr::Borrowed("")
             } else if let Some(data) = inline_image(root, &readme_dir, &dest_url) {
@@ -362,7 +353,12 @@ fn render_readme(root: &Path, name: &str, text: &str) -> String {
             } else {
                 dest_url
             };
-            Event::Start(Tag::Image { link_type, dest_url, title, id })
+            Event::Start(Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            })
         }
         other => other,
     });
@@ -371,12 +367,16 @@ fn render_readme(root: &Path, name: &str, text: &str) -> String {
     html
 }
 
-#[tauri::command]
 pub async fn repo_readme(path: String) -> Option<RepoReadme> {
     let mut names = Vec::new();
     let mut entries = tokio::fs::read_dir(&path).await.ok()?;
     while let Ok(Some(entry)) = entries.next_entry().await {
-        if entry.file_type().await.map(|t| t.is_file()).unwrap_or(false) {
+        if entry
+            .file_type()
+            .await
+            .map(|t| t.is_file())
+            .unwrap_or(false)
+        {
             names.push(entry.file_name().to_string_lossy().into_owned());
         }
     }
@@ -386,7 +386,6 @@ pub async fn repo_readme(path: String) -> Option<RepoReadme> {
     Some(RepoReadme { name, html })
 }
 
-#[tauri::command]
 pub async fn create_readme(path: String) -> Result<(), String> {
     let root = Path::new(&path);
     let mut entries = tokio::fs::read_dir(root).await.map_err(|e| e.to_string())?;
@@ -409,19 +408,8 @@ fn icon_name_ok(name: &str) -> bool {
     !name.contains('/') && !name.contains('\\') && !name.contains("..")
 }
 
-#[tauri::command]
-pub async fn pick_icon(window: Window) -> Option<String> {
-    let (tx, rx) = oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_title("Select Workspace Icon")
-        .add_filter("Image File", &["png", "jpg", "jpeg"])
-        .pick_file(move |p| {
-            let _ = tx.send(p.and_then(|f| f.into_path().ok()));
-        });
-    let source = rx.await.ok().flatten()?;
+pub async fn copy_icon(source: String) -> Option<String> {
+    let source = PathBuf::from(source);
     let ext = source
         .extension()
         .and_then(|e| e.to_str())
@@ -438,7 +426,6 @@ pub async fn pick_icon(window: Window) -> Option<String> {
     Some(name)
 }
 
-#[tauri::command]
 pub async fn icon_data(name: String) -> Option<String> {
     if !icon_name_ok(&name) {
         return None;
@@ -473,7 +460,11 @@ mod tests {
     #[test]
     fn readme_filters_link_schemes() {
         let dir = readme_repo();
-        let html = render_readme(dir.path(), "README.md", "[a](javascript:alert(1)) [b](https://x.io) [c](rel/p)");
+        let html = render_readme(
+            dir.path(),
+            "README.md",
+            "[a](javascript:alert(1)) [b](https://x.io) [c](rel/p)",
+        );
         assert!(!html.contains("javascript"));
         assert!(html.contains("href=\"https://x.io\""));
         assert!(html.contains("href=\"rel/p\""));
@@ -489,7 +480,11 @@ mod tests {
         let parent = dir.path().join("sub");
         let html = render_readme(&parent, "README.md", "![i](../a%20b.png)");
         assert!(!html.contains("data:"));
-        let html = render_readme(dir.path(), "README.md", "![i](big.png) ![j](x.txt) ![k](data:image/png;base64,AA)");
+        let html = render_readme(
+            dir.path(),
+            "README.md",
+            "![i](big.png) ![j](x.txt) ![k](data:image/png;base64,AA)",
+        );
         assert!(!html.contains("base64,AA"));
         assert!(!html.contains("src=\"data:"));
     }
@@ -532,23 +527,35 @@ mod tests {
 
     #[test]
     fn readme_prefers_markdown_then_shortest() {
-        let pick = |names: &[&str]| {
-            pick_readme(&names.iter().map(|n| n.to_string()).collect::<Vec<_>>())
-        };
-        assert_eq!(pick(&["README.txt", "readme.md", "README"]).as_deref(), Some("readme.md"));
-        assert_eq!(pick(&["README.rst", "Readme.txt"]).as_deref(), Some("README.rst"));
+        let pick =
+            |names: &[&str]| pick_readme(&names.iter().map(|n| n.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            pick(&["README.txt", "readme.md", "README"]).as_deref(),
+            Some("readme.md")
+        );
+        assert_eq!(
+            pick(&["README.rst", "Readme.txt"]).as_deref(),
+            Some("README.rst")
+        );
         assert_eq!(pick(&["README.md.bak", "readme-notes.md", "a.md"]), None);
     }
 
     #[test]
     fn readme_html_escapes_raw_html() {
-        let html = render_readme(Path::new("."), "README.md", "# T\n\n<script>x</script>\n\n| a |\n|---|\n| 1 |\n\n- [x] t\n");
+        let html = render_readme(
+            Path::new("."),
+            "README.md",
+            "# T\n\n<script>x</script>\n\n| a |\n|---|\n| 1 |\n\n- [x] t\n",
+        );
         assert!(html.contains("<h1>"));
         assert!(html.contains("<table>"));
         assert!(html.contains("checkbox"));
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
-        assert_eq!(render_readme(Path::new("."), "README", "<b>&"), "<pre>&lt;b&gt;&amp;</pre>");
+        assert_eq!(
+            render_readme(Path::new("."), "README", "<b>&"),
+            "<pre>&lt;b&gt;&amp;</pre>"
+        );
     }
 
     #[test]
@@ -571,7 +578,13 @@ mod tests {
         let found = find(&[root.path().to_string_lossy().into_owned()]);
         let names: Vec<String> = found
             .iter()
-            .map(|p| Path::new(p).strip_prefix(root.path()).unwrap().to_string_lossy().replace('\\', "/"))
+            .map(|p| {
+                Path::new(p)
+                    .strip_prefix(root.path())
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
             .collect();
         assert_eq!(names, vec!["a", "group/b"]);
     }
@@ -579,10 +592,17 @@ mod tests {
     #[test]
     fn code_workspace_paths_resolve_from_the_file() {
         let file = Path::new("/w/proj.code-workspace");
-        let folders = code_workspace_folders(file, r#"{"folders":[{"path":"a"},{"path":"../b"},{"name":"x"}]}"#);
+        let folders = code_workspace_folders(
+            file,
+            r#"{"folders":[{"path":"a"},{"path":"../b"},{"name":"x"}]}"#,
+        );
         let want: Vec<String> = ["/w/a", "/b"]
             .iter()
-            .map(|p| paths::normalize(Path::new(p)).to_string_lossy().into_owned())
+            .map(|p| {
+                paths::normalize(Path::new(p))
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .collect();
         assert_eq!(folders, want);
     }

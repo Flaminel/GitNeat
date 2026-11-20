@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
 
 const DEFAULT_DEPTH: u32 = 50;
 
@@ -88,7 +87,6 @@ fn clean_error(stderr: &str) -> String {
         .join("\n")
 }
 
-#[tauri::command]
 pub async fn repo_templates() -> Templates {
     let lfs = run_git(".", &["lfs".to_string(), "version".to_string()], None, None)
         .await
@@ -107,9 +105,7 @@ pub async fn repo_templates() -> Templates {
     }
 }
 
-#[tauri::command]
 pub async fn clone_repo(
-    app: AppHandle,
     parent: String,
     url: String,
     target: String,
@@ -124,7 +120,7 @@ pub async fn clone_repo(
         let target = target.clone();
         move |line: &str| {
             if let Some(percent) = percent_of(line) {
-                let _ = app.emit(
+                crate::emit::emit(
                     "clone-progress",
                     CloneProgress {
                         target: target.clone(),
@@ -228,7 +224,6 @@ async fn init_in(
     Ok(dir)
 }
 
-#[tauri::command]
 pub async fn init_repo(
     parent: String,
     name: String,

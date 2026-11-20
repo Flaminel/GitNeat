@@ -2,9 +2,9 @@ use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system}
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, State};
 
 struct Session {
     master: Box<dyn MasterPty + Send>,
@@ -17,6 +17,8 @@ pub struct Terminals {
     next: AtomicU32,
     sessions: Arc<Mutex<HashMap<u32, Session>>>,
 }
+
+static TERMINALS: LazyLock<Terminals> = LazyLock::new(Terminals::default);
 
 #[derive(Serialize, Clone)]
 struct Data {
@@ -49,14 +51,8 @@ fn split_utf8(pending: &mut Vec<u8>) -> String {
     text
 }
 
-#[tauri::command]
-pub fn term_open(
-    app: AppHandle,
-    terminals: State<Terminals>,
-    cwd: String,
-    cols: u16,
-    rows: u16,
-) -> Result<u32, String> {
+pub fn term_open(cwd: String, cols: u16, rows: u16) -> Result<u32, String> {
+    let terminals = &*TERMINALS;
     let pair = native_pty_system()
         .openpty(PtySize {
             rows,
@@ -102,19 +98,19 @@ pub fn term_open(
             pending.extend_from_slice(&buffer[..n]);
             let data = split_utf8(&mut pending);
             if !data.is_empty() {
-                let _ = app.emit("term-data", Data { id, data });
+                crate::emit::emit("term-data", Data { id, data });
             }
         }
         if let Ok(mut held) = sessions.lock() {
             held.remove(&id);
         }
-        let _ = app.emit("term-exit", id);
+        crate::emit::emit("term-exit", id);
     });
     Ok(id)
 }
 
-#[tauri::command]
-pub fn term_write(terminals: State<Terminals>, id: u32, data: String) {
+pub fn term_write(id: u32, data: String) {
+    let terminals = &*TERMINALS;
     if let Ok(mut held) = terminals.sessions.lock()
         && let Some(session) = held.get_mut(&id)
     {
@@ -123,8 +119,8 @@ pub fn term_write(terminals: State<Terminals>, id: u32, data: String) {
     }
 }
 
-#[tauri::command]
-pub fn term_resize(terminals: State<Terminals>, id: u32, cols: u16, rows: u16) {
+pub fn term_resize(id: u32, cols: u16, rows: u16) {
+    let terminals = &*TERMINALS;
     if let Ok(held) = terminals.sessions.lock()
         && let Some(session) = held.get(&id)
     {
@@ -137,8 +133,8 @@ pub fn term_resize(terminals: State<Terminals>, id: u32, cols: u16, rows: u16) {
     }
 }
 
-#[tauri::command]
-pub fn term_close(terminals: State<Terminals>, id: u32) {
+pub fn term_close(id: u32) {
+    let terminals = &*TERMINALS;
     if let Ok(mut held) = terminals.sessions.lock()
         && let Some(mut session) = held.remove(&id)
     {
