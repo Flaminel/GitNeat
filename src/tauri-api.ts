@@ -6,7 +6,7 @@ import { bridgeApi } from "./bridge-api";
 
 if ("__TAURI_INTERNALS__" in window) {
   window.gitneat = bridgeApi({
-    invoke: (name, args) => invoke(name, args),
+    invoke: (name, args) => invoke("dispatch", { name, args: args ?? {} }),
     listen: (event, fn) => {
       const stop = listen<never>(event, (e) => fn(e.payload));
       return () => void stop.then((off) => off());
