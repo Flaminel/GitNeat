@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -9,31 +9,6 @@ import { enabled as goldenEnabled, golden } from "./golden";
 const enabled = goldenEnabled && process.env.GITNEAT_SLOW === "1";
 
 const rustDir = path.resolve(process.cwd(), "rust");
-
-interface GitResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      "git",
-      args,
-      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C", ...env } },
-      (error, stdout, stderr) => {
-        const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
-        resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
-      },
-    );
-    if (input !== undefined) {
-      child.stdin?.end(input);
-    }
-  });
-}
-
-(globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit } };
 
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false", "-c", "protocol.file.allow=always"];
 let root = "";

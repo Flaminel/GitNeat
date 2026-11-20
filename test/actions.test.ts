@@ -15,29 +15,6 @@ type UndoEntry = NativeActionsModule.UndoEntry;
 
 const rustDir = path.resolve(process.cwd(), "rust");
 
-interface GitResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      "git",
-      args,
-      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C", ...env } },
-      (error, stdout, stderr) => {
-        const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
-        resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
-      },
-    );
-    if (input !== undefined) {
-      child.stdin?.end(input);
-    }
-  });
-}
-
 interface Dirs {
   root: string;
   repo: string;
@@ -744,7 +721,6 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
   const h: Harness = { log: [], recorded: [], answers: [...(s.answers ?? [])] };
   const api = {
     platform: "darwin",
-    git: runGit,
     writeTemp: async (content: string) => {
       const dir = fs.mkdtempSync(path.join(runRoot, "tmp-"));
       fs.writeFileSync(path.join(dir, "data"), content);
@@ -821,7 +797,7 @@ before(
     });
     execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
     example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "action.exe" : "action");
-    (globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit } };
+    (globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin" } };
     rsActions = { ...(await import("../src/actions")), rangeInfo: (cwd: string, sha: string) => runAction(cwd, "rangeInfo", { sha }) } as typeof ActionsModule;
   },
   { timeout: 600000 },

@@ -883,5 +883,5 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Rules: The check function adds `#n` to a key that a test uses more than once. The `diff` and `merge` tests use the Rust example `parse` in place of the TS parsers.
 - Rules: Blame rows of uncommitted lines get the time 0 before the check.
 - Limits: The golden tests run on macOS and Linux only. On Windows the path separators in the output differ. The Rust unit tests still run there. A golden file records what Rust does. It does not prove that this is what Source does. The evidence for that stays in `docs/EVIDENCE.md`.
-- Limits: `src/api.ts` still has `git` and `GitResult` from the reference time (D48). Nothing in the app calls them.
+- Rules: The tests no longer build a fake `git` function for `window.gitneat`. The loaders and actions do not call it (D48).
 - Limits: `test/load-repo.test.ts` runs only with `GITNEAT_SLOW=1`. It starts the `load_repo` example for each fixture, variant, paging run and backend, about 600 starts. It ran more than 23 minutes on a Mac without finishing. The file `test/golden/load-repo.json` does not exist. The golden tests of `actions` also call `load_repo`, so the loader stays in use.

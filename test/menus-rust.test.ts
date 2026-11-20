@@ -12,29 +12,6 @@ import type { Commit, Ref, RepoData } from "../src/repo";
 
 const rustDir = path.resolve(process.cwd(), "rust");
 
-interface GitResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      "git",
-      args,
-      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C", ...env } },
-      (error, stdout, stderr) => {
-        const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
-        resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
-      },
-    );
-    if (input !== undefined) {
-      child.stdin?.end(input);
-    }
-  });
-}
-
 interface Dirs {
   root: string;
   repo: string;
@@ -416,7 +393,6 @@ function makeCtx(d: Dirs, data: RepoData, log: string[], marks: { hidden: string
 function effectApi(platform: string, log: string[], chosen: string | null, native: boolean): Api {
   return {
     platform,
-    git: runGit,
     action: async (_cwd: string, name: string, args: unknown) => {
       log.push(`action ${name} ${JSON.stringify(args)}`);
       if (name === "rebaseRange") {
@@ -515,7 +491,7 @@ async function execute(s: Scenario, tag: string): Promise<number> {
   const d: Dirs = { root, repo: path.join(root, "repo"), remote: path.join(root, "remote.git"), other: path.join(root, "other"), wt: path.join(root, "wt") };
   fs.mkdirSync(root, { recursive: true });
   s.setup(d);
-  setApi({ platform: "darwin", git: runGit });
+  setApi({ platform: "darwin" });
   const data = await loadRepo(d.repo, [], [], 1000);
   const marks = s.marks ? s.marks(data) : { hidden: [], solo: [] };
   const platforms = s.platform ? [s.platform] : ["darwin", "win32"];
@@ -529,7 +505,6 @@ async function execute(s: Scenario, tag: string): Promise<number> {
       let actual: unknown = null;
       setApi({
         platform,
-        git: runGit,
         menu: async () => {
           throw new Error("native path must not use menu");
         },
@@ -576,7 +551,7 @@ before(
     execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "menu"], { cwd: rustDir, stdio: "inherit" });
     const dir = path.join(rustDir, "target", "debug", "examples");
     menuExample = path.join(dir, process.platform === "win32" ? "menu.exe" : "menu");
-    setApi({ platform: "darwin", git: runGit });
+    setApi({ platform: "darwin" });
     rsMenus = await import("../src/menus");
   },
   { timeout: 600000 },

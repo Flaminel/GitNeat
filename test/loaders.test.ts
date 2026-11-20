@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,46 +7,6 @@ import test, { after, before } from "node:test";
 import { enabled, golden } from "./golden";
 
 const rustDir = path.resolve(process.cwd(), "rust");
-
-interface GitResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      "git",
-      args,
-      { cwd, maxBuffer: 512 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C", ...env } },
-      (error, stdout, stderr) => {
-        const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
-        resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
-      },
-    );
-    if (input !== undefined) {
-      child.stdin?.end(input);
-    }
-  });
-}
-
-async function readFile(cwd: string, rel: string): Promise<string | null> {
-  try {
-    return await fs.promises.readFile(path.join(cwd, rel), "utf8");
-  } catch {
-    return null;
-  }
-}
-
-async function writeTemp(content: string): Promise<string> {
-  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "gitneat-"));
-  const file = path.join(dir, "data");
-  await fs.promises.writeFile(file, content);
-  return file;
-}
-
-(globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit, readFile, writeTemp } };
 
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@x", "-c", "commit.gpgsign=false"];
 let root = "";
