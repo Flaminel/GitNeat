@@ -13,6 +13,7 @@ pub mod menus;
 pub mod paths;
 pub mod setup;
 pub mod shellpath;
+pub mod stack;
 pub mod store;
 pub mod templates;
 pub mod terminal;

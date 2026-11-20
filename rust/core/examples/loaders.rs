@@ -52,8 +52,11 @@ async fn call(name: &str, input: &Value) -> Value {
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    gitneat_core::stack::run(real_main());
+}
+
+async fn real_main() {
     let mut stdin = String::new();
     std::io::stdin()
         .read_to_string(&mut stdin)

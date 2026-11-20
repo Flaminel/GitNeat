@@ -7,8 +7,11 @@ fn median(mut v: Vec<f64>) -> f64 {
     v[v.len() / 2]
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    gitneat_core::stack::run(real_main());
+}
+
+async fn real_main() {
     let path = std::env::args().nth(1).expect("repo path");
     let (hidden, solo, limit) = (Vec::new(), Vec::new(), 3000);
     let mut cli = Vec::new();

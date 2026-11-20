@@ -1,8 +1,11 @@
 use gitneat_core::menus::{MenuKind, build};
 use serde_json::{Value, json};
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    gitneat_core::stack::run(real_main());
+}
+
+async fn real_main() {
     let args: Vec<String> = std::env::args().collect();
     let out = match run(&args).await {
         Ok(value) => json!({ "ok": value }),

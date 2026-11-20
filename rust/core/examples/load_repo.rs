@@ -1,7 +1,10 @@
 use gitneat_core::load::{load_commits, load_repo};
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    gitneat_core::stack::run(real_main());
+}
+
+async fn real_main() {
     let args: Vec<String> = std::env::args().collect();
     let hidden: Vec<String> = serde_json::from_str(&args[2]).expect("hidden json");
     let solo: Vec<String> = serde_json::from_str(&args[3]).expect("solo json");
