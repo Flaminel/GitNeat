@@ -521,7 +521,10 @@ pub(super) fn drop_pr_items(env: &Env, source: &RefIn, target: &RefIn) -> Vec<Me
                 items
             } else {
                 vec![sub(
-                    format!("Push {} and start a pull request", local.map_or("", |l| &l.name)),
+                    format!(
+                        "Push {} and start a pull request",
+                        local.map_or("", |l| &l.name)
+                    ),
                     items,
                 )]
             }
@@ -551,12 +554,8 @@ pub(super) fn drop_pr_items(env: &Env, source: &RefIn, target: &RefIn) -> Vec<Me
         (m, n) => (0..n)
             .filter_map(|j| {
                 let items = flat((0..m).map(|i| start(i, j)).collect());
-                (!items.is_empty()).then(|| {
-                    sub(
-                        format!("Start a pull request to {}", bases[j].name),
-                        items,
-                    )
-                })
+                (!items.is_empty())
+                    .then(|| sub(format!("Start a pull request to {}", bases[j].name), items))
             })
             .collect(),
     }

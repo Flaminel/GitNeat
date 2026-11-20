@@ -290,7 +290,9 @@ async fn ignore_paths(cwd: &str, args: &Value) -> Res<Value> {
             }
         }
         if changed {
-            tokio::fs::write(&file, text).await.map_err(|e| e.to_string())?;
+            tokio::fs::write(&file, text)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         if !a.untrack.is_empty() {
             let mut list = vec!["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--"];
@@ -313,8 +315,21 @@ async fn work_patch(cwd: &str, args: &Value) -> Res<Value> {
     let mut patch = git(cwd, &list).await?;
     let mut others = vec!["ls-files", "--others", "--exclude-standard", "-z", "--"];
     others.extend(a.paths.iter().map(String::as_str));
-    for file in git(cwd, &others).await?.split('\0').filter(|f| !f.is_empty()) {
-        patch.push_str(&raw(cwd, &["diff", "--no-index", "--", "/dev/null", file], None, None).await.stdout);
+    for file in git(cwd, &others)
+        .await?
+        .split('\0')
+        .filter(|f| !f.is_empty())
+    {
+        patch.push_str(
+            &raw(
+                cwd,
+                &["diff", "--no-index", "--", "/dev/null", file],
+                None,
+                None,
+            )
+            .await
+            .stdout,
+        );
     }
     if patch.trim().is_empty() {
         return Err("Working directory has no changes".to_string());
@@ -328,11 +343,42 @@ async fn stash_apply_files(cwd: &str, args: &Value) -> Res<Value> {
         let sha = git(cwd, &["rev-parse", &a.name]).await?.trim().to_string();
         let untracked = format!("{sha}^3");
         for path in &a.paths {
-            let tracked = raw(cwd, &["cat-file", "-e", &format!("{sha}:{path}")], None, None).await.code == 0;
-            let loose = !tracked && raw(cwd, &["cat-file", "-e", &format!("{untracked}:{path}")], None, None).await.code == 0;
+            let tracked = raw(
+                cwd,
+                &["cat-file", "-e", &format!("{sha}:{path}")],
+                None,
+                None,
+            )
+            .await
+            .code
+                == 0;
+            let loose = !tracked
+                && raw(
+                    cwd,
+                    &["cat-file", "-e", &format!("{untracked}:{path}")],
+                    None,
+                    None,
+                )
+                .await
+                .code
+                    == 0;
             if tracked || loose {
-                let source = if tracked { sha.as_str() } else { untracked.as_str() };
-                git(cwd, &["restore", &format!("--source={source}"), "--worktree", "--", path]).await?;
+                let source = if tracked {
+                    sha.as_str()
+                } else {
+                    untracked.as_str()
+                };
+                git(
+                    cwd,
+                    &[
+                        "restore",
+                        &format!("--source={source}"),
+                        "--worktree",
+                        "--",
+                        path,
+                    ],
+                )
+                .await?;
             } else {
                 let _ = tokio::fs::remove_file(std::path::Path::new(cwd).join(path)).await;
             }

@@ -877,7 +877,10 @@ mod tests {
             "head": "1", "branch": "x", "refs": refs, "hidden": hidden, "solo": solo
         }))
         .unwrap();
-        let fulls: Vec<String> = ["a", "b"].iter().map(|n| format!("refs/heads/{n}")).collect();
+        let fulls: Vec<String> = ["a", "b"]
+            .iter()
+            .map(|n| format!("refs/heads/{n}"))
+            .collect();
         labels(&tidy(branch::refs_menu(&env, &fulls)))
     }
 
@@ -885,7 +888,12 @@ mod tests {
     fn multi_ref_menu_follows_the_source_rules() {
         assert_eq!(
             refs_labels(&[], &[], ""),
-            ["Delete 2 local branches", "-", "Hide 2 branches", "Solo 2 branches"]
+            [
+                "Delete 2 local branches",
+                "-",
+                "Hide 2 branches",
+                "Solo 2 branches"
+            ]
         );
         assert_eq!(
             refs_labels(&["refs/heads/a"], &["refs/heads/b"], ""),

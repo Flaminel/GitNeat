@@ -55,14 +55,27 @@ async fn snapshot(cwd: &str, paths: &[String]) -> Res<Option<Discarded>> {
         if tree == base {
             return Ok(None);
         }
-        let mut commit = vec!["commit-tree", tree.as_str(), "-m", "GitNeat discarded changes"];
+        let mut commit = vec![
+            "commit-tree",
+            tree.as_str(),
+            "-m",
+            "GitNeat discarded changes",
+        ];
         if let Some(parent) = &parent {
             commit.extend(["-p", parent.as_str()]);
         }
         let sha = git_env(cwd, &commit, env(&vars)).await?.trim().to_string();
         let names = git(
             cwd,
-            &["diff-tree", "-r", "--name-only", "--no-renames", "-z", &base, &tree],
+            &[
+                "diff-tree",
+                "-r",
+                "--name-only",
+                "--no-renames",
+                "-z",
+                &base,
+                &tree,
+            ],
         )
         .await?;
         let paths = names
@@ -95,7 +108,13 @@ pub async fn recorded(
 }
 
 async fn changed(cwd: &str, paths: &[String]) -> Res<Vec<String>> {
-    let mut list = vec!["status", "--porcelain=v1", "-z", "--untracked-files=all", "--"];
+    let mut list = vec![
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+        "--",
+    ];
     list.extend(paths.iter().map(String::as_str));
     let out = git(cwd, &list).await?;
     let mut names = Vec::new();
@@ -128,7 +147,11 @@ pub async fn undo(cwd: &str, d: &Discarded) -> Res<Value> {
     for path in &d.paths {
         if exists(cwd, &format!("{}:{path}", d.sha)).await {
             let source = format!("--source={}", d.sha);
-            git(cwd, &["restore", &source, "--staged", "--worktree", "--", path]).await?;
+            git(
+                cwd,
+                &["restore", &source, "--staged", "--worktree", "--", path],
+            )
+            .await?;
         } else {
             git(cwd, &["rm", "-f", "-q", "--ignore-unmatch", "--", path]).await?;
             remove(cwd, path).await;
@@ -140,7 +163,18 @@ pub async fn undo(cwd: &str, d: &Discarded) -> Res<Value> {
 pub async fn redo(cwd: &str, d: &Discarded) -> Res<Value> {
     for path in &d.paths {
         if exists(cwd, &format!("HEAD:{path}")).await {
-            git(cwd, &["restore", "--source=HEAD", "--staged", "--worktree", "--", path]).await?;
+            git(
+                cwd,
+                &[
+                    "restore",
+                    "--source=HEAD",
+                    "--staged",
+                    "--worktree",
+                    "--",
+                    path,
+                ],
+            )
+            .await?;
         } else {
             git(cwd, &["rm", "-f", "-q", "--ignore-unmatch", "--", path]).await?;
             remove(cwd, path).await;
