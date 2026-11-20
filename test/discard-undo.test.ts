@@ -37,6 +37,7 @@ test("discard undo: undo restores, redo discards again", { skip: !enabled, timeo
     git(dir, "init", "-q", "-b", "main");
     git(dir, "config", "user.email", "t@x");
     git(dir, "config", "user.name", "t");
+    git(dir, "config", "core.autocrlf", "false");
     fs.writeFileSync(path.join(dir, "a.txt"), "a\n");
     fs.writeFileSync(path.join(dir, "b.txt"), "b\n");
     git(dir, "add", ".");
