@@ -854,3 +854,24 @@ Do not edit old entries. Add a new entry that supersedes the old one.
 - Decision: The `Dialog` component in `src/ui.tsx` listens for Escape on `window`. It closes the dialog and resolves with null, as a click on the backdrop does.
 - Reason: Manual test of T25. A dialog that opens from the app menu has no focus inside the form if the first field is a checkbox. The Repository Preferences dialog did not close on Escape. The old handler was on the form and needed focus inside it.
 - Limits: Two stacked prompt dialogs both close on one Escape. GitNeat never stacks them today.
+
+## D108. One Rust core, two hosts
+- Decision: The Rust code has three layers. `rust/core` holds the logic and has no window code. `rust/tauri` is the Tauri host. `rust/addon` is a Node addon, and `electron/` is the Electron host. The frontend is shared. `src/bridge-api.ts` builds `window.gitneat` from a transport.
+- Decision: Both hosts call `gitneat_core::commands::invoke(name, args)`. Calls that need a window stay in the host: file dialogs, popup menus, clipboard, open and reveal, panel check items, the macOS menu. The core offers the pure part, for example `resolve_repo`, `copy_icon`, `context_menu_items` and `inside_roots`.
+- Decision: The core sends events through `emit::emit`. The host sets the sink with `emit::set`. The Tauri host calls `app.emit`. The Electron host sends the event to the renderer.
+- Reason: The company machine blocks unsigned executables and does not allow a Rust install. An unsigned `.node` file loads, and Electron from npm runs. CI builds the addon, and the Electron bundle runs with `npm install` and `npm start`. The user also wants the Tauri app, so both hosts stay.
+- Rules: `rust/app` became `rust/core`. The package is `gitneat-core`. The Tauri package keeps the name `gitneat`, so the executable name does not change. The TS tests build `-p gitneat-core --example ...`.
+- Rules: The Tauri frontend transport calls one command, `dispatch`, with `name` and `args`. Before, it called one command per name.
+- Rules: Window code exists twice: Rust in `rust/tauri/src/ui.rs` and TS in `electron/main.ts`. A change to a dialog or a menu goes in both.
+- Limits: The Electron app has no native macOS menu and no panel check items. Windows and Linux use the webview menu bar. The Electron app has no window drag region test and no screenshot mode.
+
+## D109. Command handlers are boxed one by one
+- Decision: `commands::handler(name)` returns a function that makes a boxed future. `invoke` awaits it.
+- Reason: One async function with a match arm for each of 50 commands became one future with the state of all arms. In a debug build the Tauri app ended with `thread 'tokio-rt-worker' has overflowed its stack`. The Windows main thread has 1 MB and a tokio worker has 2 MB.
+- Rules: The example `rust/core/examples/action.rs` runs on a thread with a 16 MB stack. On Windows the test harness crashed with a stack overflow in its first form.
+- Limits: Release builds were not affected before the change. Debug builds of the addon were not run.
+
+## D110. Askpass in the Electron app
+- Decision: At start the main process writes `askpass.cmd` (Windows) or `askpass.sh` into the user data folder. The shim runs `electron` with `ELECTRON_RUN_AS_NODE=1` and `dist-electron/askpass.js`. The core gets the shim path in the `init` call and puts it in `GIT_ASKPASS` and `SSH_ASKPASS`.
+- Reason: In the Tauri app the executable is the helper (D90). Electron cannot run as the helper, because the executable is `electron`. A native helper would be an unsigned executable.
+- Limits: Not tested. Git for Windows may not run a `.cmd` file as `GIT_ASKPASS`. If it does not, the prompt for a username or a password fails and git reports an authentication error.
