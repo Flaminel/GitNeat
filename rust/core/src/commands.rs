@@ -108,6 +108,7 @@ macro_rules! h {
         Some(
             (|args: Value| -> Fut {
                 Box::pin(async move {
+                    #[allow(unused_variables)]
                     let $a = &args;
                     $body
                 })
