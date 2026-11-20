@@ -438,6 +438,9 @@ mod init_tests {
         let dir = tempfile::tempdir().unwrap();
         let cwd = dir.path().to_str().unwrap();
         super::git(cwd, &["init", "-q"]).await.unwrap();
+        super::git(cwd, &["config", "core.autocrlf", "false"])
+            .await
+            .unwrap();
         let patch = "diff --git a/n.txt b/n.txt\nnew file mode 100644\n--- /dev/null\n+++ b/n.txt\n@@ -0,0 +1 @@\n+hi\n";
         super::apply_patch(cwd, &json!({"patch": patch, "action": "apply"}))
             .await

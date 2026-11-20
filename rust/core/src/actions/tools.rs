@@ -130,6 +130,7 @@ mod tests {
         git(p, &["init", "-q", "-b", "main"]);
         git(p, &["config", "user.email", "t@example.com"]);
         git(p, &["config", "user.name", "T"]);
+        git(p, &["config", "core.autocrlf", "false"]);
         std::fs::write(p.join("a.txt"), "one\n").unwrap();
         git(p, &["add", "."]);
         git(p, &["commit", "-q", "-m", "first"]);
