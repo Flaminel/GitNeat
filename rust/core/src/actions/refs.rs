@@ -100,11 +100,6 @@ struct DeleteTag {
 }
 
 #[derive(Deserialize)]
-struct Path {
-    path: String,
-}
-
-#[derive(Deserialize)]
 struct RemoveWorktree {
     path: String,
     #[serde(default)]

@@ -233,7 +233,7 @@ async fn discard_one(cwd: &str, a: &Discard) -> Res<String> {
 
 async fn discard_file(cwd: &str, args: &Value) -> Res<Value> {
     let a: Discard = parse(args)?;
-    discard::recorded(cwd, &[a.path.clone()], async {
+    discard::recorded(cwd, std::slice::from_ref(&a.path), async {
         discard_one(cwd, &a).await.map(|_| ())
     })
     .await

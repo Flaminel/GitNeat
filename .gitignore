@@ -3,7 +3,7 @@ dist
 .DS_Store
 .claude/
 rust/target
-rust/app/gen
+rust/tauri/gen
 dist-electron
 native
 bundle

@@ -1,4 +1,4 @@
-use gitneat::actions::dispatch;
+use gitneat_core::actions::dispatch;
 use serde_json::{Value, json};
 
 fn main() {

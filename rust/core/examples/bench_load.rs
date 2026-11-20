@@ -1,5 +1,5 @@
-use gitneat::load::load_repo_cli;
-use gitneat::load_gix::load_repo_gix;
+use gitneat_core::load::load_repo_cli;
+use gitneat_core::load_gix::load_repo_gix;
 use std::time::Instant;
 
 fn median(mut v: Vec<f64>) -> f64 {

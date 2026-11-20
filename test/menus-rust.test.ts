@@ -586,7 +586,7 @@ before(
       GIT_AUTHOR_DATE: "2020-01-01T00:00:00Z",
       GIT_COMMITTER_DATE: "2020-01-01T00:00:00Z",
     });
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "menu"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "menu"], { cwd: rustDir, stdio: "inherit" });
     const dir = path.join(rustDir, "target", "debug", "examples");
     menuExample = path.join(dir, process.platform === "win32" ? "menu.exe" : "menu");
     setApi({ platform: "darwin", git: runGit });

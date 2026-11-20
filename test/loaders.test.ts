@@ -354,7 +354,7 @@ before(
       return;
     }
     root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-loaders-")));
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "loaders"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "loaders"], { cwd: rustDir, stdio: "inherit" });
     const exe = process.platform === "win32" ? ".exe" : "";
     example = path.join(rustDir, "target", "debug", "examples", `loaders${exe}`);
   },

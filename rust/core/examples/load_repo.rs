@@ -1,4 +1,4 @@
-use gitneat::load::{load_commits, load_repo};
+use gitneat_core::load::{load_commits, load_repo};
 
 #[tokio::main]
 async fn main() {

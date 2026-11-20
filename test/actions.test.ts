@@ -815,7 +815,7 @@ before(
       GIT_AUTHOR_DATE: "2020-01-01T00:00:00Z",
       GIT_COMMITTER_DATE: "2020-01-01T00:00:00Z",
     });
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
     example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "action.exe" : "action");
     (globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit } };
     tsActions = await import("./reference/actions");

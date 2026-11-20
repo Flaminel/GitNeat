@@ -1,4 +1,4 @@
-use gitneat::loaders::{self, DiffSource};
+use gitneat_core::loaders::{self, DiffSource};
 use serde_json::{Value, json};
 use std::io::Read;
 

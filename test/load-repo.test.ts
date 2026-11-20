@@ -304,7 +304,7 @@ before(
       return;
     }
     root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-load-")));
-    execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "load_repo"], { cwd: rustDir, stdio: "inherit" });
+    execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "load_repo"], { cwd: rustDir, stdio: "inherit" });
     example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "load_repo.exe" : "load_repo");
   },
   { timeout: 600000 },

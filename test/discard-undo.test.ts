@@ -30,7 +30,7 @@ function action(example: string, cwd: string, name: string, args: unknown): Prom
 }
 
 test("discard undo: undo restores, redo discards again", { skip: !enabled, timeout: 300000 }, async () => {
-  execFileSync("cargo", ["build", "-q", "-p", "gitneat", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
+  execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
   const example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "action.exe" : "action");
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-discard-")));
   try {

@@ -1,4 +1,4 @@
-use gitneat::menus::{MenuKind, build};
+use gitneat_core::menus::{MenuKind, build};
 use serde_json::{Value, json};
 
 #[tokio::main]

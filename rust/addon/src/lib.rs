@@ -7,7 +7,7 @@ use napi_derive::napi;
 
 #[napi]
 pub fn init(callback: JsFunction) -> Result<()> {
-    gitneat::shellpath::apply();
+    gitneat_core::shellpath::apply();
     let sink: ThreadsafeFunction<(String, String), ErrorStrategy::Fatal> = callback
         .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<(String, String)>| {
             Ok(vec![
@@ -15,7 +15,7 @@ pub fn init(callback: JsFunction) -> Result<()> {
                 ctx.env.create_string(&ctx.value.1)?,
             ])
         })?;
-    gitneat::emit::set(Box::new(move |event, payload| {
+    gitneat_core::emit::set(Box::new(move |event, payload| {
         sink.call(
             (event.to_string(), payload),
             ThreadsafeFunctionCallMode::NonBlocking,
@@ -28,7 +28,7 @@ pub fn init(callback: JsFunction) -> Result<()> {
 pub async fn invoke(name: String, args: String) -> Result<String> {
     let parsed: serde_json::Value =
         serde_json::from_str(&args).map_err(|e| Error::from_reason(e.to_string()))?;
-    let value = gitneat::commands::invoke(&name, parsed)
+    let value = gitneat_core::commands::invoke(&name, parsed)
         .await
         .map_err(Error::from_reason)?;
     Ok(value.to_string())

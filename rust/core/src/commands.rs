@@ -100,10 +100,25 @@ fn open_terminal(cwd: &str) -> Res<()> {
     cmd.spawn().map(|_| ()).map_err(err)
 }
 
-pub async fn invoke(name: &str, args: Value) -> Res<Value> {
-    let a = &args;
+type Fut = std::pin::Pin<Box<dyn std::future::Future<Output = Res<Value>> + Send>>;
+type Handler = fn(Value) -> Fut;
+
+macro_rules! h {
+    (|$a:ident| $body:expr) => {
+        Some(
+            (|args: Value| -> Fut {
+                Box::pin(async move {
+                    let $a = &args;
+                    $body
+                })
+            }) as Handler,
+        )
+    };
+}
+
+fn handler(name: &str) -> Option<Handler> {
     match name {
-        "init" => {
+        "init" => h!(|a| {
             let exe: String = arg(a, "askpass")?;
             let started = askpass::start(
                 exe,
@@ -113,27 +128,27 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 askpass::install(server);
             }
             Ok(Value::Null)
-        }
-        "askpass_reply" => {
+        }),
+        "askpass_reply" => h!(|a| {
             askpass::reply(arg(a, "request")?, arg(a, "reply")?);
             Ok(Value::Null)
-        }
-        "action" => done(
+        }),
+        "action" => h!(|a| done(
             actions::dispatch(
                 &arg::<String>(a, "cwd")?,
                 &arg::<String>(a, "name")?,
                 arg(a, "args")?,
             )
             .await,
-        ),
-        "load_repo" => out(load::load_repo(
+        )),
+        "load_repo" => h!(|a| out(load::load_repo(
             &arg::<String>(a, "cwd")?,
             &arg::<Vec<String>>(a, "hidden")?,
             &arg::<Vec<String>>(a, "solo")?,
             arg(a, "limit")?,
         )
-        .await),
-        "load_commits" => out(load::load_commits(
+        .await)),
+        "load_commits" => h!(|a| out(load::load_commits(
             &arg::<String>(a, "cwd")?,
             &arg::<Vec<String>>(a, "hidden")?,
             &arg::<Vec<String>>(a, "solo")?,
@@ -141,22 +156,22 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
             arg(a, "limit")?,
             arg(a, "lanes")?,
         )
-        .await),
-        "load_commit" => {
+        .await)),
+        "load_commit" => h!(|a| {
             done(loaders::load_commit(&arg::<String>(a, "cwd")?, &arg::<String>(a, "sha")?).await)
-        }
-        "load_compare" => done(
+        }),
+        "load_compare" => h!(|a| done(
             loaders::load_compare(
                 &arg::<String>(a, "cwd")?,
                 &arg::<Vec<String>>(a, "shas")?,
                 arg(a, "wip")?,
             )
             .await,
-        ),
-        "load_all_files" => done(
+        )),
+        "load_all_files" => h!(|a| done(
             loaders::load_all_files(&arg::<String>(a, "cwd")?, &arg::<String>(a, "sha")?).await,
-        ),
-        "load_diff" => {
+        )),
+        "load_diff" => h!(|a| {
             let source: DiffSource = arg(a, "source")?;
             let orig: Option<String> = arg(a, "orig")?;
             let ignore: Option<bool> = arg(a, "ignoreWhitespace")?;
@@ -170,8 +185,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "load_sides" => {
+        }),
+        "load_sides" => h!(|a| {
             let source: DiffSource = arg(a, "source")?;
             let orig: Option<String> = arg(a, "orig")?;
             out(loaders::load_sides(
@@ -182,8 +197,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 &watch::roots(),
             )
             .await)
-        }
-        "load_images" => {
+        }),
+        "load_images" => h!(|a| {
             let source: DiffSource = arg(a, "source")?;
             let orig: Option<String> = arg(a, "orig")?;
             out(loaders::load_images(
@@ -194,8 +209,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 &watch::roots(),
             )
             .await)
-        }
-        "load_blame" => {
+        }),
+        "load_blame" => h!(|a| {
             let rev: Option<String> = arg(a, "rev")?;
             done(
                 loaders::load_blame(
@@ -205,8 +220,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "load_file_history_page" => {
+        }),
+        "load_file_history_page" => h!(|a| {
             let pages: u32 = arg(a, "pages")?;
             done(
                 loaders::load_file_history_page(
@@ -216,8 +231,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "load_file_history" => {
+        }),
+        "load_file_history" => h!(|a| {
             let limit: Option<u32> = arg(a, "limit")?;
             done(
                 loaders::load_file_history(
@@ -227,8 +242,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "load_merge" => {
+        }),
+        "load_merge" => h!(|a| {
             let operation: Option<Operation> = arg(a, "operation")?;
             done(
                 loaders::load_merge(
@@ -238,17 +253,19 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "load_operation" => {
+        }),
+        "load_operation" => h!(|a| {
             let operation: Option<Operation> = arg(a, "operation")?;
             out(loaders::load_operation(&arg::<String>(a, "cwd")?, operation).await)
+        }),
+        "load_submodules" => h!(|a| out(actions::submodule::load(&arg::<String>(a, "cwd")?).await)),
+        "load_head_message" => {
+            h!(|a| out(loaders::load_head_message(&arg::<String>(a, "cwd")?).await))
         }
-        "load_submodules" => out(actions::submodule::load(&arg::<String>(a, "cwd")?).await),
-        "load_head_message" => out(loaders::load_head_message(&arg::<String>(a, "cwd")?).await),
-        "has_commit_hook" => out(loaders::has_commit_hook(&arg::<String>(a, "cwd")?).await),
-        "resolve_repo" => out(resolve_repo(arg(a, "dir")?).await),
-        "repo_templates" => out(setup::repo_templates().await),
-        "clone_repo" => done(
+        "has_commit_hook" => h!(|a| out(loaders::has_commit_hook(&arg::<String>(a, "cwd")?).await)),
+        "resolve_repo" => h!(|a| out(resolve_repo(arg(a, "dir")?).await)),
+        "repo_templates" => h!(|a| out(setup::repo_templates().await)),
+        "clone_repo" => h!(|a| done(
             setup::clone_repo(
                 arg(a, "parent")?,
                 arg(a, "url")?,
@@ -256,8 +273,8 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 arg(a, "shallow")?,
             )
             .await,
-        ),
-        "init_repo" => done(
+        )),
+        "init_repo" => h!(|a| done(
             setup::init_repo(
                 arg(a, "parent")?,
                 arg(a, "name")?,
@@ -267,30 +284,36 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 arg(a, "lfs")?,
             )
             .await,
-        ),
-        "missing_paths" => {
+        )),
+        "missing_paths" => h!(|a| {
             let list: Vec<String> = arg(a, "paths")?;
             out(list
                 .into_iter()
                 .filter(|p| !std::path::Path::new(p).is_dir())
                 .collect::<Vec<_>>())
+        }),
+        "repo_summaries" => {
+            h!(|a| out(workspaces::repo_summaries(arg(a, "paths")?, arg(a, "wip")?).await))
         }
-        "repo_summaries" => out(workspaces::repo_summaries(arg(a, "paths")?, arg(a, "wip")?).await),
-        "find_repos" => out(workspaces::find_repos(arg(a, "dirs")?).await),
-        "import_code_workspace" => out(workspaces::import_code_workspace(arg(a, "file")?).await),
-        "repo_readme" => out(workspaces::repo_readme(arg(a, "path")?).await),
-        "create_readme" => done(workspaces::create_readme(arg(a, "path")?).await),
-        "copy_icon" => out(workspaces::copy_icon(arg(a, "source")?).await),
-        "icon_data" => out(workspaces::icon_data(arg(a, "name")?).await),
-        "external_editors" => out(editors::external_editors().await),
-        "open_in_editor" => done(
+        "find_repos" => h!(|a| out(workspaces::find_repos(arg(a, "dirs")?).await)),
+        "import_code_workspace" => {
+            h!(|a| out(workspaces::import_code_workspace(arg(a, "file")?).await))
+        }
+        "repo_readme" => h!(|a| out(workspaces::repo_readme(arg(a, "path")?).await)),
+        "create_readme" => h!(|a| done(workspaces::create_readme(arg(a, "path")?).await)),
+        "copy_icon" => h!(|a| out(workspaces::copy_icon(arg(a, "source")?).await)),
+        "icon_data" => h!(|a| out(workspaces::icon_data(arg(a, "name")?).await)),
+        "external_editors" => h!(|a| out(editors::external_editors().await)),
+        "open_in_editor" => h!(|a| done(
             editors::open_in_editor(arg(a, "editor")?, arg(a, "customPath")?, arg(a, "paths")?)
                 .await,
-        ),
-        "write_temp" => done(write_temp(arg(a, "content")?).await),
-        "read_file" => out(read_file(arg(a, "cwd")?, arg(a, "rel")?).await),
-        "write_file" => done(write_file(arg(a, "cwd")?, arg(a, "rel")?, arg(a, "content")?).await),
-        "context_menu_items" => {
+        )),
+        "write_temp" => h!(|a| done(write_temp(arg(a, "content")?).await)),
+        "read_file" => h!(|a| out(read_file(arg(a, "cwd")?, arg(a, "rel")?).await)),
+        "write_file" => {
+            h!(|a| done(write_file(arg(a, "cwd")?, arg(a, "rel")?, arg(a, "content")?).await))
+        }
+        "context_menu_items" => h!(|a| {
             let kind: MenuKind = arg(a, "kind")?;
             done(
                 menus::build(
@@ -300,44 +323,51 @@ pub async fn invoke(name: &str, args: Value) -> Res<Value> {
                 )
                 .await,
             )
-        }
-        "app_menu" => out(appmenu::app_menu("GitNeat")),
-        "inside_roots" => {
+        }),
+        "app_menu" => h!(|a| out(appmenu::app_menu("GitNeat"))),
+        "inside_roots" => h!(|a| {
             let target: String = arg(a, "target")?;
             out(paths::inside(&watch::roots(), &PathBuf::from(target)))
-        }
-        "open_terminal" => done(open_terminal(&arg::<String>(a, "cwd")?)),
-        "store_get" => out(store::get().await),
-        "store_set" => {
+        }),
+        "open_terminal" => h!(|a| done(open_terminal(&arg::<String>(a, "cwd")?))),
+        "store_get" => h!(|a| out(store::get().await)),
+        "store_set" => h!(|a| {
             let data: Value = arg(a, "data")?;
             store::set(&data).await.map_err(err)?;
             Ok(Value::Null)
-        }
-        "watch" => {
+        }),
+        "watch" => h!(|a| {
             watch::watch(arg(a, "cwd")?);
             Ok(Value::Null)
-        }
-        "unwatch" => {
+        }),
+        "unwatch" => h!(|a| {
             watch::unwatch(&arg::<String>(a, "cwd")?);
             Ok(Value::Null)
-        }
-        "term_open" => done(terminal::term_open(
+        }),
+        "term_open" => h!(|a| done(terminal::term_open(
             arg(a, "cwd")?,
             arg(a, "cols")?,
             arg(a, "rows")?,
-        )),
-        "term_write" => {
+        ))),
+        "term_write" => h!(|a| {
             terminal::term_write(arg(a, "id")?, arg(a, "data")?);
             Ok(Value::Null)
-        }
-        "term_resize" => {
+        }),
+        "term_resize" => h!(|a| {
             terminal::term_resize(arg(a, "id")?, arg(a, "cols")?, arg(a, "rows")?);
             Ok(Value::Null)
-        }
-        "term_close" => {
+        }),
+        "term_close" => h!(|a| {
             terminal::term_close(arg(a, "id")?);
             Ok(Value::Null)
-        }
-        other => Err(format!("Unknown command {other}")),
+        }),
+        _ => None,
+    }
+}
+
+pub async fn invoke(name: &str, args: Value) -> Res<Value> {
+    match handler(name) {
+        Some(run) => run(args).await,
+        None => Err(format!("Unknown command {name}")),
     }
 }
