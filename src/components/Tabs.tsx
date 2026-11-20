@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ReactNode, useState } from "react";
 import { gitneat } from "../api";
 import { showMenu } from "../ui";
@@ -109,20 +108,19 @@ export function Tabs(props: Props) {
 }
 
 function WindowControls() {
-  const win = getCurrentWindow();
   return (
     <div className="window-controls">
-      <button title="Minimize" onClick={() => void win.minimize()}>
+      <button title="Minimize" onClick={() => void gitneat().windowAction("minimize")}>
         <svg width="10" height="10" viewBox="0 0 10 10">
           <path d="M0 5h10" stroke="currentColor" />
         </svg>
       </button>
-      <button title="Maximize" onClick={() => void win.toggleMaximize()}>
+      <button title="Maximize" onClick={() => void gitneat().windowAction("maximize")}>
         <svg width="10" height="10" viewBox="0 0 10 10">
           <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" />
         </svg>
       </button>
-      <button className="close" title="Close" onClick={() => void win.close()}>
+      <button className="close" title="Close" onClick={() => void gitneat().windowAction("close")}>
         <svg width="10" height="10" viewBox="0 0 10 10">
           <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" />
         </svg>

@@ -136,6 +136,7 @@ export interface GitNeatApi {
   appMenu(): Promise<AppMenu[]>;
   setPanelChecks(left: boolean | null, details: boolean | null, terminal: boolean | null): Promise<void>;
   toggleFullscreen(): Promise<void>;
+  windowAction(action: "minimize" | "maximize" | "close"): Promise<void>;
   termOpen(cwd: string, cols: number, rows: number): Promise<number>;
   termWrite(id: number, data: string): Promise<void>;
   termResize(id: number, cols: number, rows: number): Promise<void>;
@@ -147,6 +148,13 @@ export interface GitNeatApi {
 declare global {
   interface Window {
     gitneat: GitNeatApi;
+    gitneatBridge?: {
+      invoke(name: string, args: Record<string, unknown>): Promise<unknown>;
+      listen(event: string, fn: (payload: unknown) => void): () => void;
+      setZoom(factor: number): Promise<void>;
+      toggleFullscreen(): Promise<void>;
+      windowAction(action: string): Promise<void>;
+    };
   }
 }
 

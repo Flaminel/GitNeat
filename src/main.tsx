@@ -1,4 +1,5 @@
 import "./tauri-api";
+import "./electron-api";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "@fontsource/open-sans/400.css";

@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AskpassReply, AskpassRequest, ExternalEditor, gitneat } from "./api";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
@@ -418,7 +417,7 @@ export function App() {
       "left-panel": () => pressKey("KeyJ"),
       "details-panel": () => pressKey("KeyK"),
       fullscreen: () => gitneat().toggleFullscreen(),
-      exit: () => getCurrentWindow().close(),
+      exit: () => gitneat().windowAction("close"),
       shortcuts: () => setShortcuts((s) => !s),
       "tabs-list": () => setTabsList((s) => !s),
       "zoom-in": () => stepZoom(1),
