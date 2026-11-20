@@ -5,7 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { hunkPatch, linesPatch } from "../src/diff";
-import { parseDiff } from "./reference/diff";
+import { hasCargo, parse } from "./rust";
+
+const parseDiff = (text: string) => parse("diff", text);
 
 function repo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-diff-"));
@@ -21,7 +23,7 @@ function repo(): string {
 
 const run = (dir: string, args: string[], input?: string) => execFileSync("git", args, { cwd: dir, encoding: "utf8", input });
 
-test("parseDiff reads hunks and line numbers", () => {
+test("parseDiff reads hunks and line numbers", { skip: !hasCargo }, () => {
   const d = parseDiff("diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,2 +1,2 @@\n a\n-b\n+c\n\\ No newline at end of file\n");
   assert.equal(d.hunks.length, 1);
   assert.deepEqual(
@@ -35,7 +37,7 @@ test("parseDiff reads hunks and line numbers", () => {
   assert.equal(d.hunks[0].lines[2].noNewline, true);
 });
 
-test("hunk patch stages only one hunk", () => {
+test("hunk patch stages only one hunk", { skip: !hasCargo }, () => {
   const dir = repo();
   const file = path.join(dir, "f.txt");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("line 2\n", "two\n").replace("line 28\n", "twenty-eight\n"));
@@ -46,7 +48,7 @@ test("hunk patch stages only one hunk", () => {
   assert.doesNotMatch(run(dir, ["diff", "--cached"]), /twenty-eight/);
 });
 
-test("line patch stages one added line and keeps the rest unstaged", () => {
+test("line patch stages one added line and keeps the rest unstaged", { skip: !hasCargo }, () => {
   const dir = repo();
   const file = path.join(dir, "f.txt");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("line 5\n", "five\nextra\n"));
@@ -61,7 +63,7 @@ test("line patch stages one added line and keeps the rest unstaged", () => {
   assert.match(run(dir, ["diff"]), /\+five/);
 });
 
-test("reverse line patch unstages one line", () => {
+test("reverse line patch unstages one line", { skip: !hasCargo }, () => {
   const dir = repo();
   const file = path.join(dir, "f.txt");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("line 5\n", "five\nextra\n"));
@@ -75,7 +77,7 @@ test("reverse line patch unstages one line", () => {
   assert.match(staged, /\+five/);
 });
 
-test("line patch with nothing selected is null", () => {
+test("line patch with nothing selected is null", { skip: !hasCargo }, () => {
   const d = parseDiff("--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n");
   assert.equal(linesPatch(d, d.hunks[0], new Set(), false), null);
 });

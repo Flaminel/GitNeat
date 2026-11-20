@@ -5,7 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildOutput, sideLines } from "../src/merge";
-import { parseMerge } from "./reference/merge";
+import { hasCargo, parse } from "./rust";
+
+const parseMerge = (text: string) => parse("merge", text);
 
 function segments() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gitneat-merge-"));
@@ -32,7 +34,7 @@ function segments() {
   return parseMerge(merged.stdout);
 }
 
-test("parseMerge splits common and conflict segments", () => {
+test("parseMerge splits common and conflict segments", { skip: !hasCargo }, () => {
   const s = segments();
   assert.deepEqual(
     s.map((x) => x.kind),
@@ -42,14 +44,14 @@ test("parseMerge splits common and conflict segments", () => {
   assert.deepEqual(s[3], { kind: "conflict", a: ["A-y"], base: ["y1"], b: ["B-y"] });
 });
 
-test("sideLines gives full side text and conflict starts", () => {
+test("sideLines gives full side text and conflict starts", { skip: !hasCargo }, () => {
   const s = segments();
   const a = sideLines(s, "a");
   assert.deepEqual(a.starts, [2, 6]);
   assert.equal(a.lines[5], "A-y");
 });
 
-test("buildOutput takes sides and lines in pick order", () => {
+test("buildOutput takes sides and lines in pick order", { skip: !hasCargo }, () => {
   const s = segments();
   const all = (side: "a" | "b", n: number) => Array.from({ length: n }, (_, line) => ({ side, line }));
   const a = buildOutput(s, [all("a", 3), all("a", 1)]);
@@ -65,7 +67,7 @@ test("buildOutput takes sides and lines in pick order", () => {
   assert.equal(buildOutput(s, [[{ side: "a", line: 2 }, { side: "b", line: 0 }], undefined]).text, "top\nA3\nB1\nmid\nbottom\nB-extra\n");
 });
 
-test("buildOutput writes markers for unresolved conflicts", () => {
+test("buildOutput writes markers for unresolved conflicts", { skip: !hasCargo }, () => {
   const s = segments();
   const out = buildOutput(s, [[{ side: "b", line: 0 }], undefined], true);
   assert.equal(out.text, "top\nB1\nmid\n<<<<<<< A\nA-y\n=======\nB-y\n>>>>>>> B\nbottom\nB-extra\n");
