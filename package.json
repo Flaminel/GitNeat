@@ -7,11 +7,14 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "dev:web": "vite",
     "build:web": "vite build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "electron:build": "vite build && tsc -p tsconfig.electron.json",
+    "electron": "npm run electron:build && cross-env ELECTRON_RUN_AS_NODE= electron .",
+    "addon": "node scripts/addon.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.5",
@@ -19,6 +22,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "cross-env": "^10.1.0",
+    "electron": "^45.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^8.3.8"
@@ -31,5 +36,6 @@
     "monaco-editor": "^0.52.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
-  }
+  },
+  "main": "dist-electron/main.js"
 }
