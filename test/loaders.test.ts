@@ -4,14 +4,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
-import type { GitResult } from "./reference/api";
-import type { Ctx } from "../src/actions";
-import type { DiffSource } from "../src/repo";
-import { parseDiff } from "./reference/diff";
-import { loadAllFiles, loadBlame, loadCommit, loadDiff, loadFileHistory, loadHeadMessage, loadMerge, loadSides } from "./reference/repo";
+import { enabled, golden } from "./golden";
 
-const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
+
+interface GitResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
 
 function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
   return new Promise((resolve) => {
@@ -54,8 +55,16 @@ let compared = 0;
 let failed = 0;
 const perName: Record<string, number> = {};
 
+let clock = 0;
+
+function stamp(): string {
+  clock += 1;
+  return `${1577836800 + clock * 60} +0000`;
+}
+
 function g(cwd: string, ...args: string[]): string {
-  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C" } });
+  const date = stamp();
+  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C", GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } });
 }
 
 function gTry(cwd: string, ...args: string[]): void {
@@ -78,6 +87,7 @@ function commit(dir: string, name: string, data: string | Buffer, message = `edi
 }
 
 function init(name: string): string {
+  clock = 0;
   const dir = path.join(root, name);
   fs.mkdirSync(dir, { recursive: true });
   g(dir, "init", "-q", "-b", "main");
@@ -239,25 +249,6 @@ const fixtures: Record<string, () => string> = {
 
 type Call = { name: string; args: Record<string, unknown> };
 
-const loaders: Record<string, (a: Record<string, unknown>) => Promise<unknown>> = {
-  loadCommit: (a) => loadCommit(a.cwd as string, a.sha as string),
-  loadAllFiles: (a) => loadAllFiles(a.cwd as string, a.sha as string),
-  loadDiff: async (a) => parseDiff(await loadDiff(a.cwd as string, a.source as DiffSource, a.file as string, a.ignoreWhitespace as boolean, a.orig as string | undefined)),
-  loadSides: (a) => loadSides(a.cwd as string, a.source as DiffSource, a.file as string, a.orig as string | undefined),
-  loadBlame: (a) => loadBlame(a.cwd as string, a.file as string, a.rev as string | undefined),
-  loadFileHistory: (a) => loadFileHistory(a.cwd as string, a.file as string, a.limit as number | undefined),
-  loadMerge: (a) => loadMerge({ cwd: a.cwd, data: { operation: a.operation } } as unknown as Ctx, a.file as string),
-  loadHeadMessage: (a) => loadHeadMessage(a.cwd as string),
-};
-
-async function reference(call: Call): Promise<unknown> {
-  try {
-    return { ok: JSON.parse(JSON.stringify(await loaders[call.name](call.args))) };
-  } catch (e) {
-    return { err: e instanceof Error ? e.message : String(e) };
-  }
-}
-
 function statusEntries(dir: string): { index: string; work: string; path: string; orig?: string }[] {
   const parts = g(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all").split("\0");
   const entries: { index: string; work: string; path: string; orig?: string }[] = [];
@@ -275,6 +266,14 @@ function statusEntries(dir: string): { index: string; work: string; path: string
   return entries;
 }
 
+type DiffSource = Record<string, unknown>;
+
+function commitDetail(dir: string, sha: string): { files: { path: string; orig?: string }[]; parents: string[] } {
+  const input = JSON.stringify([{ name: "loadCommit", args: { cwd: dir, sha } }]);
+  const out = execFileSync(example, [], { input, encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  return (JSON.parse(out) as { ok: { files: { path: string; orig?: string }[]; parents: string[] } }[])[0].ok;
+}
+
 async function calls(dir: string): Promise<Call[]> {
   const list: Call[] = [];
   const add = (name: string, args: Record<string, unknown>) => list.push({ name, args: { cwd: dir, ...args } });
@@ -283,7 +282,7 @@ async function calls(dir: string): Promise<Call[]> {
   for (const sha of shas) {
     add("loadCommit", { sha });
     add("loadAllFiles", { sha });
-    const detail = await loadCommit(dir, sha);
+    const detail = commitDetail(dir, sha);
     for (const f of detail.files) {
       touched.add(f.path);
       const sources: DiffSource[] = [{ kind: "commit", sha }];
@@ -333,21 +332,6 @@ async function calls(dir: string): Promise<Call[]> {
   return list;
 }
 
-type BlameRow = { sha: string; time: number };
-
-function alignUncommitted(actual: unknown, expected: unknown, slack: number): void {
-  const a = (actual as { ok?: BlameRow[] }).ok;
-  const e = (expected as { ok?: BlameRow[] }).ok;
-  if (!a || !e || a.length !== e.length) {
-    return;
-  }
-  a.forEach((row, i) => {
-    if (/^0{40}$/.test(row.sha) && row.sha === e[i].sha && row.time >= e[i].time && row.time - e[i].time <= slack) {
-      row.time = e[i].time;
-    }
-  });
-}
-
 before(
   () => {
     if (!enabled) {
@@ -370,27 +354,36 @@ after(() => {
   }
 });
 
+const record = golden("loaders");
+
+function check(key: string, value: unknown): void {
+  record(key, JSON.parse(JSON.stringify(value).split(root).join("<root>")));
+}
+
+function steady(call: Call, value: unknown): unknown {
+  const rows = (value as { ok?: { sha: string; time: number }[] }).ok;
+  if (call.name === "loadBlame" && Array.isArray(rows)) {
+    for (const row of rows) {
+      if (/^0{40}$/.test(row.sha)) {
+        row.time = 0;
+      }
+    }
+  }
+  return value;
+}
+
 for (const [name, build] of Object.entries(fixtures)) {
-  test(`loaders: rust equals ts on ${name}`, { skip: !enabled, timeout: 300000 }, async () => {
+  test(`loaders: ${name}`, { skip: !enabled, timeout: 300000 }, async () => {
     const dir = build();
     const list = await calls(dir);
-    const expected: unknown[] = [];
-    const started = Date.now();
-    for (const call of list) {
-      expected.push(await reference(call));
-    }
     const out = execFileSync(example, [], { input: JSON.stringify(list), encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
     const actual = JSON.parse(out) as unknown[];
-    const slack = Math.ceil((Date.now() - started) / 1000) + 1;
     assert.equal(actual.length, list.length);
     list.forEach((call, i) => {
-      if (call.name === "loadBlame") {
-        alignUncommitted(actual[i], expected[i], slack);
-      }
-      assert.deepStrictEqual(actual[i], expected[i], `${name} / ${call.name} / ${JSON.stringify({ ...call.args, cwd: undefined })}`);
+      check(`${name} / ${call.name} / ${JSON.stringify({ ...call.args, cwd: undefined })}`, steady(call, actual[i]));
       compared += 1;
-      failed += "err" in (expected[i] as object) ? 1 : 0;
-      const kind = (expected[i] as { ok?: { kind?: string } }).ok?.kind;
+      failed += "err" in (actual[i] as object) ? 1 : 0;
+      const kind = (actual[i] as { ok?: { kind?: string } }).ok?.kind;
       const key = call.name === "loadMerge" ? `${call.name}:${kind ?? "err"}` : call.name;
       perName[key] = (perName[key] ?? 0) + 1;
     });

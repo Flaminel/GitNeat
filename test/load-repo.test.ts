@@ -4,12 +4,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
-import type { GitResult } from "./reference/api";
-import { layoutGraph } from "./reference/graph";
-import { loadRepo } from "./reference/repo";
+import { enabled as goldenEnabled, golden } from "./golden";
 
-const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
+const enabled = goldenEnabled && process.env.GITNEAT_SLOW === "1";
+
 const rustDir = path.resolve(process.cwd(), "rust");
+
+interface GitResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
 
 function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
   return new Promise((resolve) => {
@@ -38,8 +43,16 @@ const backends = ["cli", "gix"];
 let extraEnv: Record<string, string> = {};
 let rowCount = 0;
 
+let clock = 0;
+
+function stamp(): string {
+  clock += 1;
+  return `${1577836800 + clock * 60} +0000`;
+}
+
 function g(cwd: string, ...args: string[]): string {
-  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C", ...extraEnv } });
+  const date = stamp();
+  return execFileSync("git", [...IDENT, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C", GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date, ...extraEnv } });
 }
 
 function gTry(cwd: string, ...args: string[]): void {
@@ -62,6 +75,7 @@ function commit(dir: string, name: string, text: string, message = `edit ${name}
 }
 
 function init(name: string): string {
+  clock = 0;
   const dir = path.join(root, name);
   fs.mkdirSync(dir, { recursive: true });
   g(dir, "init", "-q", "-b", "main");
@@ -312,27 +326,28 @@ before(
 
 after(() => {
   if (enabled) {
-    console.log(`loadRepo: ${rowCount} graph rows compared per backend`);
+    console.log(`loadRepo: ${rowCount} graph rows checked`);
   }
   if (root) {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
+const record = golden("load-repo");
+
+function check(key: string, value: unknown): void {
+  record(key, JSON.parse(JSON.stringify(value).split(root).join("<root>")));
+}
+
 for (const [name, build] of Object.entries(fixtures)) {
-  test(`loadRepo: rust equals ts on ${name}`, { skip: !enabled, timeout: 120000 }, async () => {
+  test(`loadRepo: ${name}`, { skip: !enabled, timeout: 120000 }, async () => {
     const dir = build();
     for (const v of variants) {
-      const expected = JSON.parse(JSON.stringify(await loadRepo(dir, v.hidden, v.solo, v.limit)));
-      const wip = { sha: "WIP", parents: expected.head ? [expected.head] : [] };
-      expected.rows = layoutGraph(expected.status.length === 0 ? expected.commits : [wip, ...expected.commits]);
-      rowCount += expected.rows.length;
-      if (name === "submodules") {
-        assert.deepStrictEqual(expected.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
-      }
       const runs = v.limit === 1000 ? [[String(v.limit)], ["1", "1"], ["2", "3"]] : [[String(v.limit)]];
-      for (const backend of backends) {
-        for (const run of runs) {
+      for (const run of runs) {
+        const label = `${name} / ${v.name} / ${run.join(" ")}`;
+        let first: { submodules?: unknown; rows: unknown[] } | undefined;
+        for (const backend of backends) {
           const out = execFileSync(example, [dir, JSON.stringify(v.hidden), JSON.stringify(v.solo), ...run], {
             encoding: "utf8",
             maxBuffer: 512 * 1024 * 1024,
@@ -340,7 +355,16 @@ for (const [name, build] of Object.entries(fixtures)) {
           });
           const actual = JSON.parse(out);
           delete actual.lanes;
-          assert.deepStrictEqual(actual, expected, `${name} / ${v.name} / ${backend} / ${run.join(" ")}`);
+          if (!first) {
+            first = actual;
+            check(label, actual);
+            rowCount += actual.rows.length;
+          } else {
+            assert.deepStrictEqual(actual, first, `${label} / ${backend}`);
+          }
+        }
+        if (name === "submodules") {
+          assert.deepStrictEqual(first?.submodules, ["libs/a", "my lib/b", "vendor/pu"]);
         }
       }
     }

@@ -6,11 +6,17 @@ import path from "node:path";
 import test, { after, before } from "node:test";
 import type { Ctx } from "../src/actions";
 import type { MenuSpec } from "../src/api";
-import type { GitResult } from "./reference/api";
+import { enabled, golden } from "./golden";
+import { loadRepo } from "./rust";
 import type { Commit, Ref, RepoData } from "../src/repo";
 
-const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
+
+interface GitResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
 
 function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
   return new Promise((resolve) => {
@@ -55,9 +61,7 @@ type Api = Record<string, unknown>;
 let runRoot = "";
 let menuExample = "";
 let M: typeof import("../src/menus");
-let tsMenus: typeof import("../src/menus");
 let rsMenus: typeof import("../src/menus");
-let loadRepo: typeof import("./reference/repo").loadRepo;
 
 function setApi(api: Api): void {
   (globalThis as { window?: unknown }).window = { gitneat: api };
@@ -522,19 +526,6 @@ async function execute(s: Scenario, tag: string): Promise<number> {
         continue;
       }
       const where = `${s.name} / ${call.label} / ${platform}`;
-      let shown: MenuSpec[] | null = null;
-      setApi({
-        platform,
-        git: runGit,
-        menu: async (items: MenuSpec[]) => {
-          shown = items;
-          return null;
-        },
-      });
-      M = tsMenus;
-      await call.run(makeCtx(d, data, [], marks));
-      const expected = plain(shown);
-
       let actual: unknown = null;
       setApi({
         platform,
@@ -549,22 +540,18 @@ async function execute(s: Scenario, tag: string): Promise<number> {
       });
       M = rsMenus;
       await call.run(makeCtx(d, data, [], marks));
-      assert.deepStrictEqual(actual, expected, where);
+      check(where, actual);
       checked += 1;
 
       const ids = idsOf((actual ?? []) as MenuSpec[]);
       assert.equal(new Set(ids).size, ids.length, `${where}: ids are not unique`);
       for (const id of ids) {
-        const tsLog: string[] = [];
-        setApi(effectApi(platform, tsLog, id, false));
-        M = tsMenus;
-        await call.run(makeCtx(d, data, tsLog, marks));
         const rsLog: string[] = [];
         setApi(effectApi(platform, rsLog, id, true));
         M = rsMenus;
         await call.run(makeCtx(d, data, rsLog, marks));
         assert.ok(rsLog.length > 0, `${where}: id ${id} ran nothing`);
-        assert.deepStrictEqual(rsLog, tsLog, `${where}: id ${id}`);
+        check(`${where}: id ${id}`, rsLog);
         checked += 1;
       }
     }
@@ -590,9 +577,7 @@ before(
     const dir = path.join(rustDir, "target", "debug", "examples");
     menuExample = path.join(dir, process.platform === "win32" ? "menu.exe" : "menu");
     setApi({ platform: "darwin", git: runGit });
-    tsMenus = await import("./reference/menus");
     rsMenus = await import("../src/menus");
-    ({ loadRepo } = await import("./reference/repo"));
   },
   { timeout: 600000 },
 );
@@ -603,8 +588,14 @@ after(() => {
   }
 });
 
+const record = golden("menus");
+
+function check(key: string, value: unknown): void {
+  record(key, JSON.parse(JSON.stringify(value ?? null).split(runRoot).join("<root>")));
+}
+
 for (const s of scenarios) {
-  test(`menus: rust equals ts on ${s.name}`, { skip: !enabled, timeout: 900000 }, async () => {
+  test(`menus: ${s.name}`, { skip: !enabled, timeout: 900000 }, async () => {
     const checked = await execute(s, "run");
     assert.ok(checked > 0, `${s.name} compared nothing`);
   });

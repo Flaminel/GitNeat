@@ -4,16 +4,22 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
-import type * as ActionsModule from "./reference/actions";
+import type * as ActionsModule from "../src/actions";
+import { enabled, golden } from "./golden";
+import { loadRepo } from "./rust";
 import type * as NativeActionsModule from "../src/actions";
 import type { Commit, Ref } from "../src/repo";
-import type { GitResult } from "./reference/api";
 
 type Ctx = NativeActionsModule.Ctx;
 type UndoEntry = NativeActionsModule.UndoEntry;
 
-const enabled = process.env.GITNEAT_RUST_COMPARE === "1";
 const rustDir = path.resolve(process.cwd(), "rust");
+
+interface GitResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
 
 function runGit(cwd: string, args: string[], env?: Record<string, string>, input?: string): Promise<GitResult> {
   return new Promise((resolve) => {
@@ -59,9 +65,7 @@ interface Scenario {
 let runRoot = "";
 let example = "";
 let A: typeof ActionsModule;
-let tsActions: typeof ActionsModule;
 let rsActions: typeof ActionsModule;
-let loadRepo: typeof import("./reference/repo").loadRepo;
 
 function g(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -758,7 +762,7 @@ async function execute(s: Scenario, tag: string, native: boolean): Promise<unkno
     ...(native ? { action: runAction } : {}),
   };
   (globalThis as { window?: unknown }).window = { gitneat: api };
-  A = native ? rsActions : tsActions;
+  A = rsActions;
   const data = await loadRepo(d.repo, [], [], 1000);
   const ctx: Ctx = {
     cwd: d.repo,
@@ -818,9 +822,7 @@ before(
     execFileSync("cargo", ["build", "-q", "-p", "gitneat-core", "--example", "action"], { cwd: rustDir, stdio: "inherit" });
     example = path.join(rustDir, "target", "debug", "examples", process.platform === "win32" ? "action.exe" : "action");
     (globalThis as { window?: unknown }).window = { gitneat: { platform: "darwin", git: runGit } };
-    tsActions = await import("./reference/actions");
     rsActions = { ...(await import("../src/actions")), rangeInfo: (cwd: string, sha: string) => runAction(cwd, "rangeInfo", { sha }) } as typeof ActionsModule;
-    ({ loadRepo } = await import("./reference/repo"));
   },
   { timeout: 600000 },
 );
@@ -831,13 +833,14 @@ after(() => {
   }
 });
 
+const check = golden("actions");
+
 for (const s of scenarios) {
-  test(`actions: rust equals ts on ${s.name}`, { skip: !enabled, timeout: 120000 }, async () => {
-    const expected = await execute(s, "ts", false);
+  test(`actions: ${s.name}`, { skip: !enabled, timeout: 120000 }, async () => {
     const actual = await execute(s, "rs", true);
     if (s.expect) {
-      assert.match(JSON.stringify(expected), s.expect, `${s.name} did not reach its path`);
+      assert.match(JSON.stringify(actual), s.expect, `${s.name} did not reach its path`);
     }
-    assert.deepStrictEqual(actual, expected, s.name);
+    check(s.name, actual);
   });
 }
