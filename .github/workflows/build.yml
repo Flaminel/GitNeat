@@ -84,10 +84,12 @@ jobs:
 
       - run: npm ci
       - run: npm test
+        timeout-minutes: 20
         env:
           GITNEAT_RUST_COMPARE: "1"
 
       - name: Rust checks
+        timeout-minutes: 20
         working-directory: rust
         run: |
           cargo fmt --all --check
