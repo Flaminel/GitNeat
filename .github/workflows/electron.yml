@@ -3,7 +3,7 @@ name: electron
 on:
   push:
     branches:
-      - electron-host
+      - rust-rewrite
   workflow_dispatch:
 
 permissions:
