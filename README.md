@@ -51,7 +51,9 @@ Set `GITNEAT_ADDON` to use an addon file at another path.
 ## Tests
 
 - Run `npm test` to run the unit tests.
-- Run `GITNEAT_RUST_COMPARE=1 npm test` to also compare the Rust code with the TypeScript reference in `test/reference/`.
+- Run `GITNEAT_RUST_COMPARE=1 npm test` to also run the Rust code on fixture repositories and compare the output with `test/golden/`. This needs Rust. The golden tests skip on Windows.
+- Add `GITNEAT_SLOW=1` to also run `test/load-repo.test.ts`. It starts the Rust binary about 600 times and takes more than 20 minutes.
+- Run `UPDATE_GOLDEN=1 GITNEAT_RUST_COMPARE=1 npm test` after a deliberate change. Review the diff of `test/golden/` before you commit it.
 - Run `npm run typecheck` to check the TypeScript types.
 - In `rust/`, run `cargo test`.
 

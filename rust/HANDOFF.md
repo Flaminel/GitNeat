@@ -6,7 +6,7 @@ Branch: `rust-rewrite`. Skill to load: `rust-anything`.
 
 - Waves A to G in `rust/MAP.md` are done. The cutover is done (D43): Electron is removed.
 - `load_repo` uses gix (D40). Repository actions (D41) and context menus (D42) run in Rust. Dialogs, toasts and the undo stack stay in React.
-- `test/reference/` holds the old TS logic. The comparison tests use it as the reference. The app does not load it.
+- `test/golden/` holds the expected Rust output for the fixture tests (D111). The old TS reference is deleted.
 - `rust/graph`, `rust/diff`, `rust/merge` and `rust/repo` are plain libraries. `cargo test` replays their recorded cases.
 - The loaders in `src/repo.ts` call Rust commands (D45). `load_diff` returns the parsed diff. `load_repo` returns the graph rows. `src/merge.ts` and the patch builders in `src/diff.ts` stay in TS (D46).
 - The merge tool load, the amend message, clone and init run in Rust (D47). The `git` command is removed (D48). The webview cannot run `git` with its own arguments.

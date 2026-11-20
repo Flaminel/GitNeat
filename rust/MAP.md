@@ -45,10 +45,10 @@ A session claims a unit before it starts: set the state to `claimed by <session>
 | B | `src/merge.ts` | done | crate `rust/merge`, gate passed, 867/867 cases. Bench 0.27x through napi. |
 | B | parsers in `src/repo.ts` | done | crate `rust/repo`, gate passed, 1971/1971 cases. Bench 0.13x through napi. Also `parse_worktrees`, `parse_remotes`, `parse_stashes`, `insert_stashes` with unit tests only. |
 | C | `loadRepo` in `src/repo.ts` | done | `load_repo` command with gix default and CLI fallback (D40). 252 comparisons with TS equal. 3.8 ms against 42.1 ms on this repo. |
-| D | `src/actions.ts` | done | `action` command with 58 actions in `rust/core/src/actions/` (D41). 164 scenarios equal with TS. |
-| E | `src/menus.ts` | done | `context_menu` command builds 10 menu kinds in `rust/core/src/menus/`. `test/menus-rust.test.ts` compares the trees with TS. |
-| F | Cutover | done | Electron removed (D43). TS fallback paths moved to `test/reference/`. Unit crates are plain libraries with `cargo test` replays. |
-| G | loaders in `src/repo.ts`, `layoutGraph`, `parseDiff`, the merge tool load, the amend message, clone and init | done | 8 loader commands in `rust/core/src/loaders.rs` (D45, D47). `clone` and `init` actions. `test/loaders.test.ts`: 2905 comparisons equal with TS on 14 fixtures. Rows in `RepoData`. `src/graph.ts` deleted. The merge selections, the Output builder and the patch builders stay in TS (D46). |
+| D | `src/actions.ts` | done | `action` command with 58 actions in `rust/core/src/actions/` (D41). 179 scenarios match `test/golden/actions.json` (D111). |
+| E | `src/menus.ts` | done | `context_menu` command builds 10 menu kinds in `rust/core/src/menus/`. `test/menus-rust.test.ts` compares the trees with `test/golden/menus.json` (D111). |
+| F | Cutover | done | Electron removed (D43). The TS reference was deleted (D111). Unit crates are plain libraries with `cargo test` replays. |
+| G | loaders in `src/repo.ts`, `layoutGraph`, `parseDiff`, the merge tool load, the amend message, clone and init | done | 8 loader commands in `rust/core/src/loaders.rs` (D45, D47). `clone` and `init` actions. `test/loaders.test.ts` compares with `test/golden/loaders.json` on 14 fixtures (D111). Rows in `RepoData`. `src/graph.ts` deleted. The merge selections, the Output builder and the patch builders stay in TS (D46). |
 
 ## Port rules
 

@@ -94,13 +94,15 @@ GitNeat has one frontend, one Rust core and two hosts (D108).
 | `src/commitLimit.ts` | Page size, load more rule and footer rule for the commit settings (D84) |
 | `src/leftPanel.ts` | Left panel section sizes: bounds, push rule and handle rules (D67) |
 | `src/styles.css` | Theme colors and all styles |
-| `test/reference/` | Frozen TS version of the loaders, the lane layout, the diff parser, the actions and the menus, from before the Rust port. Only the comparison tests and `test/menus.test.ts` use it. |
+| `test/golden/` | Expected output of the Rust loaders, actions and menus as JSON, one file for each test file (D111) |
+| `test/golden.ts` | `golden(name)` check function and the `enabled` flag. `UPDATE_GOLDEN=1` writes the files. |
+| `test/rust.ts` | Builds and runs the Rust example binaries: `load_repo`, `parse` and the others |
+| `test/actions.test.ts`, `test/menus-rust.test.ts`, `test/loaders.test.ts` | Run the Rust code on fixture repositories and compare with `test/golden/` (D111) |
+| `test/load-repo.test.ts` | Same for `load_repo`. Runs only with `GITNEAT_SLOW=1` (D111). |
 | `test/commit-limit.test.ts` | Tests for `src/commitLimit.ts` |
 | `test/left-panel.test.ts` | Tests for the section size rules in `src/leftPanel.ts` |
-| `test/graph.test.ts` | Lane layout tests for `test/reference/graph.ts` |
-| `test/menus.test.ts` | Context menu order tests for `test/reference/menus.ts` with a fake `window.gitneat` |
-| `test/diff.test.ts` | Patch tests that run `git apply` in a temporary repository |
-| `test/merge.test.ts` | Merge parser and Output tests that run `git merge-file` in a temporary repository |
+| `test/diff.test.ts` | Patch tests for `src/diff.ts` that run `git apply` in a temporary repository. The parser is the Rust `parse` example. |
+| `test/merge.test.ts` | Tests for `src/merge.ts` that run `git merge-file` in a temporary repository. The parser is the Rust `parse` example. |
 | `test/discard-undo.test.ts` | Undo and redo of a discard, through the Rust `action` example. Runs only with `GITNEAT_RUST_COMPARE=1`. |
 | `test/reword.test.ts` | Tests for `rewordDepth` in `src/actions.ts`: which commits the right panel can amend or reword (D53) |
 | `.github/workflows/build.yml` | CI job `tauri`: tests, Rust checks and Tauri bundles for macOS, Windows and Linux. Release on `v*` tags |
