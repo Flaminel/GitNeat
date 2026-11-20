@@ -34,6 +34,20 @@ Note: Build each platform on that platform.
 
 The release has the file `gitneat-portable-windows.zip`. Unzip it into any folder and run `gitneat.exe`. The file `portable.txt` next to the exe makes the app write `gitneat-state.json` into that folder. Delete `portable.txt` to use the app data folder. The portable build needs the WebView2 runtime. It has no updater.
 
+## Electron build
+
+The repository also builds an Electron app on the same Rust core. Use it where an unsigned executable is not allowed.
+
+To build from source:
+
+1. Run `npm install`.
+2. Run `npm run addon` to build `native/gitneat.node`. This step needs Rust.
+3. Run `npm run electron` to build the frontend and the main process, and start the app.
+
+To run without Rust, download the artifact `gitneat-electron-<os>` from the `electron` workflow. Unzip it. Run `npm install` and then `npm start` in the folder.
+
+Set `GITNEAT_ADDON` to use an addon file at another path.
+
 ## Tests
 
 - Run `npm test` to run the unit tests.
